@@ -116,7 +116,7 @@ services:
       context: ./examples/medplum-provider
       dockerfile: Dockerfile
       args:
-        VITE_MEDPLUM_BASE_URL: 'http://g1476tfguqwfa90fhgbfbrgg.88.208.213.58.sslip.io'
+        VITE_MEDPLUM_BASE_URL: 'http://localhost:3001'
     restart: unless-stopped
     depends_on:
       medplum-server:
