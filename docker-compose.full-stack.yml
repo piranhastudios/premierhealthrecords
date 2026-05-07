@@ -94,6 +94,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    labels:
+      # Image exposes both 5000 and 8103; force Traefik to use 8103 for the auto-generated service.
+      - traefik.http.services.http-0-${COOLIFY_RESOURCE_UUID}-medplum-server.loadbalancer.server.port=8103
 
   # Medplum app container (web UI)
   medplum-app:
