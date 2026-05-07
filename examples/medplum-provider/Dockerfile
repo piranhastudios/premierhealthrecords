@@ -2,11 +2,12 @@
 FROM node:22-alpine AS builder
 
 ARG VITE_MEDPLUM_BASE_URL=http://localhost:8103/
+ENV NODE_ENV=development
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --include=dev --legacy-peer-deps
+RUN npm install --include=dev --production=false --legacy-peer-deps
 
 COPY . .
 
