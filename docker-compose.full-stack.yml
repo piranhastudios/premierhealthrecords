@@ -124,7 +124,7 @@ services:
     ports:
       - '3001:80'
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:80']
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80']
       interval: 10s
       timeout: 5s
       retries: 5
