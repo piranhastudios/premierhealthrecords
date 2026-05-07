@@ -6,7 +6,7 @@ ARG VITE_MEDPLUM_BASE_URL=http://localhost:8103/
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+RUN npm install --include=dev --legacy-peer-deps
 
 COPY . .
 
