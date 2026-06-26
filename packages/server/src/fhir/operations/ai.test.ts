@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContentType } from '@medplum/core';
 import type { OperationOutcome, Parameters } from '@medplum/fhirtypes';
+import { generateKeyPairSync } from 'node:crypto';
 import express from 'express';
 import request from 'supertest';
 import { initApp, shutdownApp } from '../../app';
@@ -10,6 +11,37 @@ import { createTestProject, initTestAuth } from '../../test.setup';
 
 const app = express();
 let accessToken: string;
+let serviceAccountKey: string;
+
+// The OpenAI-compatible Vertex AI endpoint that callAI targets for project 'phr-test'.
+const VERTEX_URL =
+  'https://us-central1-aiplatform.googleapis.com/v1/projects/phr-test/locations/us-central1/endpoints/openapi/chat/completions';
+
+// Builds a fetch mock that answers the GCP token-mint call with a fake access token
+// and forwards every other call to the provided Vertex AI response.
+function dispatchFetch(aiResponse: any): jest.Mock {
+  return jest.fn().mockImplementation((url: string) => {
+    if (String(url).includes('oauth2.googleapis.com/token')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ access_token: 'ya29.test-token', expires_in: 3600 }),
+      });
+    }
+    return Promise.resolve(aiResponse);
+  });
+}
+
+// Finds the fetch call made to the Vertex AI completions endpoint (skipping the token mint).
+function vertexCall(): any[] {
+  const call = (global.fetch as jest.Mock).mock.calls.find((c) =>
+    String(c[0]).includes('/endpoints/openapi/chat/completions')
+  );
+  if (!call) {
+    throw new Error('Expected a fetch call to the Vertex AI endpoint');
+  }
+  return call;
+}
 
 const fhirTools = [
   {
@@ -47,10 +79,24 @@ describe('AI Operation', () => {
   beforeAll(async () => {
     const config = await loadTestConfig();
     await initApp(app, config);
+
+    // Generate a throwaway RSA key so importPKCS8 succeeds when minting the GCP token.
+    const { privateKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+    });
+    serviceAccountKey = JSON.stringify({
+      client_email: 'vertex@phr-test.iam.gserviceaccount.com',
+      private_key: privateKey,
+      project_id: 'phr-test',
+      token_uri: 'https://oauth2.googleapis.com/token',
+    });
+
     accessToken = await initTestAuth({
       project: {
         features: ['ai'],
-        secret: [{ name: 'OPENAI_API_KEY', valueString: 'sk-test-key' }],
+        secret: [{ name: 'GCP_SERVICE_ACCOUNT_KEY', valueString: serviceAccountKey }],
       },
     });
   });
@@ -91,7 +137,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -128,13 +174,13 @@ describe('AI Operation', () => {
     expect(toolCalls[0].function.name).toBe('fhir_request');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.openai.com/v1/chat/completions',
+      VERTEX_URL,
       expect.objectContaining({
         method: 'POST',
-        headers: {
-          Authorization: 'Bearer sk-test-key',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer ya29.test-token',
           'Content-Type': 'application/json',
-        },
+        }),
         body: expect.stringContaining('"tools":'),
       })
     );
@@ -179,7 +225,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -231,13 +277,13 @@ describe('AI Operation', () => {
     expect(functionArgs.body.birthDate).toBe('1990-01-01');
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.openai.com/v1/chat/completions',
+      VERTEX_URL,
       expect.objectContaining({
         method: 'POST',
-        headers: {
-          Authorization: 'Bearer sk-test-key',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer ya29.test-token',
           'Content-Type': 'application/json',
-        },
+        }),
         body: expect.stringContaining('"tools":'),
       })
     );
@@ -259,7 +305,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -320,12 +366,12 @@ describe('AI Operation', () => {
     expect(res.status).toBe(403);
   });
 
-  test('Missing API key in project settings', async () => {
+  test('Missing service account in project settings', async () => {
     const noKeyProject = await createTestProject({
       withAccessToken: true,
       project: {
         features: ['ai'],
-        // No OPENAI_API_KEY secret
+        // No GCP_SERVICE_ACCOUNT_KEY secret
       },
     });
 
@@ -349,7 +395,7 @@ describe('AI Operation', () => {
 
     expect(res.status).toBe(400);
     expect((res.body as OperationOutcome).issue?.[0]?.details?.text).toBe(
-      'OpenAI API key not configured in project secrets'
+      'Vertex AI service account (GCP_SERVICE_ACCOUNT_KEY) not configured in project secrets'
     );
   });
 
@@ -484,7 +530,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -508,7 +554,7 @@ describe('AI Operation', () => {
     expect(res.body.resourceType).toBe('Parameters');
     expect((res.body as Parameters).parameter?.[0]?.valueString).toBe('I can help you with general questions.');
 
-    const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+    const fetchCall = vertexCall();
     const bodyParam = JSON.parse(fetchCall[1].body);
     expect(bodyParam.tools).toBeUndefined();
     expect(bodyParam.tool_choice).toBeUndefined();
@@ -554,7 +600,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -593,7 +639,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const messages = [
       { role: 'user', content: 'First message' },
@@ -625,7 +671,7 @@ describe('AI Operation', () => {
 
     expect(res.status).toBe(200);
 
-    const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+    const fetchCall = vertexCall();
     const bodyParam = JSON.parse(fetchCall[1].body);
     expect(bodyParam.messages).toEqual(messages);
   });
@@ -655,7 +701,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -706,7 +752,7 @@ describe('AI Operation', () => {
       }),
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -732,7 +778,7 @@ describe('AI Operation', () => {
 
     expect(res.status).toBe(200);
 
-    const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+    const fetchCall = vertexCall();
     const bodyParam = JSON.parse(fetchCall[1].body);
     expect(bodyParam.model).toBe('gpt-3.5-turbo');
   });
@@ -764,7 +810,7 @@ describe('AI Operation', () => {
       },
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockStreamResponse);
+    global.fetch = dispatchFetch(mockStreamResponse);
 
     const res = await request(app)
       .post(`/fhir/R4/$ai`)
@@ -851,7 +897,7 @@ describe('AI Operation', () => {
       body: mockReadableStream,
     };
 
-    global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+    global.fetch = dispatchFetch(mockFetchResponse);
 
     // Make a real request to the endpoint and check the progressive streaming
     const res = await request(app)

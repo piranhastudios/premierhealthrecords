@@ -4,16 +4,17 @@ import { Button, Group, Paper, Select, Stack, Textarea } from '@mantine/core';
 import { IconSend } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
-const MODEL_GPT_5_MINI = 'gpt-5-mini';
-const MODEL_GPT_5_2 = 'gpt-5.2';
-const MODEL_GPT_5_4 = 'gpt-5.4';
+// Vertex AI models, publisher-qualified for the OpenAI-compatible endpoint.
+const MODEL_GEMINI_FLASH_LITE = 'google/gemini-2.5-flash-lite';
+const MODEL_GEMINI_FLASH = 'google/gemini-2.5-flash';
+const MODEL_GEMINI_PRO = 'google/gemini-2.5-pro';
 
-export const DEFAULT_MODEL = MODEL_GPT_5_4;
+export const DEFAULT_MODEL = MODEL_GEMINI_FLASH;
 
 const MODELS = [
-  { value: MODEL_GPT_5_MINI, label: 'GPT-5 Mini' },
-  { value: MODEL_GPT_5_2, label: 'GPT-5.2' },
-  { value: MODEL_GPT_5_4, label: 'GPT-5.4' },
+  { value: MODEL_GEMINI_FLASH_LITE, label: 'Gemini 2.5 Flash Lite' },
+  { value: MODEL_GEMINI_FLASH, label: 'Gemini 2.5 Flash' },
+  { value: MODEL_GEMINI_PRO, label: 'Gemini 2.5 Pro' },
 ];
 
 interface ChatInputProps {

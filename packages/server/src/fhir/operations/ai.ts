@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { allOk, badRequest, forbidden, isOk, normalizeErrorString, OperationOutcomeError } from '@medplum/core';
 import type { FhirRequest, FhirResponse } from '@medplum/fhir-router';
-import type { OperationDefinition, ParametersParameter } from '@medplum/fhirtypes';
+import type { OperationDefinition, ParametersParameter, Project } from '@medplum/fhirtypes';
 import type { Response as ExpressResponse, Request } from 'express';
+import { importPKCS8, SignJWT } from 'jose';
 import { getAuthenticatedContext } from '../../context';
 import { sendOutcome } from '../outcomes';
 import { sendFhirResponse } from '../response';
@@ -36,7 +37,8 @@ const operation: OperationDefinition = {
       min: 1,
       max: '1',
       type: 'string',
-      documentation: 'OpenAI model to use (e.g., gpt-4, gpt-3.5-turbo)',
+      documentation:
+        'Vertex AI model to use, publisher-qualified (e.g., google/gemini-2.5-flash, google/gemini-2.5-pro)',
     },
     {
       name: 'tools',
@@ -71,6 +73,19 @@ type AIOperationParameters = {
   tools?: string;
 };
 
+/**
+ * Resolved Vertex AI connection: the OpenAI-compatible chat completions endpoint
+ * plus the service account used to mint a short-lived access token at call time.
+ */
+type VertexClient = {
+  endpoint: string;
+  serviceAccount: GcpServiceAccount;
+};
+
+const DEFAULT_VERTEX_REGION = 'us-central1';
+const GCP_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GCP_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+
 export const aiOperationHandler = async (req: Request, res: ExpressResponse): Promise<void> => {
   const fhirRequest: FhirRequest = {
     method: 'POST',
@@ -102,7 +117,7 @@ export const aiOperationHandler = async (req: Request, res: ExpressResponse): Pr
 };
 
 /**
- * Implements FHIR AI operation.
+ * Implements FHIR AI operation, backed by Vertex AI.
  * Supports both regular and streaming responses based on Accept header.
  * @param req - The incoming request.
  * @param res - Optional Express response for streaming support.
@@ -119,9 +134,11 @@ export async function aiOperation(
     return [forbidden];
   }
 
-  const apiKey = ctx.project.secret?.find((s) => s.name === 'OPENAI_API_KEY')?.valueString;
-  if (!apiKey) {
-    return [badRequest('OpenAI API key not configured in project secrets')];
+  let vertex: VertexClient;
+  try {
+    vertex = getVertexClient(ctx.project);
+  } catch (error) {
+    return [badRequest(normalizeErrorString(error))];
   }
 
   const params = parseInputParameters<AIOperationParameters>(operation, req);
@@ -156,7 +173,7 @@ export async function aiOperation(
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    await streamAIToClient(messages, apiKey, params.model, tools, res);
+    await streamAIToClient(messages, vertex, params.model, tools, res);
     res.end();
 
     // Return undefined for streaming - response already sent
@@ -164,40 +181,139 @@ export async function aiOperation(
   }
 
   try {
-    const result = (await callAI(messages, apiKey, params.model, tools)) as {
+    const result = (await callAI(messages, vertex, params.model, tools)) as {
       content: string | null;
       tool_calls: any[];
     };
     return buildParametersResponse(result);
   } catch (error) {
-    return [badRequest('Failed to call OpenAI API: ' + (error as Error).message)];
+    return [badRequest('Failed to call Vertex AI: ' + (error as Error).message)];
   }
 }
 
 /**
- * Streams AI response from OpenAI directly to the client via SSE.
- * This function bridges the OpenAI stream to the Express response without collecting.
+ * Resolves the Vertex AI client (endpoint + access token) from project secrets.
+ *
+ * Required project secrets:
+ * - GCP_SERVICE_ACCOUNT_KEY: the full service account JSON key (string).
+ *
+ * Optional project secrets:
+ * - GCP_PROJECT_ID: overrides the project_id from the service account key.
+ * - GCP_REGION: Vertex AI region (defaults to us-central1).
+ * @param project - The current project, holding the configured secrets.
+ * @returns The resolved Vertex client (endpoint + service account). The access token
+ * is minted lazily at call time so config validation never performs network I/O.
+ */
+export function getVertexClient(project: Project): VertexClient {
+  const rawKey = project.secret?.find((s) => s.name === 'GCP_SERVICE_ACCOUNT_KEY')?.valueString;
+  if (!rawKey) {
+    throw new Error('Vertex AI service account (GCP_SERVICE_ACCOUNT_KEY) not configured in project secrets');
+  }
+
+  let serviceAccount: GcpServiceAccount;
+  try {
+    serviceAccount = JSON.parse(rawKey);
+  } catch {
+    throw new Error('GCP_SERVICE_ACCOUNT_KEY is not valid JSON');
+  }
+  if (!serviceAccount.client_email || !serviceAccount.private_key) {
+    throw new Error('GCP_SERVICE_ACCOUNT_KEY is missing client_email or private_key');
+  }
+
+  const projectId = project.secret?.find((s) => s.name === 'GCP_PROJECT_ID')?.valueString ?? serviceAccount.project_id;
+  if (!projectId) {
+    throw new Error('GCP project id not configured (set GCP_PROJECT_ID or include project_id in the key)');
+  }
+  const region = project.secret?.find((s) => s.name === 'GCP_REGION')?.valueString ?? DEFAULT_VERTEX_REGION;
+
+  const endpoint =
+    `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}` +
+    `/locations/${region}/endpoints/openapi/chat/completions`;
+
+  return { endpoint, serviceAccount };
+}
+
+type GcpServiceAccount = {
+  client_email: string;
+  private_key: string;
+  project_id?: string;
+  token_uri?: string;
+};
+
+type CachedToken = { token: string; expiresAt: number };
+const tokenCache = new Map<string, CachedToken>();
+
+/**
+ * Mints (and caches) a short-lived GCP OAuth2 access token for a service account
+ * using the JWT-bearer grant. The token authorizes Vertex AI requests.
+ * @param serviceAccount - Parsed service account key.
+ * @returns A valid cloud-platform access token.
+ */
+export async function getGcpAccessToken(serviceAccount: GcpServiceAccount): Promise<string> {
+  const cached = tokenCache.get(serviceAccount.client_email);
+  // Refresh ~60s before expiry to avoid edge-of-expiry failures.
+  if (cached && cached.expiresAt - 60_000 > Date.now()) {
+    return cached.token;
+  }
+
+  const tokenUri = serviceAccount.token_uri ?? GCP_TOKEN_URL;
+  const now = Math.floor(Date.now() / 1000);
+  const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
+  const assertion = await new SignJWT({ scope: GCP_SCOPE })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .setIssuer(serviceAccount.client_email)
+    .setSubject(serviceAccount.client_email)
+    .setAudience(tokenUri)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(privateKey);
+
+  const response = await fetch(tokenUri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Failed to obtain GCP access token: ${response.status} ${response.statusText} ${errorText}`);
+  }
+
+  const data = (await response.json()) as { access_token: string; expires_in: number };
+  tokenCache.set(serviceAccount.client_email, {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  });
+  return data.access_token;
+}
+
+/**
+ * Streams AI response from Vertex AI directly to the client via SSE.
+ * This function bridges the upstream stream to the Express response without collecting.
  * Note: Tool calls are not supported in streaming mode.
  * @param messages - The conversation messages
- * @param apiKey - OpenAI API key
+ * @param vertex - Resolved Vertex client (endpoint + access token)
  * @param model - Model to use
  * @param tools - Optional tools array (ignored in streaming mode)
  * @param res - Express response to write SSE data to
  */
 export async function streamAIToClient(
   messages: any[],
-  apiKey: string,
+  vertex: VertexClient,
   model: string,
   tools: any[] | undefined,
   res: ExpressResponse
 ): Promise<void> {
   const ctx = getAuthenticatedContext();
-  const response = (await callAI(messages, apiKey, model, tools, true)) as Response;
+  const response = (await callAI(messages, vertex, model, tools, true)) as Response;
   if (!response.body) {
     throw new Error('No response body available for streaming');
   }
 
-  // Stream OpenAI response directly to client using TextDecoderStream
+  // Stream the upstream response directly to client using TextDecoderStream
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
 
   let buffer = '';
@@ -288,17 +404,19 @@ function buildParametersResponse(result: { content: string | null; tool_calls: a
 }
 
 /**
- * Calls OpenAI API with optional streaming support.
+ * Calls Vertex AI's OpenAI-compatible Chat Completions endpoint with optional streaming.
+ * The request/response shape mirrors the OpenAI Chat Completions API, so existing
+ * streaming and tool-call handling is preserved.
  * @param messages - The conversation messages
- * @param apiKey - OpenAI API key
- * @param model - Model to use
+ * @param vertex - Resolved Vertex client (endpoint + access token)
+ * @param model - Model to use (publisher-qualified, e.g. google/gemini-2.5-flash)
  * @param tools - Optional tools array
  * @param stream - Whether to enable streaming
  * @returns For non-streaming: parsed response with content and tool calls. For streaming: raw Response object.
  */
 export async function callAI(
   messages: any[],
-  apiKey: string,
+  vertex: VertexClient,
   model: string,
   tools?: any[],
   stream = false
@@ -315,10 +433,11 @@ export async function callAI(
     requestBody.tool_choice = 'auto';
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const accessToken = await getGcpAccessToken(vertex.serviceAccount);
+  const response = await fetch(vertex.endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody),
@@ -333,7 +452,7 @@ export async function callAI(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const error = new Error(
-      `OpenAI API error: ${response.status} ${response.statusText} - ${errorData?.error?.message || 'Unknown error'}`
+      `Vertex AI error: ${response.status} ${response.statusText} - ${errorData?.error?.message || 'Unknown error'}`
     );
     (error as Error & { statusCode: number }).statusCode = response.status;
     throw error;
