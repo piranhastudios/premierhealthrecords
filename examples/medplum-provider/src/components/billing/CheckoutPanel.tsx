@@ -1,15 +1,23 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Alert, Badge, Button, Divider, Group, NumberInput, Stack, Text } from '@mantine/core';
-import { normalizeErrorString } from '@medplum/core';
-import type { Coverage, Patient } from '@medplum/fhirtypes';
+import { Alert, Badge, Button, Divider, Group, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
+import { getReferenceString, normalizeErrorString } from '@medplum/core';
+import type { Coverage, Organization, Patient } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { computeCoPay, createInsurerClaim, getActiveCoverage } from '../../utils/insurance';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  computeCoPay,
+  createCoverage,
+  createInsurerClaim,
+  getInsurers,
+  getPatientCoverages,
+} from '../../utils/insurance';
 import { PaymentCollection } from './PaymentCollection';
 
 const DEFAULT_CURRENCY = 'XAF';
+const SELF_PAY = 'self';
+const DEFAULT_COPAY_PERCENT = 20;
 
 export interface CheckoutPanelProps {
   patient: Patient;
@@ -17,39 +25,84 @@ export interface CheckoutPanelProps {
 }
 
 /**
- * Front-desk / end-of-visit checkout: enter the amount due, apply the patient's
- * insurance co-pay split, collect the patient portion via mobile money, and record
- * the insurer's share as a Claim.
+ * Front-desk / end-of-visit checkout. The patient either pays as you go (full
+ * amount via mobile money) or bills an insurer: pick the payer, apply the co-pay
+ * split, collect the patient portion via mobile money, and record the insurer's
+ * share as a Claim (creating the Coverage on the fly if needed).
  */
 export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
   const { patient, onPaid } = props;
   const medplum = useMedplum();
 
   const [total, setTotal] = useState<number | undefined>();
-  const [coverage, setCoverage] = useState<Coverage | undefined>();
-  const [claimMessage, setClaimMessage] = useState<string>();
+  const [insurers, setInsurers] = useState<Organization[]>([]);
+  const [coverages, setCoverages] = useState<Coverage[]>([]);
+  const [payer, setPayer] = useState<string>(SELF_PAY);
+  const [subscriberId, setSubscriberId] = useState('');
+  const [copayPercent, setCopayPercent] = useState<number>(DEFAULT_COPAY_PERCENT);
+
   const [claimBusy, setClaimBusy] = useState(false);
   const [claimed, setClaimed] = useState(false);
+  const [claimMessage, setClaimMessage] = useState<string>();
 
-  useEffect(() => {
-    getActiveCoverage(medplum, patient).then(setCoverage).catch(console.error);
+  const loadCoverages = useCallback(() => {
+    getPatientCoverages(medplum, patient).then(setCoverages).catch(console.error);
   }, [medplum, patient]);
 
+  useEffect(() => {
+    getInsurers(medplum).then(setInsurers).catch(console.error);
+    loadCoverages();
+  }, [medplum, loadCoverages]);
+
+  const selectedInsurer = insurers.find((o) => o.id === payer);
+  const existingCoverage = coverages.find((c) => c.payor?.some((p) => p.reference === `Organization/${payer}`));
+
+  // Resolve the coverage that drives the split: none for self-pay, the existing
+  // Coverage if one is on file, otherwise a transient one from the entered co-pay.
+  const effectiveCoverage = useMemo<Coverage | undefined>(() => {
+    if (payer === SELF_PAY) {
+      return undefined;
+    }
+    if (existingCoverage) {
+      return existingCoverage;
+    }
+    return {
+      resourceType: 'Coverage',
+      status: 'active',
+      beneficiary: { reference: getReferenceString(patient) },
+      payor: [],
+      costToBeneficiary: [{ valueQuantity: { value: copayPercent } }],
+    } as Coverage;
+  }, [payer, existingCoverage, copayPercent, patient]);
+
   const split = useMemo(
-    () => computeCoPay({ value: total ?? 0, currency: DEFAULT_CURRENCY }, coverage),
-    [total, coverage]
+    () => computeCoPay({ value: total ?? 0, currency: DEFAULT_CURRENCY }, effectiveCoverage),
+    [total, effectiveCoverage]
+  );
+
+  const payerOptions = useMemo(
+    () => [
+      { value: SELF_PAY, label: 'Self-pay (pay as you go)' },
+      ...insurers.map((o) => ({ value: o.id as string, label: o.name ?? 'Insurer' })),
+    ],
+    [insurers]
   );
 
   async function handleRecordClaim(): Promise<void> {
-    if (!coverage || !split.insurerPortion.value) {
+    if (!selectedInsurer || !split.insurerPortion.value) {
       return;
     }
     setClaimBusy(true);
     setClaimMessage(undefined);
     try {
+      let coverage = existingCoverage;
+      if (!coverage) {
+        coverage = await createCoverage(medplum, patient, selectedInsurer, subscriberId, copayPercent);
+        loadCoverages();
+      }
       await createInsurerClaim(medplum, patient, coverage, split.insurerPortion);
       setClaimed(true);
-      setClaimMessage('Insurer claim recorded.');
+      setClaimMessage(`Claim sent to ${selectedInsurer.name}.`);
     } catch (err) {
       setClaimMessage(normalizeErrorString(err));
     } finally {
@@ -57,10 +110,45 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
     }
   }
 
-  const payorName = coverage?.payor?.find((p) => p.display)?.display ?? 'Insurer';
+  const isInsurer = payer !== SELF_PAY;
 
   return (
     <Stack gap="md">
+      <Select
+        label="Payer"
+        data={payerOptions}
+        value={payer}
+        onChange={(v) => {
+          setPayer(v ?? SELF_PAY);
+          setClaimed(false);
+          setClaimMessage(undefined);
+        }}
+        allowDeselect={false}
+      />
+
+      {isInsurer && !existingCoverage && (
+        <Group grow>
+          <TextInput
+            label="Subscriber / member ID"
+            value={subscriberId}
+            onChange={(e) => setSubscriberId(e.currentTarget.value)}
+          />
+          <NumberInput
+            label="Patient co-pay"
+            value={copayPercent}
+            onChange={(v) => setCopayPercent(typeof v === 'number' ? v : 0)}
+            min={0}
+            max={100}
+            suffix="%"
+          />
+        </Group>
+      )}
+      {isInsurer && existingCoverage && (
+        <Text size="sm" c="dimmed">
+          Using coverage on file{existingCoverage.subscriberId ? ` (member ${existingCoverage.subscriberId})` : ''}.
+        </Text>
+      )}
+
       <NumberInput
         label="Amount due"
         value={total}
@@ -70,11 +158,11 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
         thousandSeparator=" "
       />
 
-      {coverage && total !== undefined && total > 0 && (
+      {isInsurer && total !== undefined && total > 0 && (
         <Alert variant="light" color="blue">
           <Group justify="space-between">
             <Text size="sm">
-              {payorName}: covers {split.insurerPortion.value?.toLocaleString()} {DEFAULT_CURRENCY}
+              {selectedInsurer?.name} covers {split.insurerPortion.value?.toLocaleString()} {DEFAULT_CURRENCY}
             </Text>
             <Badge color="blue" variant="light">
               Patient pays {split.patientPercent}%
@@ -86,7 +174,7 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
       <Divider label="Patient payment" labelPosition="left" />
       <PaymentCollection patient={patient} defaultAmount={split.patientPortion} onPaid={onPaid} />
 
-      {coverage && (split.insurerPortion.value ?? 0) > 0 && (
+      {isInsurer && (split.insurerPortion.value ?? 0) > 0 && (
         <>
           <Divider label="Insurance" labelPosition="left" />
           {claimMessage && (
@@ -97,7 +185,7 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
           <Button variant="light" onClick={handleRecordClaim} loading={claimBusy} disabled={claimed}>
             {claimed
               ? 'Claim recorded'
-              : `Record insurer claim (${split.insurerPortion.value?.toLocaleString()} ${DEFAULT_CURRENCY})`}
+              : `Bill ${selectedInsurer?.name} (${split.insurerPortion.value?.toLocaleString()} ${DEFAULT_CURRENCY})`}
           </Button>
         </>
       )}

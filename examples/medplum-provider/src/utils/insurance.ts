@@ -1,8 +1,20 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { createReference } from '@medplum/core';
-import type { Claim, Coverage, Invoice, Money, Patient, Practitioner, Reference } from '@medplum/fhirtypes';
+import type {
+  Claim,
+  Coverage,
+  Invoice,
+  Money,
+  Organization,
+  Patient,
+  Practitioner,
+  Reference,
+} from '@medplum/fhirtypes';
 import type { MedplumClient } from '@medplum/core';
+
+/** Organization.type code marking a payer/insurance company. */
+export const INSURER_TYPE = 'ins';
 
 /**
  * Cameroon insurance is largely co-pay based: a private insurer or mutuelle covers
@@ -79,6 +91,59 @@ export async function getActiveCoverage(medplum: MedplumClient, patient: Patient
     `beneficiary=Patient/${patient.id}&status=active&_sort=-_lastUpdated&_count=1`
   );
   return results[0];
+}
+
+/** All active Coverages for a patient. */
+export async function getPatientCoverages(medplum: MedplumClient, patient: Patient): Promise<Coverage[]> {
+  return medplum.searchResources('Coverage', `beneficiary=Patient/${patient.id}&status=active&_count=50`);
+}
+
+/** Loads the configured insurance payers (Organizations of type "ins"). */
+export async function getInsurers(medplum: MedplumClient): Promise<Organization[]> {
+  return medplum.searchResources('Organization', `type=${INSURER_TYPE}&active=true&_sort=name&_count=100`);
+}
+
+/**
+ * Creates an active Coverage linking a patient to an insurer, with the patient's
+ * coinsurance share recorded on `costToBeneficiary` so the co-pay split can be derived.
+ * @param medplum - The Medplum client.
+ * @param patient - The covered patient.
+ * @param payor - The insurer Organization.
+ * @param subscriberId - The member/subscriber id with the insurer.
+ * @param patientCoinsurancePercent - The patient's out-of-pocket share, as a percentage.
+ * @returns The created Coverage.
+ */
+export async function createCoverage(
+  medplum: MedplumClient,
+  patient: Patient,
+  payor: Organization,
+  subscriberId: string,
+  patientCoinsurancePercent: number
+): Promise<Coverage> {
+  return medplum.createResource<Coverage>({
+    resourceType: 'Coverage',
+    status: 'active',
+    beneficiary: createReference(patient),
+    subscriber: createReference(patient),
+    subscriberId: subscriberId || undefined,
+    relationship: {
+      coding: [{ system: 'http://terminology.hl7.org/CodeSystem/subscriber-relationship', code: 'self' }],
+    },
+    payor: [createReference(payor)],
+    costToBeneficiary: [
+      {
+        type: {
+          coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-copay-type', code: 'coinsurance' }],
+        },
+        valueQuantity: {
+          value: patientCoinsurancePercent,
+          unit: '%',
+          system: 'http://unitsofmeasure.org',
+          code: '%',
+        },
+      },
+    ],
+  });
 }
 
 /**
