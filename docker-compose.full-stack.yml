@@ -160,5 +160,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # One-shot: load Premier Health reference data (terminology, insurers, care
+  # templates) once the server is healthy. Idempotent — re-runs safely on each
+  # deploy. Override the admin login with SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD.
+  seed:
+    image: node:24-bookworm-slim
+    restart: 'no'
+    depends_on:
+      medplum-server:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+    command:
+      - node
+      - scripts/seed-cameroon.mjs
+      - '--base'
+      - 'http://medplum-server:8103'
+      - '--email'
+      - '${SEED_ADMIN_EMAIL:-admin@example.com}'
+      - '--password'
+      - '${SEED_ADMIN_PASSWORD:-medplum_admin}'
+
 volumes:
   medplum-postgres-data:
