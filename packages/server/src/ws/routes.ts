@@ -14,6 +14,7 @@ import { handleAiRealtimeConnection } from './ai-realtime';
 import { handleEchoConnection, initEchoHeartbeat, stopEchoHeartbeat } from './echo';
 import { handleFhircastConnection, initFhircastHeartbeat, stopFhircastHeartbeat } from './fhircast';
 import { handleR4SubscriptionConnection } from './subscriptions';
+import { handleTelehealthConnection } from './telehealth';
 
 const handlerMap = new Map<string, (socket: WebSocket, request: IncomingMessage) => Promise<void>>();
 handlerMap.set('echo', handleEchoConnection);
@@ -21,6 +22,7 @@ handlerMap.set('agent', handleAgentConnection);
 handlerMap.set('ai-realtime', handleAiRealtimeConnection);
 handlerMap.set('fhircast', handleFhircastConnection);
 handlerMap.set('subscriptions-r4', handleR4SubscriptionConnection);
+handlerMap.set('telehealth', handleTelehealthConnection);
 
 type WebSocketState = {
   readonly sockets: Set<WebSocket>;

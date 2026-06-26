@@ -55,6 +55,7 @@ import { scimRouter } from './scim/routes';
 import { seedDatabase } from './seed';
 import { initServerRegistryHeartbeatListener } from './server-registry';
 import { initBinaryStorage } from './storage/loader';
+import { paymentsRouter } from './payments/routes';
 import { storageRouter } from './storage/routes';
 import { webhookRouter } from './webhook/routes';
 import { wellKnownRouter } from './wellknown';
@@ -227,6 +228,7 @@ export async function initApp(app: Express, config: MedplumServerConfig): Promis
   apiRouter.use('/keyvalue/v1/', keyValueRouter);
   apiRouter.use('/oauth2/', oauthRouter);
   apiRouter.use('/scim/v2/', scimRouter);
+  apiRouter.use('/payments/', paymentsRouter);
   apiRouter.use('/storage/', storageRouter);
   apiRouter.use('/webhook/', webhookRouter);
 

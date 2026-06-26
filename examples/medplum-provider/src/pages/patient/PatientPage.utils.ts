@@ -103,5 +103,6 @@ export const PatientPageTabs: PatientPageTabInfo[] = [
     label: 'Care Plans',
   },
   { id: 'message', url: 'Communication', label: 'Messages' },
+  { id: 'payments', url: 'payments', label: 'Payments' },
   { id: 'export', url: 'export', label: 'Export' },
 ];

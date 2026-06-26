@@ -43,6 +43,7 @@ import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { LabsPage } from './pages/patient/LabsPage';
 import { MedicationsPage } from './pages/patient/MedicationsPage';
 import { PatientPage } from './pages/patient/PatientPage';
+import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
 import { ScriptSureTab } from './pages/patient/ScriptSureTab';
 import { TasksTab } from './pages/patient/TasksTab';
@@ -54,6 +55,7 @@ import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { ScheduleSettingsPage } from './pages/schedule/ScheduleSettingsPage';
+import { TelehealthPage } from './pages/telehealth/TelehealthPage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
 import { SpacesPage } from './pages/spaces/SpacesPage';
@@ -201,6 +203,7 @@ export function App(): JSX.Element | null {
                 {hasDoseSpot && <Route path="dosespot" element={<DoseSpotTab />} />}
                 {hasScriptSure && <Route path="scriptsure" element={<ScriptSureTab />} />}
                 <Route path="timeline" element={<TimelineTab />} />
+                <Route path="payments" element={<PaymentsTab />} />
                 <Route path="export" element={<ExportTab />} />
                 <Route path="ServiceRequest" element={<LabsPage />} />
                 <Route path="ServiceRequest/:serviceRequestId" element={<LabsPage />} />
@@ -229,6 +232,7 @@ export function App(): JSX.Element | null {
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id/settings" element={<ScheduleSettingsPage />} />
+              <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
               <Route path="/signin" element={<SignInPage />} />
               {hasDoseSpot && <Route path="/dosespot" element={<DoseSpotNotificationsPage />} />}
               {hasScriptSure && <Route path="/scriptsure" element={<ScriptSurePage />} />}

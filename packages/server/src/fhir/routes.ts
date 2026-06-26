@@ -27,6 +27,7 @@ import { appointmentBookHandler } from './operations/book';
 import { botInitHandler } from './operations/botinit';
 import { ccdaExportHandler } from './operations/ccdaexport';
 import { chargeItemDefinitionApplyHandler } from './operations/chargeitemdefinitionapply';
+import { invoicePayHandler } from './operations/pay';
 import { claimExportGetHandler, claimExportPostHandler } from './operations/claimexport';
 import { clearAllWsSubsHandler } from './operations/clearallwssubs';
 import { codeSystemImportHandler } from './operations/codesystemimport';
@@ -325,6 +326,9 @@ function initInternalFhirRouter(): FhirRouter {
 
   // ChargeItemDefinition $apply operation
   router.add('POST', '/ChargeItemDefinition/:id/$apply', chargeItemDefinitionApplyHandler);
+
+  // Invoice $pay operation (pawaPay mobile-money collection)
+  router.add('POST', '/Invoice/:id/$pay', invoicePayHandler);
 
   // Resource $graph operation
   router.add('GET', '/:resourceType/:id/$graph', resourceGraphHandler);
