@@ -64,7 +64,7 @@ export async function createEncounter(
   medplum: MedplumClient,
   classification: Coding,
   patient: Patient,
-  planDefinition: PlanDefinition,
+  planDefinition: PlanDefinition | undefined,
   appointment: Appointment,
   practitioner: Practitioner | Reference<Practitioner>
 ): Promise<Encounter> {
@@ -92,16 +92,19 @@ export async function createEncounter(
 
   await medplum.createResource(clinicalImpressionData);
 
-  await medplum.post(medplum.fhirUrl('PlanDefinition', planDefinition.id as string, '$apply'), {
-    resourceType: 'Parameters',
-    parameter: [
-      { name: 'subject', valueString: getReferenceString(patient) },
-      { name: 'encounter', valueString: getReferenceString(encounter) },
-      { name: 'practitioner', valueString: getReferenceString(practitioner) },
-    ],
-  });
-
-  await createChargeItemFromPlanDefinition(medplum, encounter, patient, planDefinition);
+  // A care template (PlanDefinition) is optional. When chosen, apply it to seed
+  // the encounter's tasks/charges; otherwise create a plain encounter.
+  if (planDefinition) {
+    await medplum.post(medplum.fhirUrl('PlanDefinition', planDefinition.id as string, '$apply'), {
+      resourceType: 'Parameters',
+      parameter: [
+        { name: 'subject', valueString: getReferenceString(patient) },
+        { name: 'encounter', valueString: getReferenceString(encounter) },
+        { name: 'practitioner', valueString: getReferenceString(practitioner) },
+      ],
+    });
+    await createChargeItemFromPlanDefinition(medplum, encounter, patient, planDefinition);
+  }
   await handleChargeItemsFromTasks(medplum, encounter, patient);
 
   return encounter;

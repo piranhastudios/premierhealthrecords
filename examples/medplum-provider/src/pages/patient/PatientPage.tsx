@@ -82,9 +82,10 @@ export function PatientPage(): JSX.Element {
 
   const sections = useMemo(
     () =>
-      getDefaultSections(() => setIsLabsModalOpen(true)).map((s) =>
-        s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s
-      ),
+      getDefaultSections(() => setIsLabsModalOpen(true))
+        // US-specific demographics not collected in Cameroon (see intake localization).
+        .filter((s) => s.key !== 'sexualOrientation' && s.key !== 'smokingStatus')
+        .map((s) => (s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s)),
     [setIsLabsModalOpen, PharmacyDialogComponent]
   );
 

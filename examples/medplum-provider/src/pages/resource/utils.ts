@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ResourceType } from '@medplum/fhirtypes';
 
+// Premier Health is an international (Cameroon) deployment, so resources are
+// edited against base FHIR R4 rather than the US-national US Core profiles
+// (which would require loading US Core StructureDefinitions and impose US-only
+// constraints like us-core-patient / us-core-implantable-device).
 export const RESOURCE_PROFILE_URLS: Partial<Record<ResourceType, string>> = {
-  Patient: 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient',
   ServiceRequest: 'http://medplum.com/StructureDefinition/medplum-provider-lab-procedure-servicerequest',
-  Device: 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-implantable-device',
 };

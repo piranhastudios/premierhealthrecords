@@ -34,7 +34,7 @@ export const EncounterModal = (): JSX.Element => {
   });
 
   const handleCreateEncounter = async (): Promise<void> => {
-    if (!patient || !encounterClass || !start || !end || !status || !planDefinitionData || !practitioner) {
+    if (!patient || !encounterClass || !start || !end || !status || !practitioner) {
       showNotification({
         color: 'yellow',
         icon: <IconAlertSquareRounded />,
@@ -159,7 +159,7 @@ export const EncounterModal = (): JSX.Element => {
                   name="plandefinition"
                   resourceType="PlanDefinition"
                   onChange={(value) => setPlanDefinitionData(value as PlanDefinition)}
-                  required={true}
+                  required={false}
                 />
 
                 <PlanDefinitionSummary planDefinition={planDefinitionData} />
