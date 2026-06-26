@@ -6,7 +6,7 @@ import { createReference, formatHumanName, formatPeriod, isReference } from '@me
 import type { Appointment, Coding, Patient, PlanDefinition, Practitioner } from '@medplum/fhirtypes';
 import { CodingInput, Form, MedplumLink, ResourceAvatar, ResourceInput, useMedplum } from '@medplum/react';
 import { useResource } from '@medplum/react-hooks';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { IconAlertSquareRounded, IconCopy, IconVideo } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -154,6 +154,28 @@ export function AppointmentDetails(props: {
               {formatHumanName(patient.name?.[0])}
             </MedplumLink>
           </Group>
+
+          <Group gap="sm">
+            <Button
+              leftSection={<IconVideo size={16} />}
+              onClick={() => navigate(`/telehealth/${props.appointment.id}`)?.catch(console.error)}
+            >
+              Join video visit
+            </Button>
+            <Button
+              variant="light"
+              leftSection={<IconCopy size={16} />}
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(`${window.location.origin}/telehealth/${props.appointment.id}`)
+                  .then(() => showNotification({ color: 'green', message: 'Patient join link copied' }))
+                  .catch(console.error);
+              }}
+            >
+              Copy patient link
+            </Button>
+          </Group>
+
           <div>
             <h3>Set Up Encounter</h3>
             <Form onSubmit={handleSubmit}>
@@ -179,14 +201,13 @@ export function AppointmentDetails(props: {
                 <ResourceInput<PlanDefinition>
                   name="plandefinition"
                   resourceType="PlanDefinition"
-                  label="Care template"
+                  label="Care template (optional)"
                   onChange={setPlanDefinition}
-                  required={true}
                 />
 
                 <PlanDefinitionSummary planDefinition={planDefinition} />
 
-                <Button fullWidth type="submit" disabled={!planDefinition || !encounterClass}>
+                <Button fullWidth type="submit" disabled={!encounterClass}>
                   Apply
                 </Button>
               </Stack>

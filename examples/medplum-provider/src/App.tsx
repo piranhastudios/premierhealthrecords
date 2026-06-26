@@ -248,6 +248,8 @@ export function App(): JSX.Element | null {
             </>
           ) : (
             <>
+              {/* Public so patients can join a video visit from a shared link, no account needed. */}
+              <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="*" element={<Navigate to="/signin" replace />} />
             </>
