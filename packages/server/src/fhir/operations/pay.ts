@@ -125,7 +125,7 @@ export async function invoicePayHandler(req: FhirRequest): Promise<FhirResponse>
     resourceType: 'PaymentReconciliation',
     status: 'draft',
     created: now,
-    paymentDate: now,
+    paymentDate: now.slice(0, 10), // FHIR `date` (YYYY-MM-DD), not a dateTime
     paymentAmount: { value: amount.value, currency },
     outcome: 'queued',
     identifier: [{ system: PAWAPAY_DEPOSIT_SYSTEM, value: depositId }],
