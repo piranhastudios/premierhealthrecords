@@ -63,7 +63,7 @@ services:
     # upstream medplum/medplum-server:latest image.
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.server
     restart: unless-stopped
     depends_on:
       postgres:

@@ -1,0 +1,19 @@
+# Self-contained, from-source build of the Medplum server for self-hosting
+# (Coolify / plain docker compose). Unlike the upstream ./Dockerfile, this needs
+# no prebuilt tarballs and no Docker Hardened Images subscription — it builds the
+# server (and its workspace deps) straight from the repo with a standard Node base.
+
+# Stage 1: install dev deps and build the server + its workspace dependencies.
+FROM node:24-bookworm-slim AS build
+WORKDIR /usr/src/medplum
+COPY . .
+RUN npm ci
+RUN npx turbo run build --filter=@medplum/server
+
+# Stage 2: runtime image.
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /usr/src/medplum
+COPY --from=build /usr/src/medplum ./
+EXPOSE 8103
+ENTRYPOINT [ "node", "--require", "./packages/server/dist/otel/instrumentation.js", "packages/server/dist/index.js" ]
