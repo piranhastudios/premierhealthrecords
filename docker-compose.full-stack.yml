@@ -38,9 +38,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # TURN/STUN server for telemedicine (WebRTC). Relays media when peers cannot
+  # connect directly (NAT/firewall). Set TURN_SECRET and the realm for production,
+  # and point the provider app at it via VITE_TURN_URL / VITE_TURN_USERNAME /
+  # VITE_TURN_CREDENTIAL.
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host # coturn needs the host network for the RTP relay port range
+    command:
+      - '-n'
+      - '--listening-port=3478'
+      - '--fingerprint'
+      - '--lt-cred-mech'
+      - '--realm=premierhealth'
+      - '--user=telehealth:${TURN_SECRET:-changeme}'
+      - '--min-port=49160'
+      - '--max-port=49200'
+
   # Medplum server container
   medplum-server:
-    image: medplum/medplum-server:latest
+    # Build the server from this fork so the Premier Health backend (pawaPay $pay,
+    # /payments callback, Vertex AI, telehealth signaling) is included. Replaces the
+    # upstream medplum/medplum-server:latest image.
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
       postgres:
@@ -81,6 +104,11 @@ services:
       MEDPLUM_ALLOWED_ORIGINS: '*'
       MEDPLUM_INTROSPECTION_ENABLED: 'true'
       MEDPLUM_SHUTDOWN_TIMEOUT_MILLISECONDS: 30000
+
+      # pawaPay (mobile money). Token comes from the Coolify env store, not git.
+      # Use the sandbox host for the sandbox token; switch to https://api.pawapay.io for production.
+      PAWAPAY_BASE_URL: 'https://api.sandbox.pawapay.io'
+      PAWAPAY_API_TOKEN: '${PAWAPAY_API_TOKEN}'
 
     healthcheck:
       test:
