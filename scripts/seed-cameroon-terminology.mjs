@@ -32,6 +32,7 @@ const PHR = 'https://premierhealth.cm/fhir';
 // --- Official code system URIs (kept standard for interoperability) ---
 const SYS = {
   icd10: 'http://hl7.org/fhir/sid/icd-10',
+  loinc: 'http://loinc.org',
   cvx: 'http://hl7.org/fhir/sid/cvx',
   atc: 'http://www.whocc.no/atc',
   iso3166_2: 'urn:iso:std:iso:3166-2',
@@ -59,6 +60,20 @@ const CONCEPTS = {
     ['L30', 'Other and unspecified dermatitis'], ['M54', 'Dorsalgia'],
     ['F32', 'Depressive episode'], ['O80', 'Single spontaneous delivery'],
     ['B77', 'Ascariasis'], ['A06', 'Amoebiasis'],
+  ],
+  [SYS.loinc]: [
+    ['718-7', 'Hemoglobin [Mass/volume] in Blood'],
+    ['58410-2', 'CBC panel - Blood by Automated count'],
+    ['2345-7', 'Glucose [Mass/volume] in Serum or Plasma'],
+    ['2160-0', 'Creatinine [Mass/volume] in Serum or Plasma'],
+    ['2951-2', 'Sodium [Moles/volume] in Serum or Plasma'],
+    ['2823-3', 'Potassium [Moles/volume] in Serum or Plasma'],
+    ['70206-7', 'Plasmodium sp Ag [Presence] in Blood (malaria RDT)'],
+    ['75622-1', 'HIV 1 and 2 Ab [Presence] in Serum'],
+    ['5195-3', 'Hepatitis B virus surface Ag [Presence] in Serum'],
+    ['24356-8', 'Urinalysis complete panel'],
+    ['882-1', 'ABO and Rh group [Type] in Blood'],
+    ['2106-3', 'Choriogonadotropin [Presence] in Urine (pregnancy)'],
   ],
   [SYS.cvx]: [
     ['19', 'BCG'], ['2', 'Oral polio vaccine (OPV)'], ['10', 'Inactivated polio vaccine (IPV)'],
@@ -92,7 +107,18 @@ const VALUE_SETS = [
   ['cameroon-immunizations', 'Cameroon Immunizations (CVX)', SYS.cvx],
   ['cameroon-medications', 'Cameroon Medications (ATC)', SYS.atc],
   ['cameroon-allergens', 'Common Allergens', SYS.allergen],
+  ['cameroon-lab-tests', 'Lab Tests (LOINC)', SYS.loinc],
   ['tobacco-use-status', 'Tobacco Use Status', SYS.tobacco],
+];
+
+// The PatientSummary quick-add dialogs (Add Problem/Allergy/Medication) in
+// @medplum/react bind to fixed US Core / VSAC ValueSet URLs we can't edit.
+// Realize those URLs locally over our loaded systems so they expand to standard,
+// interoperable codes (ICD-10 / ATC / allergens) for this Cameroon deployment.
+const ALIAS_VALUE_SETS = [
+  ['http://hl7.org/fhir/us/core/ValueSet/us-core-condition-code', 'Conditions (ICD-10)', SYS.icd10],
+  ['http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1010.4', 'Medications (ATC)', SYS.atc],
+  ['http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1186.8', 'Allergens', SYS.allergen],
 ];
 
 // ---------------------------------------------------------------------------
@@ -163,23 +189,39 @@ async function main() {
     console.log(`  CodeSystem ${system}: imported ${concepts.length} concepts`);
   }
 
-  for (const [id, name, system] of VALUE_SETS) {
-    const url = `${PHR}/ValueSet/${id}`;
-    await upsert(token, 'ValueSet', url, () => ({
+  const allValueSets = [
+    ...VALUE_SETS.map(([id, name, system]) => [`${PHR}/ValueSet/${id}`, name, system]),
+    ...ALIAS_VALUE_SETS,
+  ];
+  for (const [url, name, system] of allValueSets) {
+    // Enumerate the curated concepts (rather than the whole system) so the ValueSet
+    // contains exactly our catalog and doesn't pick up stray base concepts.
+    const concepts = (CONCEPTS[system] || []).map(([code, display]) => ({ code, display }));
+    const valueSet = {
       resourceType: 'ValueSet',
       url,
       status: 'active',
       name: name.replace(/[^A-Za-z0-9]/g, ''),
       title: name,
-      compose: { include: [{ system }] },
-    }));
+      compose: { include: [{ system, ...(concepts.length ? { concept: concepts } : {}) }] },
+    };
+    const found = (
+      await http('GET', `/fhir/R4/ValueSet?url=${encodeURIComponent(url)}`, undefined, { token })
+    ).entry?.[0]?.resource;
+    if (found) {
+      await http('PUT', `/fhir/R4/ValueSet/${found.id}`, { ...valueSet, id: found.id }, { token });
+    } else {
+      await http('POST', '/fhir/R4/ValueSet', valueSet, { token });
+    }
     const expanded = await http(
       'GET',
       `/fhir/R4/ValueSet/$expand?url=${encodeURIComponent(url)}&count=200`,
       undefined,
       { token }
     );
-    console.log(`  ValueSet ${id}: $expand -> ${expanded.expansion?.total ?? expanded.expansion?.contains?.length ?? 0} codes`);
+    console.log(
+      `  ValueSet ${url}: $expand -> ${expanded.expansion?.total ?? expanded.expansion?.contains?.length ?? 0} codes`
+    );
   }
 
   console.log('Done.');

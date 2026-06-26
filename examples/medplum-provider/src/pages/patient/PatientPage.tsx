@@ -18,7 +18,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
 import { useDoseSpotAccess } from '../../hooks/useDoseSpotAccess';
 import { usePatient } from '../../hooks/usePatient';
-import { OrderLabsPage } from '../labs/OrderLabsPage';
+import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import classes from './PatientPage.module.css';
 import type { PatientPageTabInfo } from './PatientPage.utils';
 import { formatPatientPageTabUrl, getPatientPageTabs } from './PatientPage.utils';
@@ -128,8 +128,8 @@ export function PatientPage(): JSX.Element {
           </div>
         </div>
       </div>
-      <Modal opened={isLabsModalOpen} onClose={handleCloseLabsModal} size="xl" centered title="Order Labs">
-        <OrderLabsPage onSubmitLabOrder={handleCloseLabsModal} />
+      <Modal opened={isLabsModalOpen} onClose={handleCloseLabsModal} size="md" centered title="New lab order">
+        <NewLabOrder patient={patient} onCreated={handleCloseLabsModal} />
       </Modal>
     </>
   );
