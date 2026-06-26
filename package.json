@@ -7,17 +7,16 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "turbo run build --filter=!@medplum/docs --filter=!./examples/*",
+    "build": "turbo run build --filter=!./examples/*",
     "build:all": "turbo run build",
-    "build:docs": "turbo run build --filter=@medplum/docs",
-    "build:fast": "turbo run build --filter=@medplum/app --filter=@medplum/server",
+    "build:fast": "turbo run build --filter=@medplum/app --filter=@medplum/server --filter=medplum-provider",
     "dev": "turbo run dev --filter=./packages/app --filter=./examples/medplum-provider --filter=./packages/server",
     "clean": "turbo run clean",
-    "lint": "turbo run lint --filter=!@medplum/docs",
-    "lint:fix": "turbo run lint:fix --filter=!@medplum/docs",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "prettier": "prettier --write \"**/*.{ts,tsx,cts,mts,js,jsx,cjs,mjs,json}\"",
     "sort-package-json": "sort-package-json package.json \"packages/*/package.json\" \"examples/*/package.json\"",
-    "test": "turbo run test --filter=!@medplum/docs"
+    "test": "turbo run test"
   },
   "prettier": {
     "plugins": [
