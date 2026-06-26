@@ -66,17 +66,20 @@ export async function onboardPatient(
   }
 
   if (answers['ssn']?.valueString) {
+    // Cameroon national ID (CNI). Used as the cross-instance patient identifier
+    // for the federated referral network.
     patient.identifier = [
       {
         type: {
           coding: [
             {
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
-              code: 'SS',
+              code: 'NI',
+              display: 'National unique individual identifier',
             },
           ],
         },
-        system: 'http://hl7.org/fhir/sid/us-ssn',
+        system: 'https://premierhealth.cm/fhir/sid/cni',
         value: answers['ssn'].valueString,
       },
     ];

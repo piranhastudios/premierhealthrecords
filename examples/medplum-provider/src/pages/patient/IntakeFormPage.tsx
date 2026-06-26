@@ -230,13 +230,13 @@ const defaultQuestionnaire: Questionnaire = {
         },
         {
           linkId: 'state',
-          text: 'State',
+          text: 'Region',
           type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-regions',
         },
         {
           linkId: 'zip',
-          text: 'Zip',
+          text: 'Postal Code',
           type: 'string',
         },
         {
@@ -246,34 +246,15 @@ const defaultQuestionnaire: Questionnaire = {
         },
         {
           linkId: 'ssn',
-          text: 'Social Security Number',
+          text: 'National ID (CNI)',
           type: 'string',
-          required: true,
-        },
-        {
-          linkId: 'race',
-          text: 'Race',
-          type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category',
-        },
-        {
-          linkId: 'ethnicity',
-          text: 'Ethnicity',
-          type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category',
         },
         {
           linkId: 'gender-identity',
-          text: 'Gender Identity',
+          text: 'Gender',
           type: 'choice',
-          answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1021.32',
+          answerValueSet: 'http://hl7.org/fhir/ValueSet/administrative-gender',
           required: true,
-        },
-        {
-          linkId: 'sexual-orientation',
-          text: 'Sexual Orientation',
-          type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/us-core-sexual-orientation',
         },
       ],
     },
@@ -315,7 +296,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'allergy-substance',
           text: 'Substance',
           type: 'choice',
-          answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1186.8',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-allergens',
         },
         {
           linkId: 'allergy-reaction',
@@ -339,7 +320,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'medication-code',
           text: 'Medication Name',
           type: 'choice',
-          answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1010.4',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-medications',
         },
         {
           linkId: 'medication-note',
@@ -358,7 +339,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'medical-history-problem',
           text: 'Problem',
           type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/us-core-condition-code',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-conditions',
         },
         {
           linkId: 'medical-history-clinical-status',
@@ -383,7 +364,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'family-member-history-problem',
           text: 'Problem',
           type: 'choice',
-          answerValueSet: 'http://hl7.org/fhir/us/core/ValueSet/us-core-condition-code',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-conditions',
         },
         {
           linkId: 'family-member-history-relationship',
@@ -408,7 +389,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'immunization-vaccine',
           text: 'Vaccine',
           type: 'choice',
-          answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1010.6',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/cameroon-immunizations',
         },
         {
           linkId: 'immunization-date',
@@ -543,7 +524,7 @@ const defaultQuestionnaire: Questionnaire = {
               linkId: 'related-person-gender-identity',
               text: 'Gender Identity',
               type: 'choice',
-              answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1021.32',
+              answerValueSet: 'http://hl7.org/fhir/ValueSet/administrative-gender',
             },
           ],
         },
@@ -570,7 +551,7 @@ const defaultQuestionnaire: Questionnaire = {
           linkId: 'smoking-status',
           text: 'Smoking Status',
           type: 'choice',
-          answerValueSet: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.11.20.9.38',
+          answerValueSet: 'https://premierhealth.cm/fhir/ValueSet/tobacco-use-status',
         },
         {
           linkId: 'veteran-status',
