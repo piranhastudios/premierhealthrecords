@@ -6,7 +6,7 @@ import { createReference, formatHumanName, formatPeriod, isReference } from '@me
 import type { Appointment, Coding, Patient, PlanDefinition, Practitioner } from '@medplum/fhirtypes';
 import { CodingInput, Form, MedplumLink, ResourceAvatar, ResourceInput, useMedplum } from '@medplum/react';
 import { useResource } from '@medplum/react-hooks';
-import { IconAlertSquareRounded, IconCopy, IconVideo } from '@tabler/icons-react';
+import { IconAlertSquareRounded } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -153,27 +153,6 @@ export function AppointmentDetails(props: {
             <MedplumLink to={patient} fw={800} size="lg">
               {formatHumanName(patient.name?.[0])}
             </MedplumLink>
-          </Group>
-
-          <Group gap="sm">
-            <Button
-              leftSection={<IconVideo size={16} />}
-              onClick={() => navigate(`/telehealth/${props.appointment.id}`)?.catch(console.error)}
-            >
-              Join video visit
-            </Button>
-            <Button
-              variant="light"
-              leftSection={<IconCopy size={16} />}
-              onClick={() => {
-                navigator.clipboard
-                  .writeText(`${window.location.origin}/telehealth/${props.appointment.id}`)
-                  .then(() => showNotification({ color: 'green', message: 'Patient join link copied' }))
-                  .catch(console.error);
-              }}
-            >
-              Copy patient link
-            </Button>
           </Group>
 
           <div>

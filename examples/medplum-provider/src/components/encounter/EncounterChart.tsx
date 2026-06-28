@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Card, Flex, Stack, Textarea, Title } from '@mantine/core';
+import { Box, Button, Card, Flex, Group, Stack, Textarea, Title } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
+import { IconCopy } from '@tabler/icons-react';
 import type { WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
 import type { ClinicalImpression, Encounter, Practitioner, Provenance, Reference, Task } from '@medplum/fhirtypes';
@@ -291,6 +293,21 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
                 top: 0,
               }}
             >
+              <Group justify="flex-end" mb="xs">
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  leftSection={<IconCopy size={14} />}
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(`${window.location.origin}/telehealth/${encounter.id}`)
+                      .then(() => showNotification({ color: 'green', message: 'Patient join link copied' }))
+                      .catch(console.error);
+                  }}
+                >
+                  Copy patient link
+                </Button>
+              </Group>
               <VideoVisit roomId={encounter.id as string} onLeave={() => setVideoOpen(false)} />
             </Box>
           )}

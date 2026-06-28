@@ -132,16 +132,21 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
             </Text>
           </Stack>
           <Group>
-            <Button
-              variant="light"
-              color="teal"
-              radius="xl"
-              size="sm"
-              leftSection={<IconVideo size={16} />}
-              onClick={() => (onJoinVideo ? onJoinVideo() : navigate(`/telehealth/${encounter.id}`)?.catch(console.error))}
-            >
-              Join video visit
-            </Button>
+            {/* Only for virtual visits (Encounter.class = VR). */}
+            {encounter.class?.code === 'VR' && (
+              <Button
+                variant="light"
+                color="teal"
+                radius="xl"
+                size="sm"
+                leftSection={<IconVideo size={16} />}
+                onClick={() =>
+                  onJoinVideo ? onJoinVideo() : navigate(`/telehealth/${encounter.id}`)?.catch(console.error)
+                }
+              >
+                Join video visit
+              </Button>
+            )}
             <Button
               variant="light"
               color="blue"

@@ -81,6 +81,16 @@ export function App(): JSX.Element | null {
     return null;
   }
 
+  // Telemedicine join page renders standalone (no app chrome) so a patient can
+  // join a video visit from a shared link without an account.
+  if (location.pathname.startsWith('/telehealth/')) {
+    return (
+      <Routes>
+        <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <AppShell
       logo={<Logo size={24} />}
@@ -232,7 +242,6 @@ export function App(): JSX.Element | null {
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id/settings" element={<ScheduleSettingsPage />} />
-              <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
               <Route path="/signin" element={<SignInPage />} />
               {hasDoseSpot && <Route path="/dosespot" element={<DoseSpotNotificationsPage />} />}
               {hasScriptSure && <Route path="/scriptsure" element={<ScriptSurePage />} />}
@@ -248,8 +257,6 @@ export function App(): JSX.Element | null {
             </>
           ) : (
             <>
-              {/* Public so patients can join a video visit from a shared link, no account needed. */}
-              <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="*" element={<Navigate to="/signin" replace />} />
             </>
