@@ -17,6 +17,7 @@ interface EncounterHeaderProps {
   practitioner?: Practitioner | undefined;
   chartNoteStatus?: ChartNoteStatus;
   onStatusChange?: (status: Encounter['status']) => void;
+  onJoinVideo?: () => void;
   onTabChange?: (tab: string) => void;
   onSign?: (practitioner: Reference<Practitioner>, lock: boolean) => void;
   onSignLock?: (practitioner: Reference<Practitioner>) => void;
@@ -28,6 +29,7 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
     practitioner,
     chartNoteStatus = ChartNoteStatus.Unsigned,
     onStatusChange,
+    onJoinVideo,
     onTabChange,
     onSign,
   } = props;
@@ -136,7 +138,7 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
               radius="xl"
               size="sm"
               leftSection={<IconVideo size={16} />}
-              onClick={() => navigate(`/telehealth/${encounter.id}`)?.catch(console.error)}
+              onClick={() => (onJoinVideo ? onJoinVideo() : navigate(`/telehealth/${encounter.id}`)?.catch(console.error))}
             >
               Join video visit
             </Button>

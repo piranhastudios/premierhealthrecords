@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { ActionIcon, Alert, Badge, Group, Paper, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Alert, Badge, Divider, Group, Paper, ScrollArea, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import {
   IconMicrophone,
   IconMicrophoneOff,
   IconPhoneOff,
+  IconSend,
   IconVideo,
   IconVideoOff,
 } from '@tabler/icons-react';
@@ -62,6 +63,8 @@ export function VideoVisit(props: VideoVisitProps): JSX.Element {
   const [error, setError] = useState<string>();
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(!props.audioOnly);
+  const [messages, setMessages] = useState<{ mine: boolean; text: string }[]>([]);
+  const [chatText, setChatText] = useState('');
 
   const send = useCallback((msg: unknown): void => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -157,6 +160,9 @@ export function VideoVisit(props: VideoVisitProps): JSX.Element {
             case 'peer-left':
               setStatus('ended');
               break;
+            case 'chat':
+              setMessages((m) => [...m, { mine: false, text: String(msg.text ?? '') }]);
+              break;
             default:
               break;
           }
@@ -204,6 +210,16 @@ export function VideoVisit(props: VideoVisitProps): JSX.Element {
     onLeave?.();
   }, [send, onLeave]);
 
+  const sendChat = useCallback(() => {
+    const text = chatText.trim();
+    if (!text) {
+      return;
+    }
+    send({ type: 'chat', text });
+    setMessages((m) => [...m, { mine: true, text }]);
+    setChatText('');
+  }, [chatText, send]);
+
   return (
     <Stack gap="sm">
       <Group justify="space-between">
@@ -245,6 +261,39 @@ export function VideoVisit(props: VideoVisitProps): JSX.Element {
             <IconPhoneOff size={20} />
           </ActionIcon>
         </Tooltip>
+      </Group>
+
+      <Divider label="Chat" labelPosition="center" />
+      <ScrollArea h={140} type="auto">
+        <Stack gap={4}>
+          {messages.length === 0 && (
+            <Text size="xs" c="dimmed" ta="center">
+              No messages yet
+            </Text>
+          )}
+          {messages.map((m, i) => (
+            <Text key={i} size="sm" ta={m.mine ? 'right' : 'left'} c={m.mine ? 'blue' : undefined}>
+              {m.text}
+            </Text>
+          ))}
+        </Stack>
+      </ScrollArea>
+      <Group gap="xs" wrap="nowrap">
+        <TextInput
+          flex={1}
+          size="sm"
+          placeholder="Type a message"
+          value={chatText}
+          onChange={(e) => setChatText(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              sendChat();
+            }
+          }}
+        />
+        <ActionIcon size="lg" variant="filled" onClick={sendChat} aria-label="Send message">
+          <IconSend size={16} />
+        </ActionIcon>
       </Group>
     </Stack>
   );

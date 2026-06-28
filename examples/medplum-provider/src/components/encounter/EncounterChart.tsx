@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Card, Stack, Textarea, Title } from '@mantine/core';
+import { Box, Card, Flex, Stack, Textarea, Title } from '@mantine/core';
 import type { WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
 import type { ClinicalImpression, Encounter, Practitioner, Provenance, Reference, Task } from '@medplum/fhirtypes';
@@ -13,6 +13,7 @@ import { useEncounterChart } from '../../hooks/useEncounterChart';
 import { ChartNoteStatus } from '../../types/encounter';
 import { updateEncounterStatus } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
+import { VideoVisit } from '../telehealth/VideoVisit';
 import { TaskPanel } from '../tasks/encounter/TaskPanel';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
@@ -39,6 +40,7 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
   const medplum = useMedplum();
 
   const [activeTab, setActiveTab] = useState('notes');
+  const [videoOpen, setVideoOpen] = useState(false);
   const {
     encounter,
     patient: patientResource,
@@ -230,8 +232,10 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
           onStatusChange={handleEncounterStatusChange}
           onTabChange={handleTabChange}
           onSign={handleSign}
+          onJoinVideo={() => setVideoOpen(true)}
         />
-        <Box p="md">
+        <Flex align="flex-start" gap={0}>
+          <Box p="md" style={{ flex: 1, minWidth: 0 }}>
           {activeTab === 'notes' && (
             <Stack gap="md">
               <SignAddendum encounter={encounter} provenances={provenances} chartNoteStatus={chartNoteStatus} />
@@ -274,7 +278,23 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
               chartNoteStatus={chartNoteStatus}
             />
           )}
-        </Box>
+          </Box>
+          {videoOpen && (
+            <Box
+              p="md"
+              style={{
+                width: 400,
+                flexShrink: 0,
+                alignSelf: 'stretch',
+                borderLeft: '1px solid var(--mantine-color-gray-3)',
+                position: 'sticky',
+                top: 0,
+              }}
+            >
+              <VideoVisit roomId={encounter.id as string} onLeave={() => setVideoOpen(false)} />
+            </Box>
+          )}
+        </Flex>
       </Stack>
     </>
   );
