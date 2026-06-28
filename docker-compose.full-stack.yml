@@ -124,7 +124,9 @@ services:
       retries: 5
     labels:
       # Image exposes both 5000 and 8103; force Traefik to use 8103 for the auto-generated service.
-      - traefik.http.services.http-0-${COOLIFY_RESOURCE_UUID}-medplum-server.loadbalancer.server.port=8103
+      # UUID is hard-coded because Coolify v4.0.0 does not expand ${COOLIFY_RESOURCE_UUID} in labels;
+      # it must match the router name Coolify generates: http-0-<app-uuid>-medplum-server.
+      - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-server.loadbalancer.server.port=8103
 
   # Medplum app container (web UI)
   medplum-app:
@@ -140,6 +142,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      # Image exposes both 3000 and 8080; force Traefik to use 3000 for the auto-generated service.
+      # UUID hard-coded (Coolify v4.0.0 does not expand ${COOLIFY_RESOURCE_UUID} in labels).
+      - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-app.loadbalancer.server.port=3000
 
   # Medplum Provider app (provider-facing EHR UI)
   medplum-provider:
@@ -159,6 +165,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      # Bind Traefik's auto-generated router to the nginx port (80).
+      # UUID hard-coded (Coolify v4.0.0 does not expand ${COOLIFY_RESOURCE_UUID} in labels).
+      - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-provider.loadbalancer.server.port=80
 
   # One-shot: load Premier Health reference data (terminology, insurers, care
   # templates) once the server is healthy. Idempotent — re-runs safely on each
