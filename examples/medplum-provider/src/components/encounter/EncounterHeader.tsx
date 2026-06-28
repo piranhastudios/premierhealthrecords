@@ -4,9 +4,10 @@ import { ActionIcon, Box, Button, Flex, Group, Menu, Modal, Paper, SegmentedCont
 import { useDisclosure } from '@mantine/hooks';
 import { formatDate, formatHumanName } from '@medplum/core';
 import type { Encounter, Patient, Practitioner, Reference } from '@medplum/fhirtypes';
-import { IconChevronDown, IconLock, IconLockOpen, IconShieldCheck } from '@tabler/icons-react';
+import { IconChevronDown, IconLock, IconLockOpen, IconShieldCheck, IconVideo } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { ChartNoteStatus } from '../../types/encounter';
 import { EncounterCoverageEligibilityModal } from './EncounterCoverageEligibilityModal';
 import { SignLockDialog } from './SignLockDialog';
@@ -30,6 +31,7 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
     onTabChange,
     onSign,
   } = props;
+  const navigate = useNavigate();
   const [status, setStatus] = useState<Encounter['status']>(encounter.status);
   const [activeTab, setActiveTab] = useState('notes');
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
@@ -128,6 +130,16 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
             </Text>
           </Stack>
           <Group>
+            <Button
+              variant="light"
+              color="teal"
+              radius="xl"
+              size="sm"
+              leftSection={<IconVideo size={16} />}
+              onClick={() => navigate(`/telehealth/${encounter.id}`)?.catch(console.error)}
+            >
+              Join video visit
+            </Button>
             <Button
               variant="light"
               color="blue"
