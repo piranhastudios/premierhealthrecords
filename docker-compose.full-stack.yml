@@ -152,13 +152,15 @@ services:
 
   # Medplum Provider app (provider-facing EHR UI)
   medplum-provider:
-    build:
-      context: examples/medplum-provider
-      dockerfile: Dockerfile
-      args:
-        # Baked into the Vite bundle at build time. Must be HTTPS same-origin so the
-        # provider UI (served over HTTPS) does not trigger mixed-content blocking.
-        VITE_MEDPLUM_BASE_URL: 'https://app.premierhealthcentres.com/api/'
+    # Deploy the PRE-BUILT custom provider image, NOT a fresh build of
+    # examples/medplum-provider. The custom image is built from the local monorepo
+    # workspace (Premier Health branding + @medplum/* customizations baked in);
+    # building examples/medplum-provider here pulls @medplum/react from npm and
+    # therefore drops those workspace customizations. The image already has
+    # VITE_MEDPLUM_BASE_URL=https://app.premierhealthcentres.com/api baked in.
+    # It lives locally on the host — never pull it from a registry.
+    image: medplum-provider-custom:latest
+    pull_policy: never
     restart: unless-stopped
     depends_on:
       medplum-server:
