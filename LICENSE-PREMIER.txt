@@ -1,0 +1,110 @@
+Premier Health EHR — Proprietary License
+Copyright © 2026 Piranha Studios. All rights reserved.
+
+1. SCOPE
+
+   This license governs the components of the Premier Health EHR software
+   that were developed by Piranha Studios (the "Proprietary Components"),
+   as distinguished from third-party and open-source components that are
+   licensed under their own terms (see LICENSING.md and LICENSE.txt).
+
+   The Proprietary Components include all source code, configuration,
+   designs, documentation, and assets authored by Piranha Studios that are
+   not derived from Medplum or from any other Apache-2.0 or open-source
+   work. This license does not apply to, and does not restrict any rights
+   you have in, those third-party or open-source components.
+
+2. OWNERSHIP
+
+   The Proprietary Components are the exclusive property of Piranha Studios
+   and are protected by copyright and other intellectual property laws and
+   treaties. No title to or ownership of the Proprietary Components is
+   transferred by this license. All rights not expressly granted are
+   reserved by Piranha Studios.
+
+3. GRANT OF LICENSE — INTERNAL USE
+
+   Subject to a valid written agreement with Piranha Studios and to
+   continued compliance with this license, each licensed organization (the
+   "Licensee") is granted a non-exclusive, non-transferable, non-
+   sublicensable, revocable license to install, run, and use the
+   Proprietary Components solely for the Licensee's own internal healthcare
+   operations, on systems operated by or on behalf of the Licensee.
+
+   This grant includes operating the software on the Licensee's own
+   premises and hardware ("on-premise" deployment) where provided as part
+   of the governing agreement.
+
+4. RESTRICTIONS
+
+   Except as expressly permitted in Section 3 or by applicable law that
+   cannot be contractually overridden, the Licensee shall not:
+
+   (a) copy, distribute, publish, sell, rent, lease, lend, or otherwise
+       make the Proprietary Components available to any third party;
+
+   (b) sublicense, assign, or transfer the Proprietary Components or any
+       rights under this license;
+
+   (c) modify, adapt, translate, or create derivative works of the
+       Proprietary Components;
+
+   (d) reverse engineer, decompile, disassemble, or otherwise attempt to
+       derive the source code of any object-code form of the Proprietary
+       Components, except to the extent this restriction is prohibited by
+       applicable law; or
+
+   (e) remove, obscure, or alter any copyright, trademark, or other
+       proprietary notices.
+
+5. THIRD-PARTY AND OPEN-SOURCE COMPONENTS
+
+   Premier Health EHR is a derivative work of Medplum and incorporates
+   components licensed under the Apache License, Version 2.0, and other
+   open-source licenses. Those components remain governed by their
+   respective licenses (see LICENSE.txt, NOTICE, and LICENSING.md).
+   Nothing in this license limits, supersedes, or modifies any rights or
+   obligations under those licenses.
+
+6. CONFIDENTIALITY
+
+   The Proprietary Components, including their source code and design, are
+   the confidential and proprietary information of Piranha Studios. The
+   Licensee shall protect them with at least the same degree of care it
+   uses for its own confidential information, and no less than a
+   reasonable degree of care.
+
+7. NO WARRANTY
+
+   THE PROPRIETARY COMPONENTS ARE PROVIDED "AS IS" AND "AS AVAILABLE",
+   WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+   LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+   PURPOSE, TITLE, AND NON-INFRINGEMENT. PIRANHA STUDIOS DOES NOT WARRANT
+   THAT THE PROPRIETARY COMPONENTS WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+8. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
+   PIRANHA STUDIOS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+   CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA,
+   OR GOODWILL, ARISING OUT OF OR RELATED TO THE PROPRIETARY COMPONENTS OR
+   THIS LICENSE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+9. TERMINATION
+
+   This license terminates automatically upon any breach of its terms by
+   the Licensee, or upon termination or expiry of the governing written
+   agreement with Piranha Studios. Upon termination, the Licensee shall
+   cease all use of the Proprietary Components and destroy all copies in
+   its possession or control. Sections 2, 4, 6, 7, 8, and 10 survive
+   termination.
+
+10. GENERAL
+
+   This license, together with the governing written agreement between the
+   parties, constitutes the entire agreement regarding the Proprietary
+   Components and supersedes any prior understandings on that subject. If
+   any provision is held unenforceable, the remaining provisions remain in
+   full force.
+
+For licensing inquiries, contact: info@piranha-studios.co.uk

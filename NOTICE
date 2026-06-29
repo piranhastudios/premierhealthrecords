@@ -18,3 +18,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+------------------------------------------------------------------------
+
+Premier Health EHR
+Copyright © 2026 Piranha Studios. All rights reserved.
+
+Premier Health EHR is a modified derivative work based on Medplum (above),
+used under the Apache License, Version 2.0. Files from the original Medplum
+work have been added to, modified, and removed by Piranha Studios.
+
+The Medplum-derived portions of this product remain licensed under the
+Apache License, Version 2.0 (see LICENSE.txt). Components newly developed
+by Piranha Studios are proprietary and are licensed under separate terms
+(see LICENSE-PREMIER.txt and LICENSING.md), not under the Apache License.
+
+For licensing inquiries: info@piranha-studios.co.uk
