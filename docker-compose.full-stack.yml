@@ -152,15 +152,19 @@ services:
 
   # Medplum Provider app (provider-facing EHR UI)
   medplum-provider:
-    # Deploy the PRE-BUILT custom provider image, NOT a fresh build of
-    # examples/medplum-provider. The custom image is built from the local monorepo
-    # workspace (Premier Health branding + @medplum/* customizations baked in);
-    # building examples/medplum-provider here pulls @medplum/react from npm and
-    # therefore drops those workspace customizations. The image already has
-    # VITE_MEDPLUM_BASE_URL=https://app.premierhealthcentres.com/api baked in.
-    # It lives locally on the host — never pull it from a registry.
-    image: medplum-provider-custom:latest
-    pull_policy: never
+    # Build from the monorepo workspace so local @medplum/* customizations
+    # (Premier Health branding in packages/react, telehealth UI) are baked in and
+    # a push to main rebuilds the provider. Building examples/medplum-provider in
+    # isolation would pull @medplum/react from npm and drop those customizations.
+    # See Dockerfile.provider. VITE_* are inlined at build time.
+    build:
+      context: .
+      dockerfile: Dockerfile.provider
+      args:
+        VITE_MEDPLUM_BASE_URL: 'https://app.premierhealthcentres.com/api/'
+        VITE_TURN_URL: '${VITE_TURN_URL:-}'
+        VITE_TURN_USERNAME: '${VITE_TURN_USERNAME:-telehealth}'
+        VITE_TURN_CREDENTIAL: '${VITE_TURN_CREDENTIAL:-}'
     restart: unless-stopped
     depends_on:
       medplum-server:

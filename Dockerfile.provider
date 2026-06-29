@@ -1,0 +1,31 @@
+# Self-contained, from-source build of the medplum-provider app for self-hosting
+# (Coolify / plain docker compose). Builds the Vite app from the FULL monorepo
+# workspace so the LOCAL @medplum/* packages (Premier Health branding in
+# packages/react, telehealth UI, etc.) are baked in. Building examples/medplum-provider
+# in isolation pulls @medplum/react from npm and drops those customizations.
+
+# Stage 1: build the provider (and its workspace deps) from source.
+FROM node:24-bookworm-slim AS build
+WORKDIR /usr/src/medplum
+
+# Vite inlines these at build time; real values come from Coolify build args.
+ARG VITE_MEDPLUM_BASE_URL=https://app.premierhealthcentres.com/api/
+ARG VITE_TURN_URL=
+ARG VITE_TURN_USERNAME=
+ARG VITE_TURN_CREDENTIAL=
+ENV VITE_MEDPLUM_BASE_URL=${VITE_MEDPLUM_BASE_URL} \
+    VITE_TURN_URL=${VITE_TURN_URL} \
+    VITE_TURN_USERNAME=${VITE_TURN_USERNAME} \
+    VITE_TURN_CREDENTIAL=${VITE_TURN_CREDENTIAL}
+
+COPY . .
+RUN npm ci
+# turbo builds workspace deps (^build -> @medplum/react, core, ...) before the
+# provider, so packages/react/dist/esm/index.css exists for the vite alias.
+RUN npx turbo run build --filter=medplum-provider
+
+# Stage 2: serve the static SPA via nginx on port 80 (SPA fallback for react-router).
+FROM nginx:alpine
+COPY --from=build /usr/src/medplum/examples/medplum-provider/dist /usr/share/nginx/html
+RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location / {\n    try_files $uri $uri/ /index.html;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
+EXPOSE 80
