@@ -152,14 +152,17 @@ services:
 
   # Medplum Provider app (provider-facing EHR UI)
   medplum-provider:
-    # TEMPORARY: run the pre-built medplum-provider-custom:latest image (lives on
-    # the host) to keep prod up. The from-workspace build in Dockerfile.provider is
-    # WIP: a clean `vite build` can't resolve @medplum/dosespot-core (imported by
-    # packages/dosespot-react/src/common.ts) because that sibling package has no
-    # dist and isn't aliased to /src. Switch back to `build:` once that is fixed
-    # and the build is verified locally.
-    image: medplum-provider-custom:latest
-    pull_policy: never
+    # Build from the monorepo workspace so local @medplum/* customizations
+    # (Premier Health branding in packages/react, telehealth UI) are baked in and
+    # a push to main rebuilds the provider. See Dockerfile.provider.
+    build:
+      context: .
+      dockerfile: Dockerfile.provider
+      args:
+        VITE_MEDPLUM_BASE_URL: 'https://app.premierhealthcentres.com/api/'
+        VITE_TURN_URL: '${VITE_TURN_URL:-}'
+        VITE_TURN_USERNAME: '${VITE_TURN_USERNAME:-telehealth}'
+        VITE_TURN_CREDENTIAL: '${VITE_TURN_CREDENTIAL:-}'
     restart: unless-stopped
     depends_on:
       medplum-server:

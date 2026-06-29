@@ -20,13 +20,19 @@ ENV VITE_MEDPLUM_BASE_URL=${VITE_MEDPLUM_BASE_URL} \
 
 COPY . .
 RUN npm ci
-# Build only the @medplum/react CSS artifact the provider's vite alias needs
-# (packages/react/dist/esm/index.css, imported as '@medplum/react/styles.css').
-# We can't run the package's full `build` (npm run clean && tsc && ...) because
-# its tsc step type-checks test files and one imports react-router-dom (not a
-# dependency), which fails on a clean install. esbuild bundles from src and emits
-# the CSS without type-checking, so it sidesteps that.
-RUN cd packages/react && node esbuild.mjs
+# Build dist for the @medplum workspace packages in the provider's runtime graph
+# via esbuild (NOT the packages' full `build`, whose `tsc` step type-checks test
+# files — one imports react-router-dom, not a dep, and fails on a clean install).
+# esbuild bundles from src without type-checking. The provider's vite build reads
+# directly-used packages from /src via config aliases, but their transitive,
+# non-aliased imports (e.g. @medplum/dosespot-core, pulled in by dosespot-react)
+# resolve to these dists. Building react here also emits dist/esm/index.css, which
+# the provider imports as '@medplum/react/styles.css'.
+RUN set -eux; for p in core react-hooks react fhir-router mock \
+      dosespot-core dosespot-react scriptsure-react \
+      health-gorilla-core health-gorilla-react; do \
+      if [ -f "packages/$p/esbuild.mjs" ]; then ( cd "packages/$p" && node esbuild.mjs ); fi; \
+    done
 # Build the provider with vite directly. Its npm `build` is `tsc && vite build`;
 # we skip tsc (vite transpiles without a full typecheck). Vite resolves every
 # @medplum/* import to local source via the config aliases, baking in the Premier
