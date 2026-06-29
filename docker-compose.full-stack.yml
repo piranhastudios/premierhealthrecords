@@ -131,22 +131,32 @@ services:
       # it must match the router name Coolify generates: http-0-<app-uuid>-medplum-server.
       - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-server.loadbalancer.server.port=8103
 
-  # Medplum app container (web UI)
+  # Medplum app container (admin web UI)
   medplum-app:
-    image: medplum/medplum-app:latest
+    # Build from the monorepo workspace so local @medplum/* customizations (Premier
+    # Health branding in packages/react + packages/app static/index.html) are baked
+    # in and a push to main rebuilds the admin app. See Dockerfile.app. The image
+    # entrypoint sed-replaces build-time config tokens from the env below at startup.
+    build:
+      context: .
+      dockerfile: Dockerfile.app
     restart: unless-stopped
     depends_on:
       medplum-server:
         condition: service_healthy
+    environment:
+      # Entrypoint replaces the build-time __MEDPLUM_BASE_URL__ token with this.
+      MEDPLUM_BASE_URL: 'https://app.premierhealthcentres.com/api/'
     ports:
       - '3000:3000'
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3000']
+      # nginx-unprivileged:alpine ships busybox wget, not curl.
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000']
       interval: 10s
       timeout: 5s
       retries: 5
     labels:
-      # Image exposes both 3000 and 8080; force Traefik to use 3000 for the auto-generated service.
+      # Force Traefik to use port 3000 for the auto-generated service.
       # UUID hard-coded (Coolify v4.0.0 does not expand ${COOLIFY_RESOURCE_UUID} in labels).
       - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-app.loadbalancer.server.port=3000
 
