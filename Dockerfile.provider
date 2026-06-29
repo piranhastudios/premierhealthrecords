@@ -20,9 +20,18 @@ ENV VITE_MEDPLUM_BASE_URL=${VITE_MEDPLUM_BASE_URL} \
 
 COPY . .
 RUN npm ci
-# turbo builds workspace deps (^build -> @medplum/react, core, ...) before the
-# provider, so packages/react/dist/esm/index.css exists for the vite alias.
-RUN npx turbo run build --filter=medplum-provider
+# Build only the @medplum/react CSS artifact the provider's vite alias needs
+# (packages/react/dist/esm/index.css, imported as '@medplum/react/styles.css').
+# We can't run the package's full `build` (npm run clean && tsc && ...) because
+# its tsc step type-checks test files and one imports react-router-dom (not a
+# dependency), which fails on a clean install. esbuild bundles from src and emits
+# the CSS without type-checking, so it sidesteps that.
+RUN cd packages/react && node esbuild.mjs
+# Build the provider with vite directly. Its npm `build` is `tsc && vite build`;
+# we skip tsc (vite transpiles without a full typecheck). Vite resolves every
+# @medplum/* import to local source via the config aliases, baking in the Premier
+# Health branding. VITE_* are read from the build env set above.
+RUN cd examples/medplum-provider && npx vite build
 
 # Stage 2: serve the static SPA via nginx on port 80 (SPA fallback for react-router).
 FROM nginx:alpine
