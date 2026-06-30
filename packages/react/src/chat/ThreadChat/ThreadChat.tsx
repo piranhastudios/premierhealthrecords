@@ -5,7 +5,18 @@ import type { Communication, CommunicationPayload, DocumentReference, Reference 
 import { useMedplum, useMedplumProfile, usePrevious } from '@medplum/react-hooks';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { SendMessageOptions } from '../BaseChat/BaseChat';
 import { BaseChat } from '../BaseChat/BaseChat';
+import { ChannelReplyControls } from '../ChannelReply/ChannelReplyControls';
+import type { SelectedTemplate } from '../ChannelReply/constants';
+import {
+  channelToMedium,
+  getThreadChannel,
+  getWhatsappWindowExpiresAt,
+  isWhatsappWindowOpen,
+  whatsappTemplateExtension,
+} from '../ChannelReply/constants';
+import { WhatsAppWindowBanner } from '../ChannelReply/WhatsAppWindowBanner';
 
 export interface ThreadChatProps {
   readonly thread: Communication;
@@ -29,6 +40,11 @@ export function ThreadChat(props: ThreadChatProps): JSX.Element | null {
   const profileRef = useMemo(() => (profile ? createReference(profile) : undefined), [profile]);
   const threadRef = useMemo(() => createReference(thread), [thread]);
 
+  // Channel awareness derived entirely from the thread header.
+  const channel = useMemo(() => getThreadChannel(thread), [thread]);
+  const windowExpiresAt = useMemo(() => getWhatsappWindowExpiresAt(thread), [thread]);
+  const whatsappWindowClosed = channel === 'whatsapp' && !isWhatsappWindowOpen(thread);
+
   useEffect(() => {
     if (thread?.id !== prevThreadId) {
       setCommunications([]);
@@ -36,7 +52,7 @@ export function ThreadChat(props: ThreadChatProps): JSX.Element | null {
   }, [thread?.id, prevThreadId]);
 
   const sendMessage = useCallback(
-    (message: string, file?: File, existingDocRef?: DocumentReference) => {
+    (message: string, file?: File, existingDocRef?: DocumentReference, options?: SendMessageOptions) => {
       const profileRefStr = profileRef ? getReferenceString(profileRef) : undefined;
       if (!profileRefStr) {
         return;
@@ -70,14 +86,27 @@ export function ThreadChat(props: ThreadChatProps): JSX.Element | null {
           payload,
           partOf: [threadRef],
           subject: thread.subject,
+          // Stamp the thread's channel so the outbound bot knows how to deliver it.
+          ...(channel ? { medium: [channelToMedium(channel)] } : {}),
+          // Carry the WhatsApp template intent for the outbound bot to resolve.
+          ...(options?.templateSid
+            ? { extension: [whatsappTemplateExtension({ sid: options.templateSid, vars: options.templateVars ?? {} })] }
+            : {}),
         });
-        setCommunications([...communications, communication]);
+        setCommunications((prev) => [...prev, communication]);
         onMessageSent?.(communication);
       };
 
       buildAndSend().catch(console.error);
     },
-    [medplum, profileRef, thread, threadRef, communications, onMessageSent]
+    [medplum, profileRef, thread, threadRef, channel, onMessageSent]
+  );
+
+  const handleSendTemplate = useCallback(
+    (template: SelectedTemplate) => {
+      sendMessage(template.preview, undefined, undefined, { templateSid: template.sid, templateVars: template.vars });
+    },
+    [sendMessage]
   );
 
   // Currently we only support `delivered` on chats with 2 participants
@@ -116,12 +145,17 @@ export function ThreadChat(props: ThreadChatProps): JSX.Element | null {
       query={`part-of=Communication/${thread.id as string}`}
       sendMessage={sendMessage}
       onMessageReceived={onMessageReceived}
-      inputDisabled={inputDisabled}
+      inputDisabled={inputDisabled || whatsappWindowClosed}
+      inputDisabledReason={whatsappWindowClosed ? 'WhatsApp 24h window closed — send an approved template' : undefined}
       excludeHeader={excludeHeader}
       uploadEnabled={uploadEnabled}
       onError={onError}
       attachmentSubjectRef={thread.subject}
       onViewInDocuments={onViewInDocuments}
+      headerBanner={channel === 'whatsapp' ? <WhatsAppWindowBanner expiresAt={windowExpiresAt} /> : undefined}
+      inputAccessory={
+        channel ? <ChannelReplyControls channel={channel} onSendTemplate={handleSendTemplate} /> : undefined
+      }
     />
   );
 }

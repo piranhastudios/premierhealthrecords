@@ -30,7 +30,7 @@ import {
   IconPaperclip,
   IconX,
 } from '@tabler/icons-react';
-import type { JSX, LegacyRef } from 'react';
+import type { JSX, LegacyRef, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Form } from '../../Form/Form';
 import { ResourceAvatar } from '../../ResourceAvatar/ResourceAvatar';
@@ -106,20 +106,37 @@ function upsertCommunications(
   setCommunications(newCommunications);
 }
 
+/** Extra options passed through `sendMessage` for channel-aware sends (e.g. WhatsApp templates). */
+export interface SendMessageOptions {
+  readonly templateSid?: string;
+  readonly templateVars?: Record<string, string>;
+}
+
 export interface BaseChatProps extends PaperProps {
   readonly title: string;
   readonly communications: Communication[];
   readonly setCommunications: (communications: Communication[]) => void;
   readonly query: string;
-  readonly sendMessage: (content: string, file?: File, existingDocRef?: DocumentReference) => void;
+  readonly sendMessage: (
+    content: string,
+    file?: File,
+    existingDocRef?: DocumentReference,
+    options?: SendMessageOptions
+  ) => void;
   readonly onMessageReceived?: (message: Communication) => void;
   readonly onMessageUpdated?: (message: Communication) => void;
   readonly inputDisabled?: boolean;
+  /** Overrides the placeholder shown when the input is disabled. */
+  readonly inputDisabledReason?: string;
   readonly excludeHeader?: boolean;
   readonly onError?: (err: Error) => void;
   readonly uploadEnabled?: boolean;
   readonly attachmentSubjectRef?: Reference;
   readonly onViewInDocuments?: (reference: Reference<DocumentReference>) => void;
+  /** Slot rendered between the title and the message list (e.g. a 24h-window banner). */
+  readonly headerBanner?: ReactNode;
+  /** Slot rendered just above the reply input (e.g. channel chip + template picker). */
+  readonly inputAccessory?: ReactNode;
 }
 
 /**
@@ -140,11 +157,14 @@ export function BaseChat(props: BaseChatProps): JSX.Element | null {
     onMessageReceived,
     onMessageUpdated,
     inputDisabled,
+    inputDisabledReason,
     onError,
     excludeHeader = false,
     uploadEnabled = false,
     attachmentSubjectRef,
     onViewInDocuments,
+    headerBanner,
+    inputAccessory,
     ...paperProps
   } = props;
   const medplum = useMedplum();
@@ -321,6 +341,7 @@ export function BaseChat(props: BaseChatProps): JSX.Element | null {
           {title}
         </Title>
       )}
+      {headerBanner}
       <div className={classes.chatBody} ref={parentRef as LegacyRef<HTMLDivElement>}>
         {initialLoadRef.current ? (
           <Stack key="skeleton-chat-messages" align="stretch" mt="lg">
@@ -432,11 +453,12 @@ export function BaseChat(props: BaseChatProps): JSX.Element | null {
             }
           }}
         />
+        {inputAccessory}
         <Form onSubmit={sendMessageInternal}>
           <TextInput
             ref={inputRef}
             name="message"
-            placeholder={!inputDisabled ? 'Type a message...' : 'Replies are disabled'}
+            placeholder={!inputDisabled ? 'Type a message...' : (inputDisabledReason ?? 'Replies are disabled')}
             radius="xl"
             leftSectionWidth={42}
             rightSectionWidth={42}

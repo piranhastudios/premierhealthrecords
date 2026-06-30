@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Modal, SegmentedControl, Stack, Text, TextInput } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, HTTP_HL7_ORG, normalizeErrorString } from '@medplum/core';
 import type {
@@ -16,6 +16,8 @@ import type { JSX } from 'react';
 import { useMemo, useState } from 'react';
 import { QuestionnaireForm } from '../../QuestionnaireForm/QuestionnaireForm';
 import { ResourceInput } from '../../ResourceInput/ResourceInput';
+import type { MessagingChannel } from '../ChannelReply/constants';
+import { channelToMedium } from '../ChannelReply/constants';
 
 /**
  * Props for the NewTopicDialog component.
@@ -40,6 +42,7 @@ export const NewTopicDialog = (props: NewTopicDialogProps): JSX.Element => {
   const profileRef = useMemo(() => (profile ? createReference(profile) : undefined), [profile]);
 
   const [topic, setTopic] = useState('');
+  const [channel, setChannel] = useState<MessagingChannel>('whatsapp');
   const [practitioners, setPractitioners] = useState(
     profile?.resourceType === 'Practitioner' ? [createReference(profile) as Reference<Practitioner>] : []
   );
@@ -85,6 +88,7 @@ export const NewTopicDialog = (props: NewTopicDialogProps): JSX.Element => {
           reference: practitioner.reference,
         })),
       ],
+      medium: [channelToMedium(channel)],
       topic: {
         text: topic,
       },
@@ -137,6 +141,20 @@ export const NewTopicDialog = (props: NewTopicDialogProps): JSX.Element => {
                   .filter((ref): ref is Reference<Practitioner> => ref !== undefined) ?? [];
               setPractitioners(references);
             }}
+          />
+        </Stack>
+
+        <Stack gap={4}>
+          <Text fw={500}>Channel</Text>
+          <Text c="dimmed">How should this patient be contacted?</Text>
+
+          <SegmentedControl
+            value={channel}
+            onChange={(value) => setChannel(value as MessagingChannel)}
+            data={[
+              { label: 'WhatsApp', value: 'whatsapp' },
+              { label: 'Email', value: 'email' },
+            ]}
           />
         </Stack>
 

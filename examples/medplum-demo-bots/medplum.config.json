@@ -137,6 +137,30 @@
       "id": "",
       "source": "src/spaces-bots/fhir-visualizer-bot.ts",
       "dist": "dist/spaces-bots/fhir-visualizer-bot.js"
+    },
+    {
+      "name": "premierhealth-outbound-dispatch",
+      "id": "",
+      "source": "src/premierhealth/outbound-dispatch.ts",
+      "dist": "dist/premierhealth/outbound-dispatch.js"
+    },
+    {
+      "name": "premierhealth-twilio-whatsapp-inbound",
+      "id": "",
+      "source": "src/premierhealth/twilio-whatsapp-inbound.ts",
+      "dist": "dist/premierhealth/twilio-whatsapp-inbound.js"
+    },
+    {
+      "name": "premierhealth-twilio-status-callback",
+      "id": "",
+      "source": "src/premierhealth/twilio-status-callback.ts",
+      "dist": "dist/premierhealth/twilio-status-callback.js"
+    },
+    {
+      "name": "premierhealth-inbound-email",
+      "id": "",
+      "source": "src/premierhealth/inbound-email.ts",
+      "dist": "dist/premierhealth/inbound-email.js"
     }
   ]
 }
