@@ -4,7 +4,7 @@ import { indexSearchParameterBundle, indexStructureDefinitionBundle, unauthorize
 import { readJson, SEARCH_PARAMETER_BUNDLE_FILES } from '@medplum/definitions';
 import type { Bundle, Communication, Patient, Practitioner, SearchParameter } from '@medplum/fhirtypes';
 import { MockClient } from '@medplum/mock';
-import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { IDENTIFIER } from './lib/constants';
 import { getEmailHeaders } from './lib/extensions';
 import { handler } from './inbound-email';
@@ -47,6 +47,24 @@ describe('inbound-email bot', () => {
       name: [{ given: ['Jane'], family: 'Doe' }],
       telecom: [{ system: 'email', value: 'jane@example.com' }],
     });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function resendEvent(data: Record<string, any>): any {
+    return {
+      bot: { reference: 'Bot/x' },
+      input: { type: 'email.received', data },
+      headers: {},
+      secrets: {
+        INBOUND_EMAIL_PROVIDER: { name: 'INBOUND_EMAIL_PROVIDER', valueString: 'resend' },
+        RESEND_API_KEY: { name: 'RESEND_API_KEY', valueString: 're_key' },
+        TRIAGE_RECIPIENT: { name: 'TRIAGE_RECIPIENT', valueString: `Practitioner/${triage.id}` },
+      },
+      contentType: 'application/json',
+    };
   }
 
   test('rejects when shared secret is wrong', async () => {
@@ -116,5 +134,46 @@ describe('inbound-email bot', () => {
     expect(header.subject).toBeUndefined();
     const tasks = await medplum.searchResources('Task', { code: 'triage-message' });
     expect(tasks.length).toBe(1);
+  });
+
+  test('resend: fetches body from the receiving API and creates the child', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(String(url)).toContain('/emails/receiving/eml_1');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          text: 'Hello from email',
+          headers: [{ name: 'In-Reply-To', value: '<prev@x>' }],
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock as any);
+    const patient = await makePatient();
+
+    const child = (await handler(
+      medplum,
+      resendEvent({
+        email_id: 'eml_1',
+        from: 'jane@example.com',
+        to: ['care@premierhealth.cm'],
+        subject: 'Q',
+        message_id: '<m1@x>',
+      })
+    )) as Communication;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no attachments → no second call
+    expect(child.sender?.reference).toBe(`Patient/${patient.id}`);
+    expect(child.payload?.[0]?.contentString).toBe('Hello from email');
+    expect(getEmailHeaders(child)?.messageId).toBe('<m1@x>');
+    expect(getEmailHeaders(child)?.inReplyTo).toBe('<prev@x>');
+  });
+
+  test('resend: ignores non-received events', async () => {
+    const result = await handler(medplum, {
+      ...resendEvent({ email_id: 'eml_1' }),
+      input: { type: 'email.delivered', data: { email_id: 'eml_1' } },
+    });
+    expect(result).toEqual({ skipped: 'ignored-event:email.delivered' });
   });
 });

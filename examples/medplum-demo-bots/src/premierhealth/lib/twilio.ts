@@ -11,22 +11,47 @@ import type { BotEvent, MedplumClient } from '@medplum/core';
 import type { ProjectSetting } from '@medplum/fhirtypes';
 import { toWhatsappAddress } from './phone';
 
+// Twilio's shared WhatsApp Sandbox sender.
+export const TWILIO_SANDBOX_NUMBER = '+14155238886';
+
 export interface TwilioConfig {
   accountSid: string;
   authToken: string;
-  // The WhatsApp sender, e.g. `+14155238886` (without the `whatsapp:` prefix).
+  // The resolved WhatsApp sender (without the `whatsapp:` prefix).
   whatsappFrom: string;
+  // True when running against the Twilio WhatsApp Sandbox (dev mode).
+  sandbox: boolean;
 }
 
 // Read and validate the Twilio secrets from a bot event.
+//
+// Dev-mode flag: set the `TWILIO_SANDBOX` secret to `true` to use the Twilio WhatsApp
+// Sandbox number (override via `TWILIO_SANDBOX_NUMBER`); otherwise the production
+// sender `TWILIO_WHATSAPP_NUMBER` is used.
+//
+// Credentials: production always uses `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`. In
+// sandbox mode, the optional `TWILIO_TEST_ACCOUNT_SID` / `TWILIO_TEST_AUTH_TOKEN` pair
+// is used if present, else it falls back to the live pair. NOTE: Twilio *test*
+// credentials only reach the REST test API (magic numbers) and cannot send real
+// WhatsApp or validate sandbox inbound signatures — for real sandbox WhatsApp testing
+// leave `TWILIO_TEST_*` unset so the live credentials are used with the sandbox number.
 export function twilioConfigFromSecrets(secrets: Record<string, ProjectSetting>): TwilioConfig {
-  const accountSid = secrets['TWILIO_ACCOUNT_SID']?.valueString;
-  const authToken = secrets['TWILIO_AUTH_TOKEN']?.valueString;
-  const whatsappFrom = secrets['TWILIO_WHATSAPP_NUMBER']?.valueString;
+  const sandbox = (secrets['TWILIO_SANDBOX']?.valueString ?? 'false').toLowerCase() === 'true';
+  const liveSid = secrets['TWILIO_ACCOUNT_SID']?.valueString;
+  const liveToken = secrets['TWILIO_AUTH_TOKEN']?.valueString;
+  const accountSid = sandbox ? (secrets['TWILIO_TEST_ACCOUNT_SID']?.valueString ?? liveSid) : liveSid;
+  const authToken = sandbox ? (secrets['TWILIO_TEST_AUTH_TOKEN']?.valueString ?? liveToken) : liveToken;
+  const whatsappFrom = sandbox
+    ? (secrets['TWILIO_SANDBOX_NUMBER']?.valueString ?? TWILIO_SANDBOX_NUMBER)
+    : secrets['TWILIO_WHATSAPP_NUMBER']?.valueString;
   if (!accountSid || !authToken || !whatsappFrom) {
-    throw new Error('Missing Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER)');
+    throw new Error(
+      sandbox
+        ? 'Missing Twilio secrets (TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN, or TWILIO_TEST_ACCOUNT_SID/TWILIO_TEST_AUTH_TOKEN)'
+        : 'Missing Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER) — or set TWILIO_SANDBOX=true'
+    );
   }
-  return { accountSid, authToken, whatsappFrom };
+  return { accountSid, authToken, whatsappFrom, sandbox };
 }
 
 function basicAuth(config: TwilioConfig): string {
@@ -105,5 +130,7 @@ export async function getBotWebhookUrl(medplum: MedplumClient, event: BotEvent<a
   if (!membership) {
     throw new Error('Could not find the bot membership');
   }
-  return `${medplum.getBaseUrl()}/webhook/${resolveId(membership)}`;
+  // getBaseUrl() includes a trailing slash; strip it so the URL matches exactly what
+  // Twilio signs (a double slash would break signature validation).
+  return `${medplum.getBaseUrl().replace(/\/$/, '')}/webhook/${resolveId(membership)}`;
 }

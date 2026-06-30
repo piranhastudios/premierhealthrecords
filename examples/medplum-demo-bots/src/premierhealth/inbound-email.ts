@@ -4,10 +4,13 @@
 /**
  * Provider-agnostic inbound email webhook bot (public webhook).
  *
- * Verifies a shared secret, normalizes the provider payload (Resend / Mailgun /
- * SendGrid / SES) into one shape, resolves the patient by email, links the message
- * into the right thread using RFC-5322 In-Reply-To / References, records it
- * idempotently with its email headers, and raises a triage Task for unknown senders.
+ * Normalizes the inbound email into one shape — for Resend, the `email.received`
+ * webhook is metadata-only so the body/headers are fetched from the authenticated
+ * receiving API by email_id (which is also what authenticates it); other providers
+ * (Mailgun / SendGrid / SES / generic) include the body and use a shared-secret gate.
+ * Then resolves the patient by email, links the message into the right thread using
+ * RFC-5322 In-Reply-To / References, records it idempotently with its email headers,
+ * and raises a triage Task for unknown senders.
  */
 
 import { createReference, unauthorized } from '@medplum/core';
@@ -21,25 +24,46 @@ import type {
   Reference,
 } from '@medplum/fhirtypes';
 import { createHash } from 'node:crypto';
-import type { InboundEmailProvider, NormalizedInboundEmail } from './lib/email-adapters';
-import { normalizeInboundEmail } from './lib/email-adapters';
+import type { InboundEmailProvider, NormalizedInboundEmail, ResendInboundWebhookData } from './lib/email-adapters';
+import { fromResendReceived, normalizeInboundEmail } from './lib/email-adapters';
 import { IDENTIFIER } from './lib/constants';
 import { emailHeadersExtension } from './lib/extensions';
 import { verifySharedSecret } from './lib/security';
+import { fetchInboundAttachments, fetchInboundEmail, resendApiKeyFromSecrets } from './lib/resend';
 import { createStaffTask } from './lib/task';
 import { createInboundChild, createThreadHeader, findOpenThreadForPatient, findThreadByIdentifier } from './lib/thread';
 
-export async function handler(medplum: MedplumClient, event: BotEvent<any>): Promise<OperationOutcome | Communication> {
-  // 1. Authenticate via shared secret.
-  const expected = event.secrets['INBOUND_EMAIL_SIGNING_SECRET']?.valueString;
-  if (!verifySharedSecret(event, expected)) {
-    console.log('Unauthorized inbound email request');
-    return unauthorized;
+export async function handler(
+  medplum: MedplumClient,
+  event: BotEvent<any>
+): Promise<OperationOutcome | Communication | { skipped: string }> {
+  const provider = (event.secrets['INBOUND_EMAIL_PROVIDER']?.valueString ?? 'generic') as InboundEmailProvider;
+
+  // 1. Obtain a normalized inbound email. Auth differs per provider.
+  let email: NormalizedInboundEmail;
+  if (provider === 'resend') {
+    // Resend's `email.received` webhook is metadata-only and signed with Svix (raw-body
+    // HMAC, not reproducible in a bot). Trust instead comes from re-fetching the content
+    // from Resend's authenticated API by email_id — a forged webhook can't inject content.
+    const body = event.input as { type?: string; data?: ResendInboundWebhookData };
+    if (body?.type !== 'email.received' || !body.data?.email_id) {
+      return { skipped: `ignored-event:${body?.type ?? 'unknown'}` };
+    }
+    const apiKey = resendApiKeyFromSecrets(event.secrets);
+    const content = await fetchInboundEmail(apiKey, body.data.email_id);
+    const attachments = body.data.attachments?.length
+      ? await fetchInboundAttachments(apiKey, body.data.email_id).catch(() => [])
+      : [];
+    email = fromResendReceived(body.data, content, attachments);
+  } else {
+    const expected = event.secrets['INBOUND_EMAIL_SIGNING_SECRET']?.valueString;
+    if (!verifySharedSecret(event, expected)) {
+      console.log('Unauthorized inbound email request');
+      return unauthorized;
+    }
+    email = normalizeInboundEmail(provider, event.input as Record<string, any>);
   }
 
-  // 2. Normalize the provider payload.
-  const provider = (event.secrets['INBOUND_EMAIL_PROVIDER']?.valueString ?? 'generic') as InboundEmailProvider;
-  const email = normalizeInboundEmail(provider, event.input as Record<string, any>);
   const messageId = email.messageId || synthesizeMessageId(email);
   if (!email.from) {
     throw new Error('Inbound email missing sender address');

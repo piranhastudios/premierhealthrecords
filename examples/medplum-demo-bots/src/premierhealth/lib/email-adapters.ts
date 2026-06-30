@@ -122,21 +122,48 @@ export function fromGeneric(payload: Record<string, any>): NormalizedInboundEmai
   };
 }
 
-// Resend inbound email webhook (`{ type, data: {...} }`).
-export function fromResend(payload: Record<string, any>): NormalizedInboundEmail {
-  const data = payload.data ?? payload;
-  const headers = data.headers as HeaderBag;
+// Resend inbound. The `email.received` webhook is metadata-only; the body + headers
+// are fetched separately from the receiving API. This combines the webhook `data`
+// with the fetched content into the canonical shape (so it is NOT in the synchronous
+// ADAPTERS map — the bot calls it after the fetch).
+export interface ResendInboundWebhookData {
+  email_id: string;
+  from?: string;
+  to?: string | string[];
+  cc?: string | string[];
+  subject?: string;
+  message_id?: string;
+  attachments?: { id?: string; filename?: string; content_type?: string }[];
+}
+
+export interface ResendFetchedContent {
+  html?: string;
+  text?: string;
+  // Headers as returned by the receiving API (array of {name,value} or an object).
+  headers?: unknown;
+}
+
+export function fromResendReceived(
+  data: ResendInboundWebhookData,
+  content: ResendFetchedContent,
+  attachments: { filename: string; downloadUrl: string; contentType?: string }[] = []
+): NormalizedInboundEmail {
+  const headers = content.headers as HeaderBag;
   const messageId = data.message_id ?? extractHeader(headers, 'Message-ID') ?? '';
   return {
-    from: parseAddress(typeof data.from === 'object' ? data.from?.address : data.from),
-    to: toArray(data.to?.map?.((t: any) => (typeof t === 'object' ? t.address : t)) ?? data.to),
-    subject: data.subject ?? '',
-    text: data.text,
-    html: data.html,
+    from: parseAddress(data.from),
+    to: toArray(data.to),
+    subject: data.subject ?? extractHeader(headers, 'Subject') ?? '',
+    text: content.text,
+    html: content.html,
     messageId,
-    inReplyTo: data.in_reply_to ?? extractHeader(headers, 'In-Reply-To'),
-    references: splitMessageIds(data.references ?? extractHeader(headers, 'References')),
-    attachments: (data.attachments ?? []).map(mapInlineAttachment),
+    inReplyTo: extractHeader(headers, 'In-Reply-To'),
+    references: splitMessageIds(extractHeader(headers, 'References')),
+    attachments: attachments.map((a) => ({
+      filename: a.filename,
+      contentType: a.contentType ?? 'application/octet-stream',
+      url: a.downloadUrl,
+    })),
     rawHeaders: headersToRecord(headers),
   };
 }
@@ -193,8 +220,9 @@ export function fromSes(payload: Record<string, any>): NormalizedInboundEmail {
   };
 }
 
-const ADAPTERS: Record<InboundEmailProvider, (payload: Record<string, any>) => NormalizedInboundEmail> = {
-  resend: fromResend,
+// Synchronous adapters for providers that include the body in the webhook. Resend is
+// intentionally absent — it's metadata-only and handled via fromResendReceived after a fetch.
+const ADAPTERS: Partial<Record<InboundEmailProvider, (payload: Record<string, any>) => NormalizedInboundEmail>> = {
   mailgun: fromMailgun,
   sendgrid: fromSendgrid,
   ses: fromSes,
@@ -208,15 +236,6 @@ export function normalizeInboundEmail(
 ): NormalizedInboundEmail {
   const adapter = ADAPTERS[provider] ?? fromGeneric;
   return adapter(payload);
-}
-
-function mapInlineAttachment(att: any): NormalizedAttachment {
-  return {
-    filename: att.filename ?? att.name ?? 'attachment',
-    contentType: att.content_type ?? att.contentType ?? 'application/octet-stream',
-    contentBase64: att.content ?? att.contentBase64,
-    url: att.url,
-  };
 }
 
 function parseRawHeaders(raw: unknown): Record<string, string> {

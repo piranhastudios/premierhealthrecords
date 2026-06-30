@@ -25,6 +25,15 @@ export function resendConfigFromSecrets(secrets: Record<string, ProjectSetting>)
   return { apiKey, from };
 }
 
+// Inbound (receiving) only needs the API key, not a verified sender address.
+export function resendApiKeyFromSecrets(secrets: Record<string, ProjectSetting>): string {
+  const apiKey = secrets['RESEND_API_KEY']?.valueString;
+  if (!apiKey) {
+    throw new Error('Missing Resend secret (RESEND_API_KEY)');
+  }
+  return apiKey;
+}
+
 export interface SendEmailParams {
   to: string;
   subject: string;
@@ -84,4 +93,54 @@ export function buildReplyHeaders(
   // De-duplicate while preserving order.
   const references = [...new Set(chain)].join(' ');
   return { messageId: newMessageId, inReplyTo: previous.messageId, references };
+}
+
+// --- Inbound (receiving) API -----------------------------------------------------------
+// Resend's `email.received` webhook is metadata-only; the body + headers come from these
+// authenticated endpoints. See https://resend.com/docs (Receiving API).
+
+export interface ResendReceivedContent {
+  html?: string;
+  text?: string;
+  // Email headers — array of {name,value} or an object; parsed by extractHeader().
+  headers?: unknown;
+}
+
+// Fetch the full body + headers of a received email by its id.
+export async function fetchInboundEmail(apiKey: string, emailId: string): Promise<ResendReceivedContent> {
+  const response = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const json = (await response.json()) as any;
+  if (!response.ok) {
+    throw new Error(`Resend receiving fetch failed (${response.status}): ${json?.message ?? response.statusText}`);
+  }
+  return { html: json.html, text: json.text, headers: json.headers };
+}
+
+export interface ResendInboundAttachment {
+  filename: string;
+  downloadUrl: string;
+  contentType?: string;
+  size?: number;
+}
+
+// List a received email's attachments (each has a short-lived signed `download_url`).
+export async function fetchInboundAttachments(apiKey: string, emailId: string): Promise<ResendInboundAttachment[]> {
+  const response = await fetch(`https://api.resend.com/emails/receiving/${emailId}/attachments`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!response.ok) {
+    return [];
+  }
+  const json = (await response.json()) as any;
+  const list = Array.isArray(json) ? json : (json?.data ?? []);
+  return list
+    .map((a: any) => ({
+      filename: a.filename ?? 'attachment',
+      downloadUrl: a.download_url,
+      contentType: a.content_type,
+      size: a.size,
+    }))
+    .filter((a: ResendInboundAttachment) => !!a.downloadUrl);
 }
