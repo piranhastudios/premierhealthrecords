@@ -96,8 +96,13 @@ services:
       MEDPLUM_SUPPORT_EMAIL: '\"Medplum\" <support@medplum.com>'
       MEDPLUM_GOOGLE_CLIENT_ID: '397236612778-c0b5tnjv98frbo1tfuuha5vkme3cmq4s.apps.googleusercontent.com'
       MEDPLUM_GOOGLE_CLIENT_SECRET: ''
-      MEDPLUM_RECAPTCHA_SITE_KEY: '6LfHdsYdAAAAAC0uLnnRrDrhcXnziiUwKd8VtLNq'
-      MEDPLUM_RECAPTCHA_SECRET_KEY: '6LfHdsYdAAAAAH9dN154jbJ3zpQife3xaiTvPChL'
+      # reCAPTCHA disabled: the previous values were Medplum's stock demo keys, bound to
+      # medplum.com domains — they could never validate a token from app.premierhealthcentres.com,
+      # so registration was blocked for everyone. Empty secret => server skips reCAPTCHA
+      # (see validateRecaptcha in packages/server/src/auth/utils.ts), enabling in-app patient
+      # self sign-up. Re-add a domain-matched key pair here if bot protection is needed later.
+      MEDPLUM_RECAPTCHA_SITE_KEY: ''
+      MEDPLUM_RECAPTCHA_SECRET_KEY: ''
       MEDPLUM_MAX_JSON_SIZE: '1mb'
       MEDPLUM_MAX_BATCH_SIZE: '50mb'
       MEDPLUM_BOT_LAMBDA_ROLE_ARN: ''
