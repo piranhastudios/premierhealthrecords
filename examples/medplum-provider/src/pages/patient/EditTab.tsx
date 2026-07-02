@@ -15,7 +15,7 @@ const missingProfileMessage = RESOURCE_PROFILE_URLS.Patient ? (
   <>
     Could not find the{' '}
     <Anchor href={RESOURCE_PROFILE_URLS.Patient} target="_blank">
-      US Core Patient Profile
+      Premier Health Patient Profile
     </Anchor>
   </>
 ) : undefined;
@@ -66,6 +66,7 @@ export function EditTab(): JSX.Element | null {
         onSubmit={handleSubmit}
         outcome={outcome}
         profileUrl={RESOURCE_PROFILE_URLS.Patient}
+        hideResourceTypeHeader={true}
       />
     </Document>
   );

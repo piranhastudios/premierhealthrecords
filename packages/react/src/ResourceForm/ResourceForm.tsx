@@ -27,6 +27,8 @@ export interface ResourceFormProps {
   readonly onDelete?: (resource: Resource) => void;
   /** (optional) URL of the resource profile used to display the form. Takes priority over schemaName. */
   readonly profileUrl?: string;
+  /** (optional) Hide the disabled "Resource Type" / "ID" header (e.g. for a front-desk patient form). */
+  readonly hideResourceTypeHeader?: boolean;
 }
 
 export function ResourceForm(props: ResourceFormProps): JSX.Element {
@@ -113,14 +115,16 @@ export function ResourceForm(props: ResourceFormProps): JSX.Element {
         }
       }}
     >
-      <Stack mb="xl">
-        <FormSection title="Resource Type" htmlFor="resourceType" outcome={outcome}>
-          <TextInput name="resourceType" defaultValue={value.resourceType} disabled={true} />
-        </FormSection>
-        <FormSection title="ID" htmlFor="id" outcome={outcome}>
-          <TextInput name="id" defaultValue={value.id} disabled={true} />
-        </FormSection>
-      </Stack>
+      {!props.hideResourceTypeHeader && (
+        <Stack mb="xl">
+          <FormSection title="Resource Type" htmlFor="resourceType" outcome={outcome}>
+            <TextInput name="resourceType" defaultValue={value.resourceType} disabled={true} />
+          </FormSection>
+          <FormSection title="ID" htmlFor="id" outcome={outcome}>
+            <TextInput name="id" defaultValue={value.id} disabled={true} />
+          </FormSection>
+        </Stack>
+      )}
       <BackboneElementInput
         path={value.resourceType}
         valuePath={value.resourceType}

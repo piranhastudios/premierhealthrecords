@@ -110,6 +110,7 @@ export function ResourceCreatePage(): JSX.Element {
           onSubmit={handleSubmit}
           outcome={outcome}
           profileUrl={profileUrl}
+          hideResourceTypeHeader={resourceType === 'Patient'}
         />
       </Stack>
     </Document>
