@@ -27,7 +27,7 @@ import { appointmentBookHandler } from './operations/book';
 import { botInitHandler } from './operations/botinit';
 import { ccdaExportHandler } from './operations/ccdaexport';
 import { chargeItemDefinitionApplyHandler } from './operations/chargeitemdefinitionapply';
-import { invoicePayHandler } from './operations/pay';
+import { invoiceCheckoutHandler } from './operations/checkout';
 import { claimExportGetHandler, claimExportPostHandler } from './operations/claimexport';
 import { clearAllWsSubsHandler } from './operations/clearallwssubs';
 import { codeSystemImportHandler } from './operations/codesystemimport';
@@ -52,19 +52,25 @@ import { dbExplainHandler } from './operations/explain';
 import { bulkExportHandler, patientExportHandler } from './operations/export';
 import { expungeHandler } from './operations/expunge';
 import { extractHandler } from './operations/extract';
+import { patientClaimFamilyInviteHandler, patientInviteFamilyMemberHandler } from './operations/familyinvite';
 import { scheduleFindHandler } from './operations/find';
 import { getWsBindingTokenHandler } from './operations/getwsbindingtoken';
 import { getWsSubProjectStatsHandler } from './operations/getwssubprojectstats';
 import { getWsSubStatsHandler } from './operations/getwssubstats';
+import { patientGrantHandler, revokeExpiredGrantsHandler } from './operations/grant';
 import { groupExportHandler } from './operations/groupexport';
 import { appLaunchHandler } from './operations/launch';
 import { packageInstallHandler } from './operations/packageinstall';
 import { patientEverythingHandler } from './operations/patienteverything';
 import { patientMatchHandler } from './operations/patientmatch';
 import { patientSummaryHandler } from './operations/patientsummary';
+import { invoicePayHandler } from './operations/pay';
 import { planDefinitionApplyHandler } from './operations/plandefinitionapply';
 import { projectCloneHandler } from './operations/projectclone';
 import { projectInitHandler } from './operations/projectinit';
+import { qboPullPricingHandler } from './operations/qbopullpricing';
+import { invoiceQboSyncHandler } from './operations/qbosync';
+import { patientIssueQrHandler, patientQrEnrollHandler, patientVerifyQrHandler } from './operations/qr';
 import { refreshReferenceDisplayHandler } from './operations/refresh-reference-display';
 import { resourceGraphHandler } from './operations/resourcegraph';
 import { rotateSecretHandler } from './operations/rotatesecret';
@@ -329,6 +335,38 @@ function initInternalFhirRouter(): FhirRouter {
 
   // Invoice $pay operation (pawaPay mobile-money collection)
   router.add('POST', '/Invoice/:id/$pay', invoicePayHandler);
+
+  // Invoice $checkout operation (Stripe Hosted Checkout / card / cross-border)
+  router.add('POST', '/Invoice/:id/$checkout', invoiceCheckoutHandler);
+
+  // Invoice $qbo-sync operation (push balanced Invoice + settled payments to QuickBooks Online)
+  router.add('POST', '/Invoice/:id/$qbo-sync', invoiceQboSyncHandler);
+
+  // $qbo-pull-pricing operation (system-level; pull QBO Items into ChargeItemDefinition pricing)
+  router.add('POST', '/$qbo-pull-pricing', qboPullPricingHandler);
+
+  // Rotating-QR + family identity operations (Premier Health)
+  // Patient $qr-enroll operation (provision opaque handle + offline TOTP secret)
+  router.add('POST', '/Patient/:id/$qr-enroll', patientQrEnrollHandler);
+
+  // Patient $issue-qr operation (mint short-lived signed JWS for the online path)
+  router.add('POST', '/Patient/:id/$issue-qr', patientIssueQrHandler);
+
+  // Patient $verify-qr operation (type-level; provider/staff verify a scanned QR)
+  router.add('POST', '/Patient/$verify-qr', patientVerifyQrHandler);
+
+  // Patient $grant operation (patient time-boxes a provider org's access)
+  router.add('POST', '/Patient/:id/$grant', patientGrantHandler);
+
+  // System $revoke-expired-grants operation (super-admin only; global expired-grant sweep,
+  // intended to be cron'd — see docs/grants-maintenance.md)
+  router.add('POST', '/$revoke-expired-grants', revokeExpiredGrantsHandler);
+
+  // Patient $invite-family-member operation (type-level; holder mints an invite token)
+  router.add('POST', '/Patient/$invite-family-member', patientInviteFamilyMemberHandler);
+
+  // Patient $claim-family-invite operation (type-level; claimant redeems an invite token)
+  router.add('POST', '/Patient/$claim-family-invite', patientClaimFamilyInviteHandler);
 
   // Resource $graph operation
   router.add('GET', '/:resourceType/:id/$graph', resourceGraphHandler);

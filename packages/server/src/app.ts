@@ -11,11 +11,12 @@ import type { OperationOutcome } from '@medplum/fhirtypes';
 import compression from 'compression';
 import cors from 'cors';
 import type { Express, NextFunction, Request, RequestHandler, Response } from 'express';
-import { json, Router, text, urlencoded } from 'express';
+import { json, raw, Router, text, urlencoded } from 'express';
 import { rmSync } from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { quickbooksRouter } from './accounting/routes';
 import { adminRouter } from './admin/routes';
 import { asyncBatchHandler } from './async-batch';
 import { authRouter } from './auth/routes';
@@ -49,13 +50,13 @@ import { authenticateRequest } from './oauth/middleware';
 import { oauthRouter } from './oauth/routes';
 import { openApiHandler } from './openapi';
 import { cleanupOtelHeartbeat, initOtelHeartbeat } from './otel/otel';
+import { paymentsRouter, stripeWebhookHandler } from './payments/routes';
 import { closeRateLimiter, rateLimitHandler } from './ratelimit';
 import { closeRedis, initRedis } from './redis';
 import { scimRouter } from './scim/routes';
 import { seedDatabase } from './seed';
 import { initServerRegistryHeartbeatListener } from './server-registry';
 import { initBinaryStorage } from './storage/loader';
-import { paymentsRouter } from './payments/routes';
 import { storageRouter } from './storage/routes';
 import { webhookRouter } from './webhook/routes';
 import { wellKnownRouter } from './wellknown';
@@ -201,6 +202,12 @@ export async function initApp(app: Express, config: MedplumServerConfig): Promis
   // Handle async batch by enqueueing job
   app.post('/fhir/R4', authenticateRequest, asyncBatchHandler(config));
 
+  // Stripe webhook: must run BEFORE the global JSON/urlencoded parsers below, because
+  // Stripe signature verification needs the exact RAW request body (a Buffer). If the
+  // global json() parser ran first it would consume and re-serialize the body, breaking
+  // the signature. Registered directly on `app` (not paymentsRouter) for the same reason.
+  app.post('/api/payments/stripe/webhook', raw({ type: 'application/json' }), stripeWebhookHandler);
+
   app.use(urlencoded({ extended: false }));
   app.use(text({ type: [ContentType.TEXT, ContentType.HL7_V2] }));
   app.use(json({ type: JSON_TYPE, limit: config.maxJsonSize }));
@@ -217,6 +224,7 @@ export async function initApp(app: Express, config: MedplumServerConfig): Promis
   apiRouter.get('/healthcheck', healthcheckHandler);
   apiRouter.get('/openapi.json', openApiHandler);
   apiRouter.use('/.well-known/', wellKnownRouter);
+  apiRouter.use('/accounting/quickbooks/', quickbooksRouter);
   apiRouter.use('/admin/', adminRouter);
   apiRouter.use('/auth/', authRouter);
   apiRouter.use('/cds-services/', cdsRouter);

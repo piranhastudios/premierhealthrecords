@@ -179,6 +179,18 @@
       "id": "",
       "source": "src/premierhealth/release-paid-tasks.ts",
       "dist": "dist/premierhealth/release-paid-tasks.js"
+    },
+    {
+      "name": "premierhealth-quickbooks-sync-invoice",
+      "id": "",
+      "source": "src/premierhealth/quickbooks-sync-invoice.ts",
+      "dist": "dist/premierhealth/quickbooks-sync-invoice.js"
+    },
+    {
+      "name": "premierhealth-quickbooks-sync-payment",
+      "id": "",
+      "source": "src/premierhealth/quickbooks-sync-payment.ts",
+      "dist": "dist/premierhealth/quickbooks-sync-payment.js"
     }
   ]
 }
