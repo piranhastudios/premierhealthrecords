@@ -161,6 +161,24 @@
       "id": "",
       "source": "src/premierhealth/inbound-email.ts",
       "dist": "dist/premierhealth/inbound-email.js"
+    },
+    {
+      "name": "premierhealth-assign-patient-id",
+      "id": "",
+      "source": "src/premierhealth/assign-patient-id.ts",
+      "dist": "dist/premierhealth/assign-patient-id.js"
+    },
+    {
+      "name": "premierhealth-calculate-bmi",
+      "id": "",
+      "source": "src/premierhealth/calculate-bmi.ts",
+      "dist": "dist/premierhealth/calculate-bmi.js"
+    },
+    {
+      "name": "premierhealth-release-paid-tasks",
+      "id": "",
+      "source": "src/premierhealth/release-paid-tasks.ts",
+      "dist": "dist/premierhealth/release-paid-tasks.js"
     }
   ]
 }
