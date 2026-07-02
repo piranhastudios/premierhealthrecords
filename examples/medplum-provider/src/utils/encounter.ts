@@ -6,6 +6,7 @@ import type {
   Appointment,
   ChargeItem,
   ClinicalImpression,
+  CodeableConcept,
   Coding,
   Encounter,
   Patient,
@@ -16,6 +17,33 @@ import type {
   ServiceRequest,
   Task,
 } from '@medplum/fhirtypes';
+import { AWAITING_PAYMENT_BUSINESS_STATUS } from './pay-gate';
+
+const V2_0276_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0276';
+
+export type AppointmentTypeCode = 'ROUTINE' | 'FOLLOWUP';
+
+// Appointment types with fixed default durations (end time remains manually
+// overridable in the UI). New patients get 30 minutes, follow-ups 15 minutes.
+export const APPOINTMENT_TYPES: Record<
+  AppointmentTypeCode,
+  { label: string; durationMinutes: number; concept: CodeableConcept }
+> = {
+  ROUTINE: {
+    label: 'New patient (30 min)',
+    durationMinutes: 30,
+    concept: {
+      coding: [{ system: V2_0276_SYSTEM, code: 'ROUTINE', display: 'Routine appointment - default if not valued' }],
+    },
+  },
+  FOLLOWUP: {
+    label: 'Follow-up (15 min)',
+    durationMinutes: 15,
+    concept: {
+      coding: [{ system: V2_0276_SYSTEM, code: 'FOLLOWUP', display: 'A follow up visit from a previous appointment' }],
+    },
+  },
+};
 
 export async function createAppointment(
   medplum: MedplumClient,
@@ -23,13 +51,15 @@ export async function createAppointment(
   end: Date,
   patient: Patient,
   practitioner: Practitioner | Reference<Practitioner>,
-  schedule?: Schedule
+  schedule?: Schedule,
+  appointmentType?: CodeableConcept
 ): Promise<Appointment> {
   const practitionerRef = isResource(practitioner) ? createReference(practitioner) : practitioner;
 
   const appointment = await medplum.createResource({
     resourceType: 'Appointment',
     status: 'booked',
+    ...(appointmentType && { appointmentType }),
     start: start.toISOString(),
     end: end.toISOString(),
     participant: [
@@ -182,7 +212,17 @@ async function handleChargeItemsFromTasks(
         const serviceRequest: ServiceRequest = await medplum.readReference({
           reference: serviceRequestRef,
         });
-        await createChargeItemFromServiceRequest(medplum, patient, serviceRequest);
+        const chargeItem = await createChargeItemFromServiceRequest(medplum, patient, serviceRequest);
+        // Pay-before-service: a billable investigation is blocked until its bill is
+        // paid. The premierhealth-release-paid-tasks bot flips the task back to
+        // 'ready' when the covering Invoice becomes balanced.
+        if (chargeItem && task.id) {
+          await medplum.updateResource<Task>({
+            ...task,
+            status: 'on-hold',
+            businessStatus: AWAITING_PAYMENT_BUSINESS_STATUS,
+          });
+        }
       } catch (err) {
         console.error(`Error processing ServiceRequest ${serviceRequestRef}:`, err);
       }
@@ -194,7 +234,7 @@ async function createChargeItemFromServiceRequest(
   medplum: MedplumClient,
   patient: Patient,
   serviceRequest: ServiceRequest
-): Promise<void> {
+): Promise<ChargeItem | undefined> {
   const chargeDefinitionExtension = getExtension(
     serviceRequest,
     'http://medplum.com/fhir/StructureDefinition/applicable-charge-definition'
@@ -204,7 +244,7 @@ async function createChargeItemFromServiceRequest(
     !chargeDefinitionExtension?.valueCanonical ||
     !serviceRequest.code?.coding?.find((c) => c.system === 'http://www.ama-assn.org/go/cpt')
   ) {
-    return;
+    return undefined;
   }
 
   const canonicalUrl = chargeDefinitionExtension?.valueCanonical;
@@ -228,7 +268,7 @@ async function createChargeItemFromServiceRequest(
     definitionCanonical: definitionCanonical,
   };
 
-  await medplum.createResource(chargeItem);
+  return medplum.createResource(chargeItem);
 }
 
 export async function updateEncounterStatus(

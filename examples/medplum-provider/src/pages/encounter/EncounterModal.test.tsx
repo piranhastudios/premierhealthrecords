@@ -14,7 +14,8 @@ import * as usePatientModule from '../../hooks/usePatient';
 import * as encounterUtils from '../../utils/encounter';
 import { EncounterModal } from './EncounterModal';
 
-vi.mock('../../utils/encounter', () => ({
+vi.mock('../../utils/encounter', async (importOriginal) => ({
+  ...(await importOriginal<typeof encounterUtils>()),
   createEncounter: vi.fn(),
 }));
 
@@ -226,6 +227,37 @@ describe('EncounterModal', () => {
     });
 
     expect(endInput).toHaveValue('2024-02-20T15:30');
+  });
+
+  test('Auto-sets end time from the appointment type duration', async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Start Time/i)).toBeInTheDocument();
+    });
+
+    const startInput = screen.getByLabelText(/Start Time/i);
+    await act(async () => {
+      await user.type(startInput, '2024-01-15T10:00');
+    });
+
+    // New patient (default) = 30 minutes
+    expect(screen.getByLabelText(/End Time/i)).toHaveValue('2024-01-15T10:30');
+
+    // Follow-up = 15 minutes, recomputed from start
+    await act(async () => {
+      await user.click(screen.getByLabelText('Follow-up (15 min)'));
+    });
+    expect(screen.getByLabelText(/End Time/i)).toHaveValue('2024-01-15T10:15');
+
+    // End time remains manually overridable
+    const endInput = screen.getByLabelText(/End Time/i);
+    await act(async () => {
+      await user.clear(endInput);
+      await user.type(endInput, '2024-01-15T10:45');
+    });
+    expect(endInput).toHaveValue('2024-01-15T10:45');
   });
 
   test('Patient context is available in modal', async () => {

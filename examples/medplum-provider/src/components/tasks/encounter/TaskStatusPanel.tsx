@@ -4,6 +4,7 @@ import { ActionIcon, Badge, Box, Flex, Menu, Text, Tooltip } from '@mantine/core
 import type { Task } from '@medplum/fhirtypes';
 import { IconCheck, IconChevronDown, IconPencil } from '@tabler/icons-react';
 import type { JSX } from 'react';
+import { isAwaitingPayment } from '../../../utils/pay-gate';
 
 interface TaskStatusPanelProps {
   task: Task;
@@ -15,6 +16,7 @@ interface TaskStatusPanelProps {
 export const TaskStatusPanel = (props: TaskStatusPanelProps): JSX.Element => {
   const { task, enabled = true, onActionButtonClicked, onChangeStatus } = props;
   const badgeColor = getBadgeColor(task.status);
+  const awaitingPayment = isAwaitingPayment(task);
 
   return (
     <Box p="md" style={{ borderTop: '1px solid #eee', margin: 0 }}>
@@ -38,6 +40,7 @@ export const TaskStatusPanel = (props: TaskStatusPanelProps): JSX.Element => {
                 {statuses.map((status) => (
                   <Menu.Item
                     key={status.value}
+                    disabled={awaitingPayment && PAY_GATED_STATUSES.has(status.value)}
                     rightSection={
                       task.status === status.value ? (
                         <div style={{ marginLeft: 4, display: 'flex', alignItems: 'center' }}>
@@ -56,6 +59,13 @@ export const TaskStatusPanel = (props: TaskStatusPanelProps): JSX.Element => {
             <Badge variant="light" color={badgeColor} size="lg">
               {task.status.replaceAll('-', ' ').replaceAll(/\b\w/g, (char) => char.toUpperCase())}
             </Badge>
+          )}
+          {awaitingPayment && (
+            <Tooltip label="Blocked until the linked bill is paid" openDelay={500}>
+              <Badge variant="light" color="#EE6A1F" size="lg">
+                Awaiting payment
+              </Badge>
+            </Tooltip>
           )}
         </Flex>
         {enabled && (
@@ -77,6 +87,10 @@ const statuses = [
   { value: 'on-hold', label: 'On Hold' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+
+// Statuses a pay-gated (awaiting payment) task must not be moved to from the UI.
+// The release-paid-tasks bot flips the task to 'ready' once the invoice is paid.
+const PAY_GATED_STATUSES = new Set(['ready', 'in-progress', 'completed']);
 
 const getBadgeColor = (status: Task['status']): string => {
   const colors = { completed: 'green', cancelled: 'red' };

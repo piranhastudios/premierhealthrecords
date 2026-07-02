@@ -69,7 +69,7 @@ describe('CreateVisit', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/Patient/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Patient/)).toBeInTheDocument();
         expect(screen.getByLabelText(/Start Time/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/End Time/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/Class/i)).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe('CreateVisit', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /Create Visit/i })).toBeInTheDocument();
-        expect(screen.getByLabelText(/Patient/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Patient/)).toBeInTheDocument();
       });
     });
   });
@@ -214,7 +214,7 @@ describe('CreateVisit', () => {
         setup(mockSlotInfo);
       });
 
-      const patientInput = await screen.findByLabelText(/Patient/i);
+      const patientInput = await screen.findByLabelText(/^Patient/);
       expect(patientInput).toBeInTheDocument();
     });
 
@@ -250,6 +250,52 @@ describe('CreateVisit', () => {
       });
 
       expect(endInput).toHaveValue('2024-01-15T12:00');
+    });
+
+    test('keeps the slot end as the initial end time and recomputes it when the appointment type changes', async () => {
+      const user = userEvent.setup();
+      await act(async () => {
+        setup(mockSlotInfo);
+      });
+
+      // datetime-local input values are normalized to minute precision
+      const localDateTime = (date: Date): string =>
+        `${date.toLocaleDateString('sv')}T${date.toLocaleTimeString('sv', { hour: '2-digit', minute: '2-digit' })}`;
+
+      // Before any interaction, the slot's own end is the default
+      expect(screen.getByLabelText(/End Time/i)).toHaveValue(localDateTime(mockSlotInfo.end));
+
+      // Selecting Follow-up recomputes end = start + 15 minutes
+      await act(async () => {
+        await user.click(screen.getByLabelText('Follow-up (15 min)'));
+      });
+
+      const expectedEnd = new Date(mockSlotInfo.start.getTime() + 15 * 60 * 1000);
+      expect(screen.getByLabelText(/End Time/i)).toHaveValue(localDateTime(expectedEnd));
+    });
+
+    test('auto-sets end time from the appointment type duration when start changes', async () => {
+      const user = userEvent.setup();
+      await act(async () => {
+        setup(mockSlotInfo);
+      });
+
+      const startInput = screen.getByLabelText(/Start Time/i);
+      await act(async () => {
+        await user.clear(startInput);
+        await user.type(startInput, '2024-01-15T11:00');
+      });
+
+      // New patient (default) = 30 minutes
+      expect(screen.getByLabelText(/End Time/i)).toHaveValue('2024-01-15T11:30');
+
+      // End time remains manually overridable
+      const endInput = screen.getByLabelText(/End Time/i);
+      await act(async () => {
+        await user.clear(endInput);
+        await user.type(endInput, '2024-01-15T11:20');
+      });
+      expect(endInput).toHaveValue('2024-01-15T11:20');
     });
 
     test('updates class when class is selected', async () => {

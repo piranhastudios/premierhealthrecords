@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Button, Card, Grid, Modal, Stack, Text, Textarea } from '@mantine/core';
+import { Badge, Box, Button, Card, Grid, Modal, Stack, Text, Textarea } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { createReference, formatHumanName, normalizeErrorString } from '@medplum/core';
 import type { Practitioner, Reference, Task } from '@medplum/fhirtypes';
@@ -10,6 +10,7 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { usePatient } from '../../hooks/usePatient';
+import { isAwaitingPayment } from '../../utils/pay-gate';
 import classes from './TaskDetailsModal.module.css';
 
 export const TaskDetailsModal = (): JSX.Element => {
@@ -130,6 +131,11 @@ export const TaskDetailsModal = (): JSX.Element => {
                     <Text fz="lg" fw={700}>
                       {task?.code?.text}
                     </Text>
+                    {isAwaitingPayment(task) && (
+                      <Badge variant="light" color="#EE6A1F" w="fit-content">
+                        Awaiting payment
+                      </Badge>
+                    )}
                     {task?.description && <Text>{task.description}</Text>}
                     {patient?.name && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -167,6 +173,9 @@ export const TaskDetailsModal = (): JSX.Element => {
                     binding="http://hl7.org/fhir/ValueSet/task-status|4.0.1"
                     maxValues={1}
                     defaultValue={status}
+                    // Pay-gated tasks stay on hold until the linked bill is paid;
+                    // the release-paid-tasks bot moves them to 'ready'.
+                    disabled={isAwaitingPayment(task)}
                     onChange={(value) => {
                       if (value) {
                         setStatus(value as typeof status);

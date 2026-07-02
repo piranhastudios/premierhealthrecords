@@ -36,10 +36,20 @@ export default defineConfig({
   },
   resolve: {
     alias,
+    // Prevent a second React copy (e.g. packages/react-hooks/node_modules/react)
+    // from being loaded when aliasing monorepo packages to their sources.
+    dedupe: ['react', 'react-dom'],
   },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test.setup.ts',
+    // @testing-library/react is hoisted to the repo root and natively loads the
+    // root react-dom, so force all react imports to the same root copy to avoid
+    // "Cannot read properties of null (reading 'useState')" dual-React errors.
+    alias: {
+      react: path.resolve(__dirname, '../../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
+    },
   },
 });

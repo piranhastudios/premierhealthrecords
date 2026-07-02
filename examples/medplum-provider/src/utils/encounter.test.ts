@@ -14,7 +14,7 @@ import type {
 } from '@medplum/fhirtypes';
 import { MockClient } from '@medplum/mock';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { createAppointment, createEncounter, updateEncounterStatus } from './encounter';
+import { APPOINTMENT_TYPES, createAppointment, createEncounter, updateEncounterStatus } from './encounter';
 
 describe('encounter utils', () => {
   let medplum: MockClient;
@@ -94,6 +94,44 @@ describe('encounter utils', () => {
         end: end.toISOString(),
         schedule: { reference: 'Schedule/sched-1' },
       });
+    });
+
+    test('sets Appointment.appointmentType when provided', async () => {
+      vi.spyOn(medplum, 'createResource').mockImplementation(async (resource: any) => ({ ...resource, id: 'appt-1' }));
+
+      const appointment = await createAppointment(
+        medplum,
+        new Date('2025-01-01T10:00:00Z'),
+        new Date('2025-01-01T10:30:00Z'),
+        patient,
+        practitioner,
+        undefined,
+        APPOINTMENT_TYPES.FOLLOWUP.concept
+      );
+
+      expect(appointment.appointmentType).toEqual({
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+            code: 'FOLLOWUP',
+            display: 'A follow up visit from a previous appointment',
+          },
+        ],
+      });
+    });
+
+    test('does not set Appointment.appointmentType when omitted', async () => {
+      vi.spyOn(medplum, 'createResource').mockImplementation(async (resource: any) => ({ ...resource, id: 'appt-1' }));
+
+      const appointment = await createAppointment(
+        medplum,
+        new Date('2025-01-01T10:00:00Z'),
+        new Date('2025-01-01T10:30:00Z'),
+        patient,
+        practitioner
+      );
+
+      expect(appointment.appointmentType).toBeUndefined();
     });
 
     test('does not create a Slot when schedule is not provided', async () => {

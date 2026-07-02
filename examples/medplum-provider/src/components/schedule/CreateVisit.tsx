@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Flex, Stack, Text, Title } from '@mantine/core';
+import { Button, Flex, Input, SegmentedControl, Stack, Text, Title } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
+import { isValidDate } from '@medplum/core';
 import type { Coding, Patient, PlanDefinition, Practitioner, Reference, Schedule } from '@medplum/fhirtypes';
 import { CodingInput, DateTimeInput, Form, ResourceInput, useMedplum } from '@medplum/react';
 import { IconAlertSquareRounded, IconCircleCheck, IconCirclePlus } from '@tabler/icons-react';
@@ -9,7 +10,8 @@ import type { JSX } from 'react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { Range } from '../../types/scheduling';
-import { createAppointment, createEncounter } from '../../utils/encounter';
+import type { AppointmentTypeCode } from '../../utils/encounter';
+import { APPOINTMENT_TYPES, createAppointment, createEncounter } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { PlanDefinitionSummary } from '../plandefinition/PlanDefinitionSummary';
 
@@ -24,11 +26,41 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
   const [patient, setPatient] = useState<Patient | undefined>();
   const [planDefinitionData, setPlanDefinitionData] = useState<PlanDefinition | undefined>();
   const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
+  const [appointmentType, setAppointmentType] = useState<AppointmentTypeCode>('ROUTINE');
   const [start, setStart] = useState(appointmentSlot?.start);
   const [end, setEnd] = useState(appointmentSlot?.end);
+  // The end DateTimeInput is uncontrolled (defaultValue only), so remount it
+  // via `key` whenever the end time is set programmatically. The slot's own
+  // end is the initial default before any interaction; manual edits to the
+  // end input never bump the key, so they are preserved.
+  const [endInputSeed, setEndInputSeed] = useState<{ key: number; value: string | undefined }>(() => ({
+    key: 0,
+    value: appointmentSlot?.end?.toISOString(),
+  }));
   const [isLoading, setIsLoading] = useState(false);
   const medplum = useMedplum();
   const navigate = useNavigate();
+
+  const autoSetEnd = (startDate: Date | undefined, typeCode: AppointmentTypeCode): void => {
+    if (!startDate || !isValidDate(startDate)) {
+      return;
+    }
+    const newEnd = new Date(startDate.getTime() + APPOINTMENT_TYPES[typeCode].durationMinutes * 60 * 1000);
+    setEnd(newEnd);
+    setEndInputSeed((prev) => ({ key: prev.key + 1, value: newEnd.toISOString() }));
+  };
+
+  const handleStartChange = (value: string): void => {
+    const newStart = value ? new Date(value) : undefined;
+    setStart(newStart);
+    autoSetEnd(newStart, appointmentType);
+  };
+
+  const handleAppointmentTypeChange = (value: string): void => {
+    const typeCode = value as AppointmentTypeCode;
+    setAppointmentType(typeCode);
+    autoSetEnd(start, typeCode);
+  };
 
   const [formattedDate, formattedSlotTime] = useMemo(() => {
     if (!appointmentSlot) {
@@ -55,7 +87,7 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
   }, [appointmentSlot]);
 
   async function handleSubmit(): Promise<void> {
-    if (!patient || !planDefinitionData || !encounterClass || !start || !end) {
+    if (!patient || !encounterClass || !start || !end) {
       showNotification({
         color: 'yellow',
         icon: <IconAlertSquareRounded />,
@@ -66,7 +98,15 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
     }
     setIsLoading(true);
     try {
-      const appointment = await createAppointment(medplum, start, end, patient, props.practitioner, schedule);
+      const appointment = await createAppointment(
+        medplum,
+        start,
+        end,
+        patient,
+        props.practitioner,
+        schedule,
+        APPOINTMENT_TYPES[appointmentType].concept
+      );
       const encounter = await createEncounter(
         medplum,
         encounterClass,
@@ -112,23 +152,35 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
             onChange={(value) => setPatient(value as Patient)}
           />
 
+          <Input.Wrapper label="Appointment type" required={true}>
+            <SegmentedControl
+              fullWidth
+              name="appointment-type"
+              value={appointmentType}
+              onChange={handleAppointmentTypeChange}
+              data={[
+                { label: APPOINTMENT_TYPES.ROUTINE.label, value: 'ROUTINE' },
+                { label: APPOINTMENT_TYPES.FOLLOWUP.label, value: 'FOLLOWUP' },
+              ]}
+            />
+          </Input.Wrapper>
+
           <DateTimeInput
             name="start"
             label="Start Time"
             defaultValue={appointmentSlot?.start?.toISOString()}
             required={true}
-            onChange={(value) => {
-              setStart(new Date(value));
-            }}
+            onChange={handleStartChange}
           />
 
           <DateTimeInput
+            key={endInputSeed.key}
             name="end"
             label="End Time"
-            defaultValue={appointmentSlot?.end?.toISOString()}
+            defaultValue={endInputSeed.value}
             required={true}
             onChange={(value) => {
-              setEnd(new Date(value));
+              setEnd(value ? new Date(value) : undefined);
             }}
           />
 
@@ -148,7 +200,7 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
             onChange={(value) => {
               setPlanDefinitionData(value as PlanDefinition);
             }}
-            required={true}
+            required={false}
           />
         </Stack>
 
