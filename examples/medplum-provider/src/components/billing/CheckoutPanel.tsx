@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Alert, Badge, Button, Divider, Group, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
 import { getReferenceString, normalizeErrorString } from '@medplum/core';
-import type { Coverage, Organization, Patient } from '@medplum/fhirtypes';
+import type { ChargeItem, Coverage, Organization, Patient } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getOpenChargeItemsForPatient } from '../../utils/chargeitems';
 import {
   computeCoPay,
   createCoverage,
@@ -29,6 +30,8 @@ export interface CheckoutPanelProps {
  * amount via mobile money) or bills an insurer: pick the payer, apply the co-pay
  * split, collect the patient portion via mobile money, and record the insurer's
  * share as a Claim (creating the Coverage on the fly if needed).
+ * @param props - The checkout panel props (patient, onPaid).
+ * @returns The checkout panel.
  */
 export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
   const { patient, onPaid } = props;
@@ -37,6 +40,7 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
   const [total, setTotal] = useState<number | undefined>();
   const [insurers, setInsurers] = useState<Organization[]>([]);
   const [coverages, setCoverages] = useState<Coverage[]>([]);
+  const [chargeItems, setChargeItems] = useState<ChargeItem[]>([]);
   const [payer, setPayer] = useState<string>(SELF_PAY);
   const [subscriberId, setSubscriberId] = useState('');
   const [copayPercent, setCopayPercent] = useState<number>(DEFAULT_COPAY_PERCENT);
@@ -52,7 +56,10 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
   useEffect(() => {
     getInsurers(medplum).then(setInsurers).catch(console.error);
     loadCoverages();
-  }, [medplum, loadCoverages]);
+    // The charges being paid: link them on the checkout Invoice so the
+    // release-paid-tasks bot can release the pay-gated tasks they block.
+    getOpenChargeItemsForPatient(medplum, patient).then(setChargeItems).catch(console.error);
+  }, [medplum, patient, loadCoverages]);
 
   const selectedInsurer = insurers.find((o) => o.id === payer);
   const existingCoverage = coverages.find((c) => c.payor?.some((p) => p.reference === `Organization/${payer}`));
@@ -172,7 +179,12 @@ export function CheckoutPanel(props: CheckoutPanelProps): JSX.Element {
       )}
 
       <Divider label="Patient payment" labelPosition="left" />
-      <PaymentCollection patient={patient} defaultAmount={split.patientPortion} onPaid={onPaid} />
+      <PaymentCollection
+        patient={patient}
+        defaultAmount={split.patientPortion}
+        chargeItems={chargeItems}
+        onPaid={onPaid}
+      />
 
       {isInsurer && (split.insurerPortion.value ?? 0) > 0 && (
         <>

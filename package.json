@@ -27,6 +27,7 @@
     "trailingComma": "es5"
   },
   "overrides": {
+    "@types/react": "19.2.14",
     "@jest/types": "30.3.0",
     "esbuild": "0.28.0",
     "jest-diff": "30.3.0",

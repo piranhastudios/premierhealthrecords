@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MedplumClient, WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
-import type { ChargeItem, Encounter } from '@medplum/fhirtypes';
+import type { ChargeItem, Encounter, Patient } from '@medplum/fhirtypes';
 
 /**
  * Standalone function to fetch and apply ChargeItemDefinition to charge item
@@ -54,6 +54,25 @@ export async function getChargeItemsForEncounter(
     chargeItems.map((chargeItem) => applyChargeItemDefinition(medplum, chargeItem))
   );
   return updatedChargeItems;
+}
+
+/**
+ * Fetches a patient's open (planned or billable, i.e. not yet invoiced) ChargeItems.
+ * Checkout attaches these as Invoice.lineItem references so the
+ * premierhealth-release-paid-tasks bot can find and release the pay-gated tasks
+ * those charges are blocking once the invoice balances.
+ * @param medplum - Medplum client instance
+ * @param patient - The patient being checked out
+ * @returns Promise with the patient's open charge items
+ */
+export async function getOpenChargeItemsForPatient(
+  medplum: MedplumClient,
+  patient: Patient
+): Promise<WithId<ChargeItem>[]> {
+  return medplum.searchResources(
+    'ChargeItem',
+    `subject=${getReferenceString(patient)}&status=planned,billable&_count=100`
+  );
 }
 
 export function calculateTotalPrice(items: ChargeItem[]): number {

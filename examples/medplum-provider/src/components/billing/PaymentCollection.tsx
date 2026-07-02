@@ -1,11 +1,33 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Alert, Badge, Button, Group, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
-import { createReference, getReferenceString, normalizeErrorString } from '@medplum/core';
-import type { Invoice, Money, Parameters, Patient, PaymentReconciliation, Reference } from '@medplum/fhirtypes';
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  NumberInput,
+  SegmentedControl,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { createReference, getReferenceString, normalizeErrorString, sleep } from '@medplum/core';
+import type {
+  ChargeItem,
+  Invoice,
+  Money,
+  Parameters,
+  Patient,
+  PaymentReconciliation,
+  Reference,
+} from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
+import { CardPaymentPanel } from './CardPaymentPanel';
+
+type PaymentMethod = 'momo' | 'card';
 
 // Mobile-money correspondents available in Cameroon. Extend as pawaPay adds markets.
 const CORRESPONDENTS = [
@@ -25,18 +47,47 @@ export interface PaymentCollectionProps {
   invoice?: Invoice;
   /** Pre-filled amount when no invoice is supplied. */
   defaultAmount?: Money;
+  /** ChargeItems this payment covers; linked on created invoices so the pay-gate bot can release their tasks. */
+  chargeItems?: ChargeItem[];
   onPaid?: (invoice: Invoice) => void;
+}
+
+/** Result of a Stripe hosted-checkout redirect, parsed once from the query string. */
+interface StripeRedirect {
+  payment: string;
+  invoiceId?: string;
+}
+
+// CardPaymentPanel sets successUrl/cancelUrl back to this page with these params
+// (?payment=success&invoice=<id> / ?payment=cancel), so after the redirect the
+// remounted panel knows which invoice to confirm.
+function parseStripeRedirect(): StripeRedirect | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get('payment');
+  if (!payment) {
+    return undefined;
+  }
+  return { payment, invoiceId: params.get('invoice') ?? undefined };
 }
 
 /**
  * Collects a patient payment via mobile money (pawaPay), used at front-desk
  * checkout and at the end of a telemedicine visit. Calls the server `Invoice/$pay`
  * operation, then polls until the invoice is balanced or the collection fails.
+ * @param props - The payment collection props (patient, invoice, defaultAmount, onPaid).
+ * @returns The payment collection panel.
  */
 export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
-  const { patient, invoice, defaultAmount, onPaid } = props;
+  const { patient, invoice, defaultAmount, chargeItems, onPaid } = props;
   const medplum = useMedplum();
 
+  // Where the Stripe redirect lands: this component remounts fresh, so the
+  // redirect result is read from the query string exactly once on mount.
+  const [redirect] = useState(parseStripeRedirect);
+  const returningFromCard = redirect?.payment === 'success' && Boolean(redirect.invoiceId);
+  const [cancelledNotice, setCancelledNotice] = useState(redirect?.payment === 'cancel');
+
+  const [method, setMethod] = useState<PaymentMethod>(returningFromCard ? 'card' : 'momo');
   const [phone, setPhone] = useState('');
   const [correspondent, setCorrespondent] = useState(CORRESPONDENTS[0].value);
   const [amount, setAmount] = useState<number | undefined>(
@@ -55,6 +106,18 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
     }
   }, [defaultAmountValue, invoice, status]);
 
+  // Clear the redirect params so a refresh doesn't re-trigger the confirmation.
+  // (Runs after the children mount; the invoice id is handed to CardPaymentPanel
+  // via the returnInvoiceId prop, not re-read from the URL.)
+  useEffect(() => {
+    if (redirect) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('invoice');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [redirect]);
+
   const busy = status === 'pending';
 
   async function handleCollect(): Promise<void> {
@@ -70,7 +133,9 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
 
     setStatus('pending');
     try {
-      // Use the provided invoice or create one for this collection.
+      // Use the provided invoice or create one for this collection. Link the
+      // charges being paid (lineItem) so the release-paid-tasks bot can find the
+      // pay-gated tasks once the invoice balances.
       const targetInvoice =
         invoice ??
         (await medplum.createResource<Invoice>({
@@ -78,6 +143,9 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
           status: 'issued',
           subject: createReference(patient),
           date: new Date().toISOString(),
+          ...(chargeItems?.length
+            ? { lineItem: chargeItems.map((item) => ({ chargeItemReference: createReference(item) })) }
+            : undefined),
           totalGross: { value: amount, currency },
         }));
 
@@ -90,10 +158,10 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
         ],
       };
 
-      const response = (await medplum.post(
+      const response: Parameters = await medplum.post(
         medplum.fhirUrl('Invoice', targetInvoice.id as string, '$pay'),
         params
-      )) as Parameters;
+      );
 
       const submitStatus = getParam(response, 'status');
       if (submitStatus !== 'ACCEPTED') {
@@ -128,7 +196,7 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
     reconRef: Reference<PaymentReconciliation> | undefined
   ): Promise<boolean> {
     for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
-      await delay(POLL_INTERVAL_MS);
+      await sleep(POLL_INTERVAL_MS);
       const fresh = await medplum.readResource('Invoice', targetInvoice.id as string);
       if (fresh.status === 'balanced') {
         return true;
@@ -147,47 +215,77 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
     <Stack gap="sm">
       <Group justify="space-between">
         <Text fw={600}>Collect payment</Text>
-        <StatusBadge status={status} />
+        {method === 'momo' && <StatusBadge status={status} />}
       </Group>
 
-      <NumberInput
-        label="Amount"
-        value={amount}
-        onChange={(v) => setAmount(typeof v === 'number' ? v : undefined)}
-        min={0}
-        disabled={busy || Boolean(invoice)}
-        suffix={` ${currency}`}
-        thousandSeparator=" "
-      />
-      <TextInput
-        label="Payer phone"
-        placeholder="+237 6 90 00 00 00"
-        value={phone}
-        onChange={(e) => setPhone(e.currentTarget.value)}
-        disabled={busy}
-      />
-      <Select
-        label="Mobile money provider"
-        data={CORRESPONDENTS}
-        value={correspondent}
-        onChange={(v) => setCorrespondent(v ?? CORRESPONDENTS[0].value)}
-        allowDeselect={false}
+      <SegmentedControl
+        fullWidth
+        value={method}
+        onChange={(v) => setMethod(v as PaymentMethod)}
+        data={[
+          { value: 'momo', label: 'Mobile money' },
+          { value: 'card', label: 'Card' },
+        ]}
         disabled={busy}
       />
 
-      {message && (
-        <Alert color={status === 'failed' ? 'red' : status === 'completed' ? 'green' : 'blue'} variant="light">
-          {message}
+      {cancelledNotice && (
+        <Alert color="gray" variant="light" withCloseButton onClose={() => setCancelledNotice(false)}>
+          Payment cancelled.
         </Alert>
       )}
 
-      <Button onClick={handleCollect} loading={busy} disabled={status === 'completed'}>
-        {status === 'completed' ? 'Paid' : 'Request payment'}
-      </Button>
-      {invoice?.id && (
-        <Text size="xs" c="dimmed">
-          Invoice {getReferenceString(invoice)}
-        </Text>
+      {method === 'momo' ? (
+        <>
+          <NumberInput
+            label="Amount"
+            value={amount}
+            onChange={(v) => setAmount(typeof v === 'number' ? v : undefined)}
+            min={0}
+            disabled={busy || Boolean(invoice)}
+            suffix={` ${currency}`}
+            thousandSeparator=" "
+          />
+          <TextInput
+            label="Payer phone"
+            placeholder="+237 6 90 00 00 00"
+            value={phone}
+            onChange={(e) => setPhone(e.currentTarget.value)}
+            disabled={busy}
+          />
+          <Select
+            label="Mobile money provider"
+            data={CORRESPONDENTS}
+            value={correspondent}
+            onChange={(v) => setCorrespondent(v ?? CORRESPONDENTS[0].value)}
+            allowDeselect={false}
+            disabled={busy}
+          />
+
+          {message && (
+            <Alert color={alertColor(status)} variant="light">
+              {message}
+            </Alert>
+          )}
+
+          <Button onClick={handleCollect} loading={busy} disabled={status === 'completed'}>
+            {status === 'completed' ? 'Paid' : 'Request payment'}
+          </Button>
+          {invoice?.id && (
+            <Text size="xs" c="dimmed">
+              Invoice {getReferenceString(invoice)}
+            </Text>
+          )}
+        </>
+      ) : (
+        <CardPaymentPanel
+          patient={patient}
+          invoice={invoice}
+          defaultAmount={defaultAmount}
+          chargeItems={chargeItems}
+          returnInvoiceId={returningFromCard ? redirect?.invoiceId : undefined}
+          onPaid={onPaid}
+        />
       )}
     </Stack>
   );
@@ -210,6 +308,9 @@ function getParam(params: Parameters, name: string): string | undefined {
   return params.parameter?.find((p) => p.name === name)?.valueString;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function alertColor(status: CollectionStatus): string {
+  if (status === 'failed') {
+    return 'red';
+  }
+  return status === 'completed' ? 'green' : 'blue';
 }
