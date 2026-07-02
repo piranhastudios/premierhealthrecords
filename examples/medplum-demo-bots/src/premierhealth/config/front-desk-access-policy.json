@@ -36,6 +36,10 @@
     { "resourceType": "SearchParameter", "readonly": true },
     { "resourceType": "Bot", "readonly": true },
     { "resourceType": "Observation", "readonly": true },
-    { "resourceType": "DiagnosticReport", "readonly": true }
+    { "resourceType": "DiagnosticReport", "readonly": true },
+    { "resourceType": "Condition", "readonly": true },
+    { "resourceType": "AllergyIntolerance", "readonly": true },
+    { "resourceType": "UserConfiguration", "readonly": true },
+    { "resourceType": "ProjectMembership", "readonly": true }
   ]
 }
