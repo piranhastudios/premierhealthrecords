@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "MEDPLUM_BASE_URL": "https://api.premierhealth.cm/"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "MEDPLUM_BASE_URL": "https://api.premierhealth.cm/"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "MEDPLUM_BASE_URL": "https://api.premierhealth.cm/"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
