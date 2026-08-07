@@ -1,0 +1,50 @@
+/*
+ * The pane paints the page ground the card sits on. Mantine's dark body colour is
+ * `dark.7` — the same value as the card — so without this the card is invisible.
+ * Painting it here rather than on a shared container keeps every other page
+ * untouched.
+ *
+ * The pane is exactly a viewport tall, so a short result set still fills the
+ * screen and — more importantly — the table scrolls inside the card, keeping the
+ * footer docked at the bottom instead of pushing it below the fold.
+ * Note the `0px` fallback: `calc(100vh - 0)` is invalid (calc rejects a unitless
+ * zero as a length), which silently drops the whole declaration.
+ */
+.pane {
+  display: flex;
+  padding: var(--mantine-spacing-md);
+  background-color: var(--mantine-color-dark-9);
+  height: calc(100vh - var(--app-shell-header-height, 0px));
+}
+
+/*
+ * Inside a parent whose height is already constrained (the patient chart's
+ * content pane), fill it exactly instead — a viewport-based minimum there would
+ * overflow that parent and produce a second scrollbar.
+ */
+.pane[data-fill] {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/*
+ * Fill the pane and become a flex column, so the SearchControl root below can
+ * take the remaining height and act as the table's scroll container. Without a
+ * height cap somewhere in this chain, that root (which sets `overflow: auto`)
+ * never scrolls, and a sticky table header has nothing to stick to.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Sits outside the table's scroll area, so it stays docked at the card's bottom. */
+.footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--mantine-color-dark-4);
+  background-color: var(--mantine-color-dark-7);
+}

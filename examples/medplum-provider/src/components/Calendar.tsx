@@ -115,7 +115,7 @@ function eventPropGetter(
 ): { className?: string | undefined; style?: React.CSSProperties } {
   const result = {
     style: {
-      backgroundColor: '#228be6',
+      backgroundColor: '#f47b20',
       border: '1px solid rgba(255, 255, 255, 0)',
       borderRadius: '4px',
       color: 'white',
@@ -125,9 +125,9 @@ function eventPropGetter(
   };
 
   if (event.type === 'slot') {
-    result.style.backgroundColor = event.status === 'free' ? '#d3f9d8' : '#ced4da';
-    result.style.color = 'black';
-    result.style.opacity = 0.6;
+    result.style.backgroundColor = event.status === 'free' ? '#2b8a3e' : '#495057';
+    result.style.color = 'white';
+    result.style.opacity = 0.75;
   }
 
   return result;

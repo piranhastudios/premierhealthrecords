@@ -5,3 +5,8 @@
   flex-wrap: nowrap;
   padding: 0 16px 16px;
 }
+
+.action {
+  flex-shrink: 0;
+  padding: 0 16px 16px 0;
+}

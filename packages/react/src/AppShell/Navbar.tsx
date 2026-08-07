@@ -23,6 +23,7 @@ import { MedplumLink } from '../MedplumLink/MedplumLink';
 import { ResourceAvatar } from '../ResourceAvatar/ResourceAvatar';
 import { ResourceTypeInput } from '../ResourceTypeInput/ResourceTypeInput';
 import { HeaderDropdown } from './HeaderDropdown';
+import type { HeaderDropdownLink } from './HeaderDropdown';
 import classes from './Navbar.module.css';
 import { Spotlight } from './Spotlight';
 
@@ -64,6 +65,7 @@ export interface NavbarProps {
   readonly opened?: boolean;
   readonly version?: string;
   readonly showLayoutVersionToggle?: boolean;
+  readonly userMenuLinks?: HeaderDropdownLink[];
 }
 
 export function Navbar(props: NavbarProps): JSX.Element {
@@ -229,7 +231,11 @@ export function Navbar(props: NavbarProps): JSX.Element {
                 </UnstyledButton>
               </Menu.Target>
               <Menu.Dropdown>
-                <HeaderDropdown version={props.version} showLayoutVersionToggle={props.showLayoutVersionToggle} />
+                <HeaderDropdown
+                  version={props.version}
+                  showLayoutVersionToggle={props.showLayoutVersionToggle}
+                  links={props.userMenuLinks}
+                />
               </Menu.Dropdown>
             </Menu>
           </MantineAppShell.Section>

@@ -58,3 +58,29 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
   }
   return dbPromise;
 }
+
+// expo-sqlite's `withTransactionAsync` shares a single connection and is NOT safe
+// to run concurrently: two overlapping transactions both issue BEGIN, so the
+// second throws "cannot start a transaction within a transaction" (and its
+// ROLLBACK then throws "no transaction is active"). Sync can fire more than once
+// at a time (SyncProvider effects), so we serialize all write transactions
+// through a promise queue — at most one transaction is ever open.
+let txTail: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs `fn` inside a database transaction, serialized against every other
+ * `withTransaction` call so transactions never overlap on the shared connection.
+ * @param fn - Callback that performs the writes; the transaction commits when it
+ *   resolves and rolls back if it throws.
+ * @returns A promise that resolves once this transaction has committed.
+ */
+export async function withTransaction(fn: () => Promise<void>): Promise<void> {
+  const db = await getDb();
+  const run = txTail.then(() => db.withTransactionAsync(fn));
+  // Keep the queue moving whether this transaction commits or rolls back.
+  txTail = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}

@@ -248,7 +248,7 @@ describe('SearchPage', () => {
     });
 
     // Test pagination which triggers onChange
-    const nextPageButton = screen.queryByLabelText('Next page');
+    const nextPageButton = screen.queryByLabelText('Next results');
     if (nextPageButton) {
       await act(async () => {
         fireEvent.click(nextPageButton);

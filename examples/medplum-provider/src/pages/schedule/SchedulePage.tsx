@@ -227,7 +227,7 @@ export function SchedulePage(): JSX.Element | null {
   );
 
   return (
-    <Box pos="relative" bg="white" p="md" style={{ height }}>
+    <Box pos="relative" bg="dark.7" p="md" style={{ height }}>
       <div className={classes.wrapper}>
         <Group justify="space-between">
           <Box mb="sm" w={320}>

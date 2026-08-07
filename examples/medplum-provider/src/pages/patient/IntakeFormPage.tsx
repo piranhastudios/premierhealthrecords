@@ -24,6 +24,7 @@ export function IntakeFormPage({
   const medplum = useMedplum();
   const profile = useMedplumProfile();
   const [unavailableValueSets, setUnavailableValueSets] = useState<ValueSetInfo[]>([]);
+  const [requiredUnavailableUrls, setRequiredUnavailableUrls] = useState<string[]>([]);
   const [checkingValueSets, setCheckingValueSets] = useState(false);
   const questionnaire = propQuestionnaire ?? defaultQuestionnaire;
 
@@ -69,6 +70,8 @@ export function IntakeFormPage({
 
       if (isActive && !abortController.signal.aborted) {
         setUnavailableValueSets(unavailable);
+        const unavailableSet = new Set(unavailable.map((vs) => vs.url));
+        setRequiredUnavailableUrls(REQUIRED_VALUESET_URLS.filter((url) => unavailableSet.has(url)));
       }
     }
 
@@ -119,16 +122,45 @@ export function IntakeFormPage({
             sales to enable these valuesets.
           </p>
           <ul>
-            {unavailableValueSets.map((vs) => (
-              <li key={vs.linkId}>{vs.url}</li>
+            {requiredUnavailableUrls.map((url) => (
+              <li key={url}>
+                <a href={url} target="_blank" rel="noreferrer">
+                  {url}
+                </a>
+              </li>
             ))}
           </ul>
+          {unavailableValueSets.some((vs) => !REQUIRED_VALUESET_URLS.includes(vs.url)) && (
+            <>
+              <p>Additional unavailable valuesets:</p>
+              <ul>
+                {unavailableValueSets
+                  .filter((vs) => !REQUIRED_VALUESET_URLS.includes(vs.url))
+                  .map((vs) => (
+                    <li key={vs.linkId}>
+                      <a href={vs.url} target="_blank" rel="noreferrer">
+                        {vs.url}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </>
+          )}
         </Alert>
       )}
       <QuestionnaireForm questionnaire={questionnaire} onSubmit={handleOnSubmit} />
     </Document>
   );
 }
+
+const REQUIRED_VALUESET_URLS: readonly string[] = [
+  'https://premierhealth.cm/fhir/ValueSet/cameroon-regions',
+  'https://premierhealth.cm/fhir/ValueSet/cameroon-allergens',
+  'https://premierhealth.cm/fhir/ValueSet/cameroon-medications',
+  'https://premierhealth.cm/fhir/ValueSet/cameroon-conditions',
+  'https://premierhealth.cm/fhir/ValueSet/cameroon-immunizations',
+  'https://premierhealth.cm/fhir/ValueSet/tobacco-use-status',
+];
 
 interface ValueSetInfo {
   url: string;

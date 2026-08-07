@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PasswordInput } from '../../src/components/PasswordInput';
 import { register } from '../../src/medplum/auth';
 import { cardShadow, colors, heroGradient } from '../../src/theme/tokens';
 
@@ -127,29 +128,21 @@ export default function Register(): JSX.Element {
 
               <View className="gap-1.5">
                 <Text className="text-ink-secondary text-sm font-semibold">Password</Text>
-                <TextInput
+                <PasswordInput
                   value={password}
                   onChangeText={setPassword}
                   placeholder="At least 8 characters"
-                  placeholderTextColor={colors.inkFaint}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
-                  className={inputClass}
                 />
               </View>
 
               <View className="gap-1.5">
                 <Text className="text-ink-secondary text-sm font-semibold">Confirm password</Text>
-                <TextInput
+                <PasswordInput
                   value={confirm}
                   onChangeText={setConfirm}
                   placeholder="Re-enter your password"
-                  placeholderTextColor={colors.inkFaint}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
-                  className={inputClass}
                   returnKeyType="go"
                   onSubmitEditing={onRegister}
                 />

@@ -20,6 +20,7 @@
     { "resourceType": "Communication" },
     { "resourceType": "DocumentReference" },
     { "resourceType": "Binary" },
+    { "resourceType": "Basic" },
     { "resourceType": "Practitioner", "readonly": true },
     { "resourceType": "PractitionerRole", "readonly": true },
     { "resourceType": "Schedule", "readonly": true },

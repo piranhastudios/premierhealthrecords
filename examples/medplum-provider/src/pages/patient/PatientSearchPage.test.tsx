@@ -73,22 +73,34 @@ describe('PatientSearchPage', () => {
     // This is tested implicitly by the component's useEffect logic
   });
 
+  // Paging is driven by the ChartTablePanel footer, not SearchControl's own
+  // pager (which is hidden — it sits inside the scroll area and has no page-size
+  // control).
   test('Next page button', async () => {
     await setup(`/Patient/${HomerSimpson.id}/Patient`);
-    expect(await screen.findByLabelText('Next page')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Next results')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByLabelText('Next page'));
+      fireEvent.click(screen.getByLabelText('Next results'));
     });
   });
 
   test('Prev page button', async () => {
     await setup(`/Patient/${HomerSimpson.id}/Patient`);
-    expect(await screen.findByLabelText('Previous page')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Previous results')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByLabelText('Previous page'));
+      fireEvent.click(screen.getByLabelText('Previous results'));
     });
+  });
+
+  test('Page size selector is offered', async () => {
+    await setup(`/Patient/${HomerSimpson.id}/Patient`);
+    // Mantine's Select puts the label on both the wrapper and the input.
+    const pageSize = (await screen.findAllByLabelText('Results per page')).find(
+      (el): el is HTMLInputElement => el instanceof HTMLInputElement
+    );
+    expect(pageSize).toHaveValue('20');
   });
 
   test('New button navigates to new resource page', async () => {

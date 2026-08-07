@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Group, Loader, Paper, Tooltip } from '@mantine/core';
+import { Button, Loader, Tooltip } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import type { SearchRequest } from '@medplum/core';
 import { DEFAULT_SEARCH_COUNT, formatSearchQuery, normalizeErrorString, parseSearchRequest } from '@medplum/core';
@@ -14,9 +14,10 @@ import { IconSwitchHorizontal } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { ChartTablePanel } from '../../components/tables/ChartTablePanel';
 import { hasDoseSpotIdentifier } from '../../components/utils';
 import { usePatient } from '../../hooks/usePatient';
-import { prependPatientPath } from './PatientPage.utils';
+import { prependPatientPath, tableTabLabel } from './PatientPage.utils';
 
 export function MedicationsPage(): JSX.Element {
   const medplum = useMedplum();
@@ -24,6 +25,7 @@ export function MedicationsPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState<SearchRequest>();
+  const [total, setTotal] = useState<number>();
   const [syncing, setSyncing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const membership = medplum.getProjectMembership();
@@ -99,38 +101,45 @@ export function MedicationsPage(): JSX.Element {
     return <Loading />;
   }
 
+  const doseSpotSync = hasDoseSpot ? (
+    <Tooltip
+      label="Imports and updates completed and active prescriptions as well as medication history"
+      multiline
+      position="left-start"
+      offset={8}
+      openDelay={1000}
+      w={300}
+      disabled={syncing}
+    >
+      <Button
+        size="xs"
+        leftSection={syncing ? <Loader size={16} color="gray" opacity={0.5} /> : <IconSwitchHorizontal size={16} />}
+        disabled={syncing}
+        onClick={handleDoseSpotSync}
+        variant="light"
+      >
+        {syncing ? 'Syncing…' : 'Sync with DoseSpot'}
+      </Button>
+    </Tooltip>
+  ) : undefined;
+
   return (
-    <Paper shadow="xs" m="md" p="xs">
-      {hasDoseSpot && (
-        <Group justify="flex-end" mb="md">
-          <Tooltip
-            label="Imports and updates completed and active prescriptions as well as medication history"
-            multiline
-            position="left-start"
-            offset={8}
-            openDelay={1000}
-            w={300}
-            disabled={syncing}
-          >
-            <Button
-              size="sm"
-              leftSection={
-                syncing ? <Loader size={16} color="gray" opacity={0.5} /> : <IconSwitchHorizontal size={16} />
-              }
-              disabled={syncing}
-              onClick={handleDoseSpotSync}
-              variant="light"
-              miw={200}
-            >
-              {syncing ? 'Syncing…' : 'Sync with DoseSpot'}
-            </Button>
-          </Tooltip>
-        </Group>
-      )}
+    <ChartTablePanel
+      title={tableTabLabel('MedicationRequest')}
+      total={total}
+      action={doseSpotSync}
+      fill
+      search={search}
+      onSearchChange={(next) =>
+        navigate(`/Patient/${patient.id}/MedicationRequest${formatSearchQuery(next)}`)?.catch(console.error)
+      }
+    >
       <SearchControl
         key={refreshKey}
         checkboxesEnabled={true}
+        hideFilters
         search={search}
+        onLoad={(e) => setTotal(e.response.total)}
         onClick={(e) =>
           navigate(`/Patient/${patient.id}/${e.resource.resourceType}/${e.resource.id}`)?.catch(console.error)
         }
@@ -142,7 +151,7 @@ export function MedicationsPage(): JSX.Element {
           navigate(`/Patient/${patient.id}/MedicationRequest${formatSearchQuery(e.definition)}`)?.catch(console.error);
         }}
       />
-    </Paper>
+    </ChartTablePanel>
   );
 }
 

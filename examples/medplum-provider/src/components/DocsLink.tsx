@@ -9,13 +9,11 @@ interface DocsLinkProps extends Omit<AnchorProps, 'href'> {
   children: React.ReactNode;
 }
 
-// A Hyperlink to the Medplum docs
-//
-// TODO: Consider if we can generate a list of paths of pages under /docs at
-// build time, so that a link to a nonexistent page could emit a type error.
+// A hyperlink to the in-app Provider docs page.
 export function DocsLink(props: DocsLinkProps): JSX.Element {
+  const anchor = props.path.replace(/^\//, '');
   return (
-    <Anchor href={`https://www.medplum.com/docs/${props.path}`} target="_blank">
+    <Anchor href={`/docs#${anchor}`}>
       {props.children}
     </Anchor>
   );

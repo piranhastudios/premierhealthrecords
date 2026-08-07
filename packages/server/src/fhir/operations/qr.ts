@@ -424,6 +424,18 @@ export async function patientIssueQrHandler(req: FhirRequest): Promise<FhirRespo
   const patient = await ctx.repo.readResource<Patient>('Patient', id);
   const handle = deriveHandle(key, patient.id as string);
 
+  // Ensure the stable qr-handle identifier exists so $verify-qr can resolve
+  // handle -> patient. Online issuance may happen without a prior $qr-enroll
+  // (see useRotatingQr online path), so upsert it here too. Idempotent: after
+  // the first issuance the identifier is present and this is a no-op.
+  const hasHandle = patient.identifier?.some((i) => i.system === QR_HANDLE_SYSTEM && i.value === handle);
+  if (!hasHandle) {
+    await ctx.repo.updateResource<Patient>({
+      ...patient,
+      identifier: [...(patient.identifier ?? []), { system: QR_HANDLE_SYSTEM, value: handle }],
+    });
+  }
+
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + QR_TOKEN_TTL_SEC;
   const jws = signJws(key, {

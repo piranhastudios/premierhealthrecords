@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Loader, Modal, ScrollArea } from '@mantine/core';
+import { Button, Drawer, Loader, Modal, ScrollArea, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { getReferenceString, isOk } from '@medplum/core';
 import type { OperationOutcome } from '@medplum/fhirtypes';
 import {
@@ -9,16 +10,18 @@ import {
   getDefaultSections,
   OperationOutcomeAlert,
   PatientSummary,
+  PatientTimeline,
   useMedplum,
 } from '@medplum/react';
+import { IconTimeline } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Location } from 'react-router';
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
 import { useDoseSpotAccess } from '../../hooks/useDoseSpotAccess';
 import { usePatient } from '../../hooks/usePatient';
-import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import classes from './PatientPage.module.css';
 import type { PatientPageTabInfo } from './PatientPage.utils';
 import { formatPatientPageTabUrl, getPatientPageTabs } from './PatientPage.utils';
@@ -41,6 +44,7 @@ export function PatientPage(): JSX.Element {
   const [outcome, setOutcome] = useState<OperationOutcome>();
   const patient = usePatient({ setOutcome });
   const [isLabsModalOpen, setIsLabsModalOpen] = useState(false);
+  const [timelineOpened, timelineHandlers] = useDisclosure(false);
   const PharmacyDialogComponent = usePharmacyDialog();
   const { hasAccess: hasDoseSpotAccess } = useDoseSpotAccess();
   const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess });
@@ -122,7 +126,21 @@ export function PatientPage(): JSX.Element {
         </div>
 
         <div className={classes.content}>
-          <PatientTabsNavigation tabs={tabs} currentTab={currentTab} onTabChange={onTabChange} />
+          <PatientTabsNavigation
+            tabs={tabs}
+            currentTab={currentTab}
+            onTabChange={onTabChange}
+            action={
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={<IconTimeline size={16} />}
+                onClick={timelineHandlers.open}
+              >
+                Timeline
+              </Button>
+            }
+          />
           <div className={classes.contentBody}>
             <Outlet />
           </div>
@@ -131,6 +149,22 @@ export function PatientPage(): JSX.Element {
       <Modal opened={isLabsModalOpen} onClose={handleCloseLabsModal} size="md" centered title="New lab order">
         <NewLabOrder patient={patient} onCreated={handleCloseLabsModal} />
       </Modal>
+      <Drawer
+        opened={timelineOpened}
+        onClose={timelineHandlers.close}
+        position="right"
+        size="xl"
+        title={
+          <Text size="xl" fw={700}>
+            Timeline
+          </Text>
+        }
+        h="100%"
+        scrollAreaComponent={ScrollArea.Autosize}
+      >
+        {/* Remount per patient so the timeline never shows a previous patient's feed. */}
+        <PatientTimeline key={patientId} patient={patient} />
+      </Drawer>
     </>
   );
 }

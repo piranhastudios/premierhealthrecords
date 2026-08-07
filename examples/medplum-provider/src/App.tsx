@@ -8,6 +8,7 @@ import {
   IconBook2,
   IconCalendarEvent,
   IconClipboardCheck,
+  IconLayoutDashboard,
   IconMail,
   IconPill,
   IconPrinter,
@@ -27,6 +28,7 @@ const SETUP_DISMISSED_KEY = 'medplum-provider-setup-completed';
 
 import { EncounterChartPage } from './pages/encounter/EncounterChartPage';
 import { EncounterModal } from './pages/encounter/EncounterModal';
+import { DocsPage } from './pages/docs/DocsPage';
 import { FaxPage } from './pages/fax/FaxPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
@@ -34,6 +36,7 @@ import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotifica
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ScriptSurePage } from './pages/integrations/ScriptSurePage';
 import { MessagesPage } from './pages/messages/MessagesPage';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { CoveragePage } from './pages/patient/CoveragePage';
 import { DoseSpotTab } from './pages/patient/DoseSpotTab';
@@ -42,6 +45,7 @@ import { ExportTab } from './pages/patient/ExportTab';
 import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { LabsPage } from './pages/patient/LabsPage';
 import { MedicationsPage } from './pages/patient/MedicationsPage';
+import { OverviewTab } from './pages/patient/overview/OverviewTab';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
@@ -98,11 +102,19 @@ export function App(): JSX.Element | null {
       searchParams={searchParams}
       layoutVersion="v2"
       showLayoutVersionToggle={false}
+      userMenuLinks={[
+        {
+          icon: <IconBook2 size={14} stroke={1.5} />,
+          label: 'Docs',
+          href: '/docs',
+        },
+      ]}
       menus={
         profile
           ? [
               {
                 links: [
+                  { icon: <IconLayoutDashboard />, label: 'Dashboard', href: '/dashboard' },
                   { icon: <IconBook2 />, label: 'Spaces', href: '/Spaces/Communication' },
                   {
                     icon: <IconUsers />,
@@ -181,6 +193,7 @@ export function App(): JSX.Element | null {
         <Routes>
           {profile ? (
             <>
+              <Route path="/docs" element={<DocsPage />} />
               <Route path="/getstarted" element={<GetStartedPage />} />
               <Route path="/Spaces/Communication" element={<SpacesPage />}>
                 <Route index element={<SpacesPage />} />
@@ -188,17 +201,9 @@ export function App(): JSX.Element | null {
               </Route>
               <Route
                 path="/"
-                element={
-                  <Navigate
-                    to={
-                      setupDismissed
-                        ? '/Patient?_count=20&_fields=name,email,gender&_sort=-_lastUpdated'
-                        : '/getstarted'
-                    }
-                    replace
-                  />
-                }
+                element={<Navigate to={setupDismissed ? '/dashboard' : '/getstarted'} replace />}
               />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/Patient/new" element={<ResourceCreatePage />} />
               <Route path="/Patient/:patientId" element={<PatientPage />}>
                 <Route path="Encounter/new" element={<EncounterModal />} />
@@ -212,6 +217,7 @@ export function App(): JSX.Element | null {
                 <Route path="Task/:taskId" element={<TasksTab />} />
                 {hasDoseSpot && <Route path="dosespot" element={<DoseSpotTab />} />}
                 {hasScriptSure && <Route path="scriptsure" element={<ScriptSureTab />} />}
+                <Route path="overview" element={<OverviewTab />} />
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path="payments" element={<PaymentsTab />} />
                 <Route path="export" element={<ExportTab />} />
@@ -228,7 +234,7 @@ export function App(): JSX.Element | null {
                   <Route path="edit" element={<ResourceEditPage />} />
                   <Route path="history" element={<ResourceHistoryPage />} />
                 </Route>
-                <Route path="" element={<TimelineTab />} />
+                <Route path="" element={<OverviewTab />} />
               </Route>
               <Route path="/Communication" element={<MessagesPage />}>
                 <Route index element={<MessagesPage />} />

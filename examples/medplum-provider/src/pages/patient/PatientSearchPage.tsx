@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Paper } from '@mantine/core';
 import type { SearchRequest } from '@medplum/core';
 import { DEFAULT_SEARCH_COUNT, formatSearchQuery, parseSearchRequest } from '@medplum/core';
 import { Loading, SearchControl, useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { ChartTablePanel } from '../../components/tables/ChartTablePanel';
 import { usePatient } from '../../hooks/usePatient';
 import { useResourceType } from '../resource/useResourceType';
-import { prependPatientPath } from './PatientPage.utils';
+import { prependPatientPath, tableTabLabel } from './PatientPage.utils';
 
 export function PatientSearchPage(): JSX.Element {
   const medplum = useMedplum();
@@ -17,6 +17,7 @@ export function PatientSearchPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState<SearchRequest>();
+  const [total, setTotal] = useState<number>();
 
   useResourceType(search?.resourceType, { onInvalidResourceType: () => navigate('..')?.catch(console.error) });
 
@@ -45,10 +46,20 @@ export function PatientSearchPage(): JSX.Element {
   }
 
   return (
-    <Paper shadow="xs" m="md" p="xs">
+    <ChartTablePanel
+      title={tableTabLabel(search.resourceType)}
+      total={total}
+      fill
+      search={search}
+      onSearchChange={(next) =>
+        navigate(`/Patient/${patient.id}/${search.resourceType}${formatSearchQuery(next)}`)?.catch(console.error)
+      }
+    >
       <SearchControl
         checkboxesEnabled={true}
+        hideFilters
         search={search}
+        onLoad={(e) => setTotal(e.response.total)}
         onClick={(e) =>
           navigate(`/Patient/${patient.id}/${e.resource.resourceType}/${e.resource.id}`)?.catch(console.error)
         }
@@ -62,7 +73,7 @@ export function PatientSearchPage(): JSX.Element {
           );
         }}
       />
-    </Paper>
+    </ChartTablePanel>
   );
 }
 

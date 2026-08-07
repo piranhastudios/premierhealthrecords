@@ -1,7 +1,7 @@
 import type { Invoice, Patient } from '@medplum/fhirtypes';
 import { patientCni, patientMrn, patientName } from '../lib/format';
 import type { SummarySection } from '../lib/constants';
-import { getDb } from './db';
+import { getDb, withTransaction } from './db';
 
 export interface OutboxItem {
   id: string;
@@ -22,7 +22,7 @@ function parseRows<T>(rows: JsonRow[]): T[] {
 export async function upsertProfiles(patients: Patient[], holderId?: string): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
-  await db.withTransactionAsync(async () => {
+  await withTransaction(async () => {
     for (const p of patients) {
       await db.runAsync(
         `INSERT OR REPLACE INTO profile (patient_id, display_name, cni, birth_date, is_self, json, updated_at)
@@ -54,7 +54,7 @@ export async function replaceSummary(
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
-  await db.withTransactionAsync(async () => {
+  await withTransaction(async () => {
     await db.runAsync('DELETE FROM summary_entry WHERE patient_id = ?', [patientId]);
     for (const e of entries) {
       await db.runAsync(
@@ -89,7 +89,7 @@ export async function getSummaryCounts(patientId: string): Promise<Record<string
 export async function upsertInvoices(invoices: Invoice[]): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
-  await db.withTransactionAsync(async () => {
+  await withTransaction(async () => {
     for (const inv of invoices) {
       const total = inv.totalGross ?? inv.totalNet;
       await db.runAsync(

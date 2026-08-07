@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { ResourceAvatar } from '../ResourceAvatar/ResourceAvatar';
 import classes from './Header.module.css';
 import { HeaderDropdown } from './HeaderDropdown';
+import type { HeaderDropdownLink } from './HeaderDropdown';
 import { HeaderSearchInput } from './HeaderSearchInput';
 
 export interface HeaderProps {
@@ -21,6 +22,7 @@ export interface HeaderProps {
   readonly navbarOpen?: boolean;
   readonly navbarToggle: () => void;
   readonly notifications?: ReactNode;
+  readonly userMenuLinks?: HeaderDropdownLink[];
 }
 
 export function Header(props: HeaderProps): JSX.Element {
@@ -70,7 +72,7 @@ export function Header(props: HeaderProps): JSX.Element {
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>
-              <HeaderDropdown version={props.version} />
+              <HeaderDropdown version={props.version} links={props.userMenuLinks} />
             </Menu.Dropdown>
           </Menu>
         </Group>

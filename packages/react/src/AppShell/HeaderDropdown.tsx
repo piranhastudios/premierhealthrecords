@@ -7,15 +7,22 @@ import { getReferenceString, locationUtils } from '@medplum/core';
 import type { HumanName } from '@medplum/fhirtypes';
 import { useMedplumContext } from '@medplum/react-hooks';
 import { IconLogout, IconSettings, IconSwitchHorizontal } from '@tabler/icons-react';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { useState } from 'react';
 import { HumanNameDisplay } from '../HumanNameDisplay/HumanNameDisplay';
 import { ResourceAvatar } from '../ResourceAvatar/ResourceAvatar';
 import { getAppName } from '../utils/app';
 
+export interface HeaderDropdownLink {
+  readonly label: string;
+  readonly href: string;
+  readonly icon?: ReactNode;
+}
+
 export interface HeaderDropdownProps {
   readonly version?: string;
   readonly showLayoutVersionToggle?: boolean;
+  readonly links?: HeaderDropdownLink[];
 }
 
 export function HeaderDropdown(props: HeaderDropdownProps): JSX.Element {
@@ -96,6 +103,11 @@ export function HeaderDropdown(props: HeaderDropdownProps): JSX.Element {
         )}
       </Group>
       <Menu.Divider />
+      {props.links?.map((link) => (
+        <Menu.Item key={link.href} leftSection={link.icon} onClick={() => navigate(link.href)}>
+          {link.label}
+        </Menu.Item>
+      ))}
       <Menu.Item
         leftSection={<IconSettings size={14} stroke={1.5} />}
         onClick={() => navigate(`/${getReferenceString(profile as ProfileResource)}`)}

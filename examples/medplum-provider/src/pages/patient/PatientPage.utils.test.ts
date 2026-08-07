@@ -78,9 +78,9 @@ describe('PatientPage.utils', () => {
 
     test('handles tab with empty URL', () => {
       const tab = {
-        id: 'timeline',
+        id: 'overview',
         url: '',
-        label: 'Timeline',
+        label: 'Overview',
       };
       expect(formatPatientPageTabUrl('patient-456', tab)).toBe('/Patient/patient-456/');
     });
@@ -119,10 +119,10 @@ describe('PatientPage.utils', () => {
 
   describe('getPatientPageTabOrThrow', () => {
     test('returns tab when found', () => {
-      const timelineTab = getPatientPageTabOrThrow('timeline');
-      expect(timelineTab.id).toBe('timeline');
-      expect(timelineTab.url).toBe('');
-      expect(timelineTab.label).toBe('Timeline');
+      const overviewTab = getPatientPageTabOrThrow('overview');
+      expect(overviewTab.id).toBe('overview');
+      expect(overviewTab.url).toBe('');
+      expect(overviewTab.label).toBe('Overview');
 
       const editTab = getPatientPageTabOrThrow('edit');
       expect(editTab.id).toBe('edit');
@@ -145,7 +145,7 @@ describe('PatientPage.utils', () => {
 
     test('finds all defined tabs', () => {
       const tabIds = [
-        'timeline',
+        'overview',
         'edit',
         'encounter',
         'tasks',
@@ -176,7 +176,7 @@ describe('PatientPage.utils', () => {
 
     test('contains expected tabs', () => {
       const tabIds = PatientPageTabs.map((tab) => tab.id);
-      expect(tabIds).toContain('timeline');
+      expect(tabIds).toContain('overview');
       expect(tabIds).toContain('edit');
       expect(tabIds).toContain('encounter');
       expect(tabIds).toContain('tasks');
@@ -202,10 +202,14 @@ describe('PatientPage.utils', () => {
       }
     });
 
-    test('timeline tab has empty URL', () => {
-      const timelineTab = PatientPageTabs.find((tab) => tab.id === 'timeline');
-      expect(timelineTab).toBeDefined();
-      expect(timelineTab?.url).toBe('');
+    test('overview tab has empty URL', () => {
+      const overviewTab = PatientPageTabs.find((tab) => tab.id === 'overview');
+      expect(overviewTab).toBeDefined();
+      expect(overviewTab?.url).toBe('');
+    });
+
+    test('timeline is not a tab — it opens as a drawer', () => {
+      expect(PatientPageTabs.map((tab) => tab.id)).not.toContain('timeline');
     });
 
     test('tabs with patient.id placeholder contain the placeholder', () => {
