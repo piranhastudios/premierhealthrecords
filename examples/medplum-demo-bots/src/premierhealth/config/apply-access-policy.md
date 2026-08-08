@@ -14,7 +14,9 @@ creates under the caller's own policy).
   editable, including `gender`, `maritalStatus`, `communication`): Patient,
   RelatedPerson, Coverage, Appointment, Slot, Encounter, ClinicalImpression, Task,
   RequestGroup, CarePlan, ServiceRequest, ChargeItem, Invoice, PaymentReconciliation,
-  QuestionnaireResponse, Communication, DocumentReference, Binary.
+  QuestionnaireResponse, Communication, DocumentReference, Binary, Basic.
+  - Basic write is required by `Patient/$verify-qr` (it burns a single-use nonce by
+    creating a Basic resource).
   - RequestGroup + CarePlan are required because `PlanDefinition/$apply` always
     creates one of each; ServiceRequest + Task are created per plan action.
   - Binary + DocumentReference cover attachment uploads (patient photo, scanned
@@ -22,14 +24,19 @@ creates under the caller's own policy).
 - **Read-only** (`"readonly": true`): Practitioner, PractitionerRole, Schedule,
   PlanDefinition, ActivityDefinition, Questionnaire, ChargeItemDefinition,
   Organization, HealthcareService, Location, ValueSet, CodeSystem,
-  StructureDefinition, SearchParameter, Bot, Observation, DiagnosticReport.
+  StructureDefinition, SearchParameter, Bot, Observation, DiagnosticReport,
+  Condition, AllergyIntolerance, MedicationRequest, UserConfiguration, ProjectMembership.
   - Observation/DiagnosticReport are deliberately read-only: front desk can view but
-    not record clinical data (nurses take vitals).
+    not record clinical data (nurses take vitals). Condition/AllergyIntolerance/MedicationRequest
+    likewise: visible on the chart sidebar, not editable (the sidebar summary
+    loads the med list; without read it errors "Forbidden").
   - Bot read is required for the user to trigger `Bot/$execute` (the server first
     reads the Bot under the caller's policy).
-- **Not granted**: Project, ProjectMembership, User, AccessPolicy, Subscription.
-  Server-side subscription processing does not run under the caller's policy, so
-  Subscription access is not needed.
+  - UserConfiguration/ProjectMembership read keep the app shell (menus, profile)
+    working under the scoped policy.
+- **Not granted**: Project, User, AccessPolicy, Subscription, Consent. Server-side
+  subscription processing does not run under the caller's policy, so Subscription
+  access is not needed.
 
 ## Upload / update the policy (idempotent)
 
@@ -72,7 +79,10 @@ matches).
 
 ## Smoke test (as a front-desk user)
 
-1. Edit a Patient: change gender, marital status, and language (communication) — save
+1. Register a patient at **/Patient/new** (the "New Patient" links): the phone row is
+   pre-rendered with the dialing-code selector, submitting without a phone number is
+   rejected by the server, and the optional Insurance step creates a Coverage.
+2. Edit a Patient: change gender, marital status, and language (communication) — save
    must succeed.
 2. Schedule page: pick a practitioner's schedule, create a visit with a care template
    (PlanDefinition) — appointment, encounter, tasks, and charge items must all be

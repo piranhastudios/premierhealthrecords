@@ -58,14 +58,13 @@ export function ChartTablePanel(props: ChartTablePanelProps): JSX.Element {
         shadow="sm"
         radius="lg"
         p={0}
-        bg="dark.7"
         className={`${classes.panel} ph-table-panel`}
-        style={{ borderColor: 'var(--mantine-color-dark-4)' }}
+        style={{ backgroundColor: 'var(--phc-surface-card)', borderColor: 'var(--phc-border)' }}
       >
         <Group justify="space-between" align="center" wrap="nowrap" px="md" pt="md" pb="xs">
           <div>
             <Text fw={600}>{title}</Text>
-            <Text size="xs" c="dark.2">
+            <Text size="xs" c="dimmed">
               {total === undefined ? 'Loading…' : `${total.toLocaleString()} ${total === 1 ? 'record' : 'records'}`}
             </Text>
           </div>
@@ -105,11 +104,11 @@ function TableFooter({ search, total, onSearchChange }: TableFooterProps): JSX.E
 
   return (
     <Group justify="space-between" align="center" wrap="nowrap" px="md" py="xs" className={classes.footer}>
-      <Text size="xs" c="dark.2">
+      <Text size="xs" c="dimmed">
         {total === undefined ? ' ' : `${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}`}
       </Text>
       <Group gap="xs" wrap="nowrap">
-        <Text size="xs" c="dark.2">
+        <Text size="xs" c="dimmed">
           Rows
         </Text>
         <Select

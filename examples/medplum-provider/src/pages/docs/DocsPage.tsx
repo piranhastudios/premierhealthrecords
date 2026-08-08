@@ -51,7 +51,9 @@ export function DocsPage(): JSX.Element {
               <Title order={4}>Registering Patients</Title>
               <List spacing="xs" type="ordered">
                 <List.Item>Open New Patient from Provider navigation.</List.Item>
-                <List.Item>Complete demographics, contacts, history, medications, coverage, and related fields.</List.Item>
+                <List.Item>
+                  Complete demographics, contacts, history, medications, coverage, and related fields.
+                </List.Item>
                 <List.Item>Confirm required acknowledgements and consents.</List.Item>
                 <List.Item>Review and submit to create the patient profile.</List.Item>
               </List>
@@ -63,7 +65,9 @@ export function DocsPage(): JSX.Element {
               </List>
               <Title order={4}>Updating Patient Summary</Title>
               <List spacing="xs">
-                <List.Item>Use section add actions to create summary items such as allergies, coverage, and problems.</List.Item>
+                <List.Item>
+                  Use section add actions to create summary items such as allergies, coverage, and problems.
+                </List.Item>
                 <List.Item>Open existing summary items to edit details in place.</List.Item>
                 <List.Item>Refresh if recently updated values are not yet visible.</List.Item>
               </List>
@@ -83,7 +87,9 @@ export function DocsPage(): JSX.Element {
                 <List.Item>Set patient, class, care template, and verify time range.</List.Item>
                 <List.Item>Create the visit and confirm it appears on schedule and patient profile.</List.Item>
               </List>
-              <Title id="scheduling" order={4}>Setting Provider Availability</Title>
+              <Title id="scheduling" order={4}>
+                Setting Provider Availability
+              </Title>
               <List spacing="xs" type="ordered">
                 <List.Item>Open Schedule and choose Set Availability.</List.Item>
                 <List.Item>Configure availability details for the provider.</List.Item>
@@ -108,7 +114,10 @@ export function DocsPage(): JSX.Element {
               <List spacing="xs" type="ordered">
                 <List.Item>Open a patient profile and go to Visits.</List.Item>
                 <List.Item>Create a new visit or open one from schedule.</List.Item>
-                <List.Item>Document in Notes & Tasks and keep status updated through Planned, In Progress, Finished, or Cancelled.</List.Item>
+                <List.Item>
+                  Document in Notes & Tasks and keep status updated through Planned, In Progress, Finished, or
+                  Cancelled.
+                </List.Item>
                 <List.Item>Use Details & Billing to complete service, diagnosis, and charge information.</List.Item>
               </List>
               <Title order={4}>Care Templates</Title>
@@ -131,7 +140,9 @@ export function DocsPage(): JSX.Element {
                 <List.Item>Enable project features: ai and bots.</List.Item>
                 <List.Item>Configure OPENAI_API_KEY in project secrets.</List.Item>
                 <List.Item>Deploy and identify required Spaces bots.</List.Item>
-                <List.Item>Author system prompt Communication resources for translator, summary, and visualizer behavior.</List.Item>
+                <List.Item>
+                  Author system prompt Communication resources for translator, summary, and visualizer behavior.
+                </List.Item>
               </List>
               <Title order={4}>How Spaces Works</Title>
               <List spacing="xs">
@@ -154,7 +165,9 @@ export function DocsPage(): JSX.Element {
                 <List.Item>Open Tasks from the left navigation.</List.Item>
                 <List.Item>Use Create to open the new task form.</List.Item>
                 <List.Item>Add required fields such as title and status.</List.Item>
-                <List.Item>Add optional fields like due date, priority, patient, assignee, and performer type.</List.Item>
+                <List.Item>
+                  Add optional fields like due date, priority, patient, assignee, and performer type.
+                </List.Item>
               </List>
               <Title order={4}>Managing Tasks</Title>
               <List spacing="xs">

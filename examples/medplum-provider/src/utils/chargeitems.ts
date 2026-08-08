@@ -69,10 +69,10 @@ export async function getOpenChargeItemsForPatient(
   medplum: MedplumClient,
   patient: Patient
 ): Promise<WithId<ChargeItem>[]> {
-  return medplum.searchResources(
-    'ChargeItem',
-    `subject=${getReferenceString(patient)}&status=planned,billable&_count=100`
-  );
+  // ChargeItem has NO `status` search parameter in FHIR R4 — a `status=` filter
+  // makes the whole search 400 — so filter client-side.
+  const items = await medplum.searchResources('ChargeItem', `subject=${getReferenceString(patient)}&_count=100`);
+  return items.filter((item) => item.status === 'planned' || item.status === 'billable');
 }
 
 export function calculateTotalPrice(items: ChargeItem[]): number {

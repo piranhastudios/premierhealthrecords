@@ -2,44 +2,159 @@
   "resourceType": "AccessPolicy",
   "name": "Nurse / Clinical",
   "resource": [
-    { "resourceType": "Observation" },
-    { "resourceType": "Encounter" },
-    { "resourceType": "ClinicalImpression" },
-    { "resourceType": "Condition" },
-    { "resourceType": "AllergyIntolerance" },
-    { "resourceType": "DiagnosticReport" },
-    { "resourceType": "Procedure" },
-    { "resourceType": "QuestionnaireResponse" },
-    { "resourceType": "Task" },
-    { "resourceType": "Communication" },
-    { "resourceType": "DocumentReference" },
-    { "resourceType": "Binary" },
-    { "resourceType": "Basic" },
-    { "resourceType": "Patient", "readonly": true },
-    { "resourceType": "RelatedPerson", "readonly": true },
-    { "resourceType": "Coverage", "readonly": true },
-    { "resourceType": "Appointment", "readonly": true },
-    { "resourceType": "Slot", "readonly": true },
-    { "resourceType": "CarePlan", "readonly": true },
-    { "resourceType": "ServiceRequest", "readonly": true },
-    { "resourceType": "RequestGroup", "readonly": true },
-    { "resourceType": "Practitioner", "readonly": true },
-    { "resourceType": "PractitionerRole", "readonly": true },
-    { "resourceType": "Schedule", "readonly": true },
-    { "resourceType": "PlanDefinition", "readonly": true },
-    { "resourceType": "ActivityDefinition", "readonly": true },
-    { "resourceType": "Questionnaire", "readonly": true },
-    { "resourceType": "Medication", "readonly": true },
-    { "resourceType": "ChargeItemDefinition", "readonly": true },
-    { "resourceType": "Organization", "readonly": true },
-    { "resourceType": "HealthcareService", "readonly": true },
-    { "resourceType": "Location", "readonly": true },
-    { "resourceType": "ValueSet", "readonly": true },
-    { "resourceType": "CodeSystem", "readonly": true },
-    { "resourceType": "StructureDefinition", "readonly": true },
-    { "resourceType": "SearchParameter", "readonly": true },
-    { "resourceType": "Bot", "readonly": true },
-    { "resourceType": "UserConfiguration", "readonly": true },
-    { "resourceType": "ProjectMembership", "readonly": true }
+    {
+      "resourceType": "Observation"
+    },
+    {
+      "resourceType": "Encounter"
+    },
+    {
+      "resourceType": "ClinicalImpression"
+    },
+    {
+      "resourceType": "Condition"
+    },
+    {
+      "resourceType": "AllergyIntolerance"
+    },
+    {
+      "resourceType": "DiagnosticReport"
+    },
+    {
+      "resourceType": "Procedure"
+    },
+    {
+      "resourceType": "QuestionnaireResponse"
+    },
+    {
+      "resourceType": "Task"
+    },
+    {
+      "resourceType": "Communication"
+    },
+    {
+      "resourceType": "DocumentReference"
+    },
+    {
+      "resourceType": "Binary"
+    },
+    {
+      "resourceType": "Basic"
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": true
+    },
+    {
+      "resourceType": "RelatedPerson",
+      "readonly": true
+    },
+    {
+      "resourceType": "Coverage",
+      "readonly": true
+    },
+    {
+      "resourceType": "Appointment",
+      "readonly": true
+    },
+    {
+      "resourceType": "Slot",
+      "readonly": true
+    },
+    {
+      "resourceType": "CarePlan",
+      "readonly": true
+    },
+    {
+      "resourceType": "ServiceRequest",
+      "readonly": true
+    },
+    {
+      "resourceType": "RequestGroup",
+      "readonly": true
+    },
+    {
+      "resourceType": "Practitioner",
+      "readonly": true
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "readonly": true
+    },
+    {
+      "resourceType": "Schedule",
+      "readonly": true
+    },
+    {
+      "resourceType": "PlanDefinition",
+      "readonly": true
+    },
+    {
+      "resourceType": "ActivityDefinition",
+      "readonly": true
+    },
+    {
+      "resourceType": "Questionnaire",
+      "readonly": true
+    },
+    {
+      "resourceType": "Medication",
+      "readonly": true
+    },
+    {
+      "resourceType": "ChargeItemDefinition",
+      "readonly": true
+    },
+    {
+      "resourceType": "Organization",
+      "readonly": true
+    },
+    {
+      "resourceType": "HealthcareService",
+      "readonly": true
+    },
+    {
+      "resourceType": "Location",
+      "readonly": true
+    },
+    {
+      "resourceType": "ValueSet",
+      "readonly": true
+    },
+    {
+      "resourceType": "CodeSystem",
+      "readonly": true
+    },
+    {
+      "resourceType": "StructureDefinition",
+      "readonly": true
+    },
+    {
+      "resourceType": "SearchParameter",
+      "readonly": true
+    },
+    {
+      "resourceType": "Bot",
+      "readonly": true
+    },
+    {
+      "resourceType": "UserConfiguration",
+      "readonly": true
+    },
+    {
+      "resourceType": "ProjectMembership",
+      "readonly": true
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "readonly": true
+    },
+    {
+      "resourceType": "CareTeam"
+    },
+    {
+      "resourceType": "Device",
+      "readonly": true
+    }
   ]
 }

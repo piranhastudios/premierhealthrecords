@@ -96,7 +96,7 @@ function AppointmentRow({ appointment, patientId }: AppointmentRowProps): JSX.El
         <Text size="sm" lineClamp={1}>
           {start ? relativeDayLabel(start) : 'Date not set'}
           {start && (
-            <Text span size="sm" c="dark.2">
+            <Text span size="sm" c="dimmed">
               {' · '}
               {start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
             </Text>

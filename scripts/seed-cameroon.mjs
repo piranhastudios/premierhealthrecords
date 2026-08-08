@@ -14,7 +14,12 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const seeds = ['seed-cameroon-terminology.mjs', 'seed-cameroon-insurers.mjs', 'seed-cameroon-care-templates.mjs'];
+const seeds = [
+  'seed-cameroon-terminology.mjs',
+  'seed-cameroon-insurers.mjs',
+  'seed-cameroon-care-templates.mjs',
+  'seed-profiles.mjs',
+];
 
 for (const seed of seeds) {
   console.log(`\n=== ${seed} ===`);

@@ -1,3 +1,36 @@
+/* ---------------------------------------------------------------------------
+ * Premier Health semantic surface tokens.
+ *
+ * One place that decides what each surface means in both color schemes — brand
+ * styling must reference these (or a `light-dark()` pair) rather than a raw
+ * `--mantine-color-dark-N`, which does not change with the scheme.
+ *
+ * Defined on `body` (not `:root`): postcss-preset-mantine lowers `light-dark()`
+ * into a `[data-mantine-color-scheme=dark] body` descendant rule, and the
+ * attribute lives on <html>. Inherited custom properties reach everything,
+ * including portals.
+ * ------------------------------------------------------------------------- */
+body {
+  /* Page ground behind cards. */
+  --phc-surface: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-9));
+  /* Panels and cards. */
+  --phc-surface-card: light-dark(#ffffff, var(--mantine-color-dark-7));
+  /* Nested tiles, table headers, chrome docked inside a card. */
+  --phc-surface-raised: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  /* Hover wash on interactive rows/tiles. */
+  --phc-surface-hover: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  /* Card and section hairlines. */
+  --phc-border: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  /* Softer in-table hairlines. */
+  --phc-border-subtle: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  /* Muted labels/meta (matches Mantine's `dimmed` in both schemes). */
+  --phc-text-muted: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  /* Secondary chrome text, one step brighter than muted. */
+  --phc-text-chrome: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  /* High-emphasis values (stat numbers). */
+  --phc-text-strong: light-dark(var(--mantine-color-gray-9), var(--mantine-color-white));
+}
+
 .rbc-calendar {
   font-family:
     -apple-system, 'system-ui', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
@@ -172,7 +205,7 @@
 
 .ph-table-panel .mantine-Table-table {
   --table-horizontal-spacing: var(--mantine-spacing-md);
-  --table-border-color: var(--mantine-color-dark-5);
+  --table-border-color: var(--phc-border-subtle);
   --table-vertical-spacing: 10px !important; /* inline via Table defaultProps */
   cursor: default; /* SearchControl sets pointer on the whole table */
 }
@@ -185,11 +218,11 @@
   top: var(--ph-toolbar-h);
   z-index: 4;
   padding: 0;
-  background-color: var(--mantine-color-dark-8);
-  color: var(--mantine-color-dark-2);
+  background-color: var(--phc-surface-raised);
+  color: var(--phc-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--mantine-color-dark-4);
+  border-bottom: 1px solid var(--phc-border);
 }
 
 /* The checkbox column is the one header cell with no inner button to own the
@@ -206,7 +239,7 @@
 }
 
 .ph-table-panel .SearchControl_control:hover {
-  background-color: var(--mantine-color-dark-6);
+  background-color: var(--phc-surface-hover);
 }
 
 .ph-table-panel .mantine-Table-tbody .mantine-Table-tr {
@@ -219,7 +252,7 @@
 /* (0,4,0), so it beats SearchControl's own (0,3,0) dark-scheme hover. The tint
    alone is only ~1.4:1 against the card — the brand rail is what actually reads. */
 .ph-table-panel .mantine-Table-tbody .mantine-Table-tr:hover {
-  background-color: var(--mantine-color-dark-5);
+  background-color: var(--phc-surface-hover);
   box-shadow: inset 3px 0 0 var(--mantine-color-brand-6);
 }
 
@@ -252,19 +285,19 @@
   height: var(--ph-toolbar-h);
   margin-bottom: 0 !important; /* beats inline mb="xl" */
   padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-sm);
-  background-color: var(--mantine-color-dark-7);
+  background-color: var(--phc-surface-card);
 }
 
 /* Button/ActionIcon colors are written inline by their vars resolvers. */
 .ph-table-panel .SearchControl_root .mantine-Button-root {
-  --button-color: var(--mantine-color-dark-1) !important;
-  --button-hover: var(--mantine-color-dark-6) !important;
+  --button-color: var(--phc-text-chrome) !important;
+  --button-hover: var(--phc-surface-hover) !important;
   --button-radius: var(--mantine-radius-xl);
 }
 
 .ph-table-panel .SearchControl_root .mantine-ActionIcon-root {
-  --ai-color: var(--mantine-color-dark-2) !important;
-  --ai-hover: var(--mantine-color-dark-6) !important;
+  --ai-color: var(--phc-text-muted) !important;
+  --ai-hover: var(--phc-surface-hover) !important;
 }
 
 /* The panel header owns the record count now. */
@@ -292,12 +325,12 @@
 
 .ph-table-panel .SearchControl_root .mantine-Container-root .mantine-Text-root {
   font-size: var(--mantine-font-size-sm) !important;
-  color: var(--mantine-color-dark-2) !important;
+  color: var(--phc-text-muted) !important;
 }
 
 /* The observation table inside the Labs tab hardcodes a light-scheme grey. */
 .DiagnosticReportDisplay_table,
 .DiagnosticReportDisplay_table td,
 .DiagnosticReportDisplay_table th {
-  border-color: var(--mantine-color-dark-4);
+  border-color: var(--phc-border);
 }

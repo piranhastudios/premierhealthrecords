@@ -69,32 +69,7 @@ describe('SchedulePage', () => {
   };
 
   describe('Initial Rendering', () => {
-    test('returns null when schedule is not loaded', async () => {
-      medplum.searchOne = vi.fn().mockResolvedValue(undefined);
-      medplum.createResource = vi.fn().mockResolvedValue(mockSchedule);
-
-      await act(async () => {
-        setup('/Calendar/Schedule');
-      });
-
-      // Component should return null until schedule is loaded
-      await waitFor(() => {
-        expect(medplum.searchOne).toHaveBeenCalled();
-      });
-    });
-
-    test('loads existing schedule for practitioner', async () => {
-      await act(async () => {
-        setup('/Calendar/Schedule');
-      });
-
-      await waitFor(() => {
-        expect(medplum.searchOne).toHaveBeenCalledWith('Schedule', expect.any(Object));
-      });
-    });
-
-    test('creates schedule if one does not exist', async () => {
-      medplum.searchOne = vi.fn().mockResolvedValue(undefined);
+    test('no id shows the clinic-wide view without creating a schedule', async () => {
       medplum.createResource = vi.fn().mockResolvedValue(mockSchedule);
 
       await act(async () => {
@@ -102,11 +77,23 @@ describe('SchedulePage', () => {
       });
 
       await waitFor(() => {
-        expect(medplum.createResource).toHaveBeenCalledWith(
-          expect.objectContaining({
-            resourceType: 'Schedule',
-            active: true,
-          })
+        expect(screen.getByText('Today')).toBeInTheDocument();
+      });
+
+      // The all-appointments view neither looks up nor creates anyone's schedule.
+      expect(screen.getByPlaceholderText('All appointments — pick a schedule...')).toBeInTheDocument();
+      expect(medplum.createResource).not.toHaveBeenCalled();
+    });
+
+    test('no id loads appointments across all practitioners (no actor filter)', async () => {
+      await act(async () => {
+        setup('/Calendar/Schedule');
+      });
+
+      await waitFor(() => {
+        expect(medplum.searchResources).toHaveBeenCalledWith(
+          'Appointment',
+          expect.not.arrayContaining([expect.arrayContaining(['actor'])])
         );
       });
     });
@@ -280,32 +267,18 @@ describe('SchedulePage', () => {
   });
 
   describe('Error Handling', () => {
-    test('handles schedule search error gracefully', async () => {
-      medplum.searchOne = vi.fn().mockRejectedValue(new Error('Search failed'));
+    test('handles schedule load error gracefully', async () => {
+      medplum.readResource = vi.fn().mockRejectedValue(new Error('Load failed'));
 
       await act(async () => {
-        setup('/Calendar/Schedule');
+        setup('/Calendar/Schedule/schedule-1');
       });
 
       await waitFor(() => {
-        expect(medplum.searchOne).toHaveBeenCalled();
+        expect(medplum.readResource).toHaveBeenCalledWith('Schedule', 'schedule-1');
       });
 
-      // Component should handle error (may return null or show error state)
-      // The exact behavior depends on error handling implementation
-    });
-
-    test('handles schedule creation error gracefully', async () => {
-      medplum.searchOne = vi.fn().mockResolvedValue(undefined);
-      medplum.createResource = vi.fn().mockRejectedValue(new Error('Creation failed'));
-
-      await act(async () => {
-        setup('/Calendar/Schedule');
-      });
-
-      await waitFor(() => {
-        expect(medplum.createResource).toHaveBeenCalled();
-      });
+      expect(await screen.findByText('Load failed')).toBeInTheDocument();
     });
   });
 

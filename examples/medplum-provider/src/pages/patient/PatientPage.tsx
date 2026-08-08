@@ -22,6 +22,7 @@ import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
 import { useDoseSpotAccess } from '../../hooks/useDoseSpotAccess';
 import { usePatient } from '../../hooks/usePatient';
+import { canReadResource } from '../../hooks/useUserRole';
 import classes from './PatientPage.module.css';
 import type { PatientPageTabInfo } from './PatientPage.utils';
 import { formatPatientPageTabUrl, getPatientPageTabs } from './PatientPage.utils';
@@ -47,7 +48,10 @@ export function PatientPage(): JSX.Element {
   const [timelineOpened, timelineHandlers] = useDisclosure(false);
   const PharmacyDialogComponent = usePharmacyDialog();
   const { hasAccess: hasDoseSpotAccess } = useDoseSpotAccess();
-  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess });
+  // Hide tabs the compiled access policy cannot read — a scoped user (front desk,
+  // nurse) would only get "Forbidden" errors from them.
+  const policy = medplum.getAccessPolicy();
+  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess, policy });
   const [currentTab, setCurrentTab] = useState<string>(() => {
     return (getTabFromLocation(location, tabs) ?? tabs[0]).id;
   });
@@ -89,8 +93,13 @@ export function PatientPage(): JSX.Element {
       getDefaultSections(() => setIsLabsModalOpen(true))
         // US-specific demographics not collected in Cameroon (see intake localization).
         .filter((s) => s.key !== 'sexualOrientation' && s.key !== 'smokingStatus')
+        // Drop sections whose searches the access policy cannot read — they would
+        // only surface a "Forbidden" partial-load error in the sidebar.
+        .filter((s) => (s.searches ?? []).every((search) => canReadResource(policy, search.resourceType)))
+        // The pharmacies section loads CareTeam internally.
+        .filter((s) => s.key !== 'pharmacies' || canReadResource(policy, 'CareTeam'))
         .map((s) => (s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s)),
-    [setIsLabsModalOpen, PharmacyDialogComponent]
+    [setIsLabsModalOpen, PharmacyDialogComponent, policy]
   );
 
   if (outcome && !isOk(outcome)) {

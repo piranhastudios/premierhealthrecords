@@ -94,6 +94,28 @@ describe('PatientSearchPage', () => {
     });
   });
 
+  test('Bulk delete: selecting rows and clicking Delete opens the confirmation', async () => {
+    await setup(`/Patient/${HomerSimpson.id}/Patient`);
+    expect(await screen.findByText('Delete...')).toBeInTheDocument();
+
+    // Without a selection, Delete only prompts to select rows.
+    await act(async () => {
+      fireEvent.click(screen.getByText('Delete...'));
+    });
+    expect(await screen.findByText('Select one or more rows first (use the checkboxes).')).toBeInTheDocument();
+
+    // Select a row, then Delete opens the confirmation dialog.
+    const checkboxes = await screen.findAllByTestId('row-checkbox');
+    await act(async () => {
+      fireEvent.click(checkboxes[0]);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Delete...'));
+    });
+    expect(await screen.findByText(/Delete 1 Patient record/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
   test('Page size selector is offered', async () => {
     await setup(`/Patient/${HomerSimpson.id}/Patient`);
     // Mantine's Select puts the label on both the wrapper and the input.

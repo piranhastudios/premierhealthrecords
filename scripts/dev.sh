@@ -63,11 +63,12 @@ $COMPOSE up -d
     if curl -fsS 'http://localhost:8103/healthcheck' >/dev/null 2>&1; then
       node "$SCRIPT_DIR/seed-users.mjs" || echo 'seed-users: failed (see output above)' >&2
       node "$SCRIPT_DIR/seed-cameroon.mjs" || echo 'seed-cameroon: failed (see output above)' >&2
+      node "$SCRIPT_DIR/seed-subscriptions.mjs" || echo 'seed-subscriptions: failed (see output above)' >&2
       exit 0
     fi
     sleep 2
   done
-  echo 'seed-users/seed-cameroon: server not healthy in time; skipped. Run: node scripts/seed-users.mjs && node scripts/seed-cameroon.mjs' >&2
+  echo 'seed scripts: server not healthy in time; skipped. Run: node scripts/seed-users.mjs && node scripts/seed-cameroon.mjs && node scripts/seed-subscriptions.mjs' >&2
 ) &
 
 # Run the Provider EHR + FHIR server with hot reload

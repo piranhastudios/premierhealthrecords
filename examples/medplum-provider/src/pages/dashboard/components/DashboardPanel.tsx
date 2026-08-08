@@ -32,15 +32,14 @@ export function DashboardPanel(props: DashboardPanelProps): JSX.Element {
       radius="lg"
       p="md"
       h="100%"
-      bg="dark.7"
-      style={{ borderColor: 'var(--mantine-color-dark-4)' }}
+      style={{ backgroundColor: 'var(--phc-surface-card)', borderColor: 'var(--phc-border)' }}
     >
       <Stack gap="sm" h="100%">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <div>
             <Text fw={600}>{title}</Text>
             {subtitle && (
-              <Text size="xs" c="dark.2">
+              <Text size="xs" c="dimmed">
                 {subtitle}
               </Text>
             )}

@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import type { Patient, ProjectMembership } from '@medplum/fhirtypes';
+import type { AccessPolicy, Patient, ProjectMembership } from '@medplum/fhirtypes';
 import { hasDoseSpotIdentifier, hasScriptSureIdentifier } from '../../components/utils';
+import { canReadResource } from '../../hooks/useUserRole';
 
 export function patientPathPrefix(patientId: string): string {
   return `/Patient/${patientId}`;
@@ -56,9 +57,25 @@ export function getPatientPageTabOrThrow(tabId: string): PatientPageTabInfo {
  *   When omitted, falls back to checking the membership for a DoseSpot identifier.
  * @returns Filtered array of patient page tabs.
  */
+/**
+ * The resource type a tab reads. A user whose access policy cannot read it only
+ * gets "Forbidden" errors from the tab, so it is hidden instead.
+ */
+const TAB_READ_REQUIREMENTS: Record<string, string> = {
+  encounter: 'Encounter',
+  tasks: 'Task',
+  meds: 'MedicationRequest',
+  labs: 'ServiceRequest',
+  devices: 'Device',
+  documentreference: 'DocumentReference',
+  careplan: 'CarePlan',
+  message: 'Communication',
+  payments: 'Invoice',
+};
+
 export function getPatientPageTabs(
   membership: ProjectMembership | undefined,
-  options?: { hasDoseSpotAccess?: boolean }
+  options?: { hasDoseSpotAccess?: boolean; policy?: AccessPolicy }
 ): PatientPageTabInfo[] {
   const hasDoseSpot = options?.hasDoseSpotAccess ?? hasDoseSpotIdentifier(membership);
   const hasScriptSure = hasScriptSureIdentifier(membership);
@@ -68,6 +85,10 @@ export function getPatientPageTabs(
     }
     if (tab.id === 'scriptsure') {
       return hasScriptSure;
+    }
+    const requiredType = TAB_READ_REQUIREMENTS[tab.id];
+    if (requiredType) {
+      return canReadResource(options?.policy, requiredType);
     }
     return true;
   });

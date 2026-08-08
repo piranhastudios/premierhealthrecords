@@ -601,6 +601,24 @@
         ]
       },
       {
+        "id": "Patient.telecom.value",
+        "path": "Patient.telecom.value",
+        "short": "The actual contact point details (a telecom entry without a value does not satisfy the phone requirement)",
+        "definition": "The actual contact point details, in a form that is meaningful to the designated communication system (i.e. phone number or email address).",
+        "min": 1,
+        "max": "1",
+        "base": {
+          "path": "ContactPoint.value",
+          "min": 0,
+          "max": "1"
+        },
+        "type": [
+          {
+            "code": "string"
+          }
+        ]
+      },
+      {
         "id": "Patient.identifier",
         "path": "Patient.identifier",
         "short": "An identifier for this patient",
@@ -2128,6 +2146,24 @@
         "path": "Patient.telecom",
         "short": "A contact detail for the individual (at least one phone number is required)",
         "min": 1
+      },
+      {
+        "id": "Patient.telecom.value",
+        "path": "Patient.telecom.value",
+        "short": "The actual contact point details (a telecom entry without a value does not satisfy the phone requirement)",
+        "definition": "The actual contact point details, in a form that is meaningful to the designated communication system (i.e. phone number or email address).",
+        "min": 1,
+        "max": "1",
+        "base": {
+          "path": "ContactPoint.value",
+          "min": 0,
+          "max": "1"
+        },
+        "type": [
+          {
+            "code": "string"
+          }
+        ]
       },
       {
         "id": "Patient.deceased[x]",

@@ -27,7 +27,7 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { CardPaymentPanel } from './CardPaymentPanel';
 
-type PaymentMethod = 'momo' | 'card';
+type PaymentMethod = 'momo' | 'card' | 'cash';
 
 // Mobile-money correspondents available in Cameroon. Extend as pawaPay adds markets.
 const CORRESPONDENTS = [
@@ -190,6 +190,62 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
     }
   }
 
+  // Cash is settled on the spot by the front desk: record the reconciliation and
+  // balance the invoice directly (there is no asynchronous rail to wait for). The
+  // Invoice?status=balanced Subscription then releases pay-gated tasks and pushes
+  // to QuickBooks exactly as for the other rails.
+  async function handleCollectCash(): Promise<void> {
+    setMessage(undefined);
+    if (amount === undefined || amount <= 0) {
+      setMessage('Enter an amount greater than zero');
+      return;
+    }
+
+    setStatus('pending');
+    try {
+      const targetInvoice =
+        invoice ??
+        (await medplum.createResource<Invoice>({
+          resourceType: 'Invoice',
+          status: 'issued',
+          subject: createReference(patient),
+          date: new Date().toISOString(),
+          ...(chargeItems?.length
+            ? { lineItem: chargeItems.map((item) => ({ chargeItemReference: createReference(item) })) }
+            : undefined),
+          totalGross: { value: amount, currency },
+        }));
+
+      const now = new Date().toISOString();
+      // Mirrors the server-side settlement shape (see packages/server/src/payments/routes.ts)
+      // so the QuickBooks payment push treats cash like any other settled payment.
+      await medplum.createResource<PaymentReconciliation>({
+        resourceType: 'PaymentReconciliation',
+        status: 'active',
+        created: now,
+        paymentDate: now.slice(0, 10),
+        paymentAmount: { value: amount, currency },
+        outcome: 'complete',
+        detail: [
+          {
+            type: { coding: [{ code: 'cash', display: 'Cash payment' }] },
+            request: createReference(targetInvoice),
+            amount: { value: amount, currency },
+          },
+        ],
+      });
+
+      await medplum.updateResource<Invoice>({ ...targetInvoice, status: 'balanced' });
+
+      setStatus('completed');
+      setMessage('Cash payment recorded.');
+      onPaid?.(targetInvoice);
+    } catch (err) {
+      setStatus('failed');
+      setMessage(normalizeErrorString(err));
+    }
+  }
+
   // Polls the invoice (and, for failures, the reconciliation) until a terminal state.
   async function pollUntilSettled(
     targetInvoice: Invoice,
@@ -215,7 +271,7 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
     <Stack gap="sm">
       <Group justify="space-between">
         <Text fw={600}>Collect payment</Text>
-        {method === 'momo' && <StatusBadge status={status} />}
+        {method !== 'card' && <StatusBadge status={status} />}
       </Group>
 
       <SegmentedControl
@@ -225,6 +281,7 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
         data={[
           { value: 'momo', label: 'Mobile money' },
           { value: 'card', label: 'Card' },
+          { value: 'cash', label: 'Cash' },
         ]}
         disabled={busy}
       />
@@ -235,7 +292,36 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
         </Alert>
       )}
 
-      {method === 'momo' ? (
+      {method === 'cash' && (
+        <>
+          <NumberInput
+            label="Amount received"
+            value={amount}
+            onChange={(v) => setAmount(typeof v === 'number' ? v : undefined)}
+            min={0}
+            disabled={busy || Boolean(invoice)}
+            suffix={` ${currency}`}
+            thousandSeparator=" "
+          />
+
+          {message && (
+            <Alert color={alertColor(status)} variant="light">
+              {message}
+            </Alert>
+          )}
+
+          <Button onClick={handleCollectCash} loading={busy} disabled={status === 'completed'}>
+            {status === 'completed' ? 'Paid' : 'Record cash payment'}
+          </Button>
+          {invoice?.id && (
+            <Text size="xs" c="dimmed">
+              Invoice {getReferenceString(invoice)}
+            </Text>
+          )}
+        </>
+      )}
+
+      {method === 'momo' && (
         <>
           <NumberInput
             label="Amount"
@@ -277,7 +363,9 @@ export function PaymentCollection(props: PaymentCollectionProps): JSX.Element {
             </Text>
           )}
         </>
-      ) : (
+      )}
+
+      {method === 'card' && (
         <CardPaymentPanel
           patient={patient}
           invoice={invoice}

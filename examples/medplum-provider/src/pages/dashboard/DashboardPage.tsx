@@ -17,16 +17,22 @@ import {
 } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { endOfToday, startOfDaysAgo, startOfToday, useCount, useTodayAppointments } from '../../hooks/useDashboardMetrics';
 import type { CountResult } from '../../hooks/useDashboardMetrics';
+import {
+  endOfToday,
+  startOfDaysAgo,
+  startOfToday,
+  useCount,
+  useTodayAppointments,
+} from '../../hooks/useDashboardMetrics';
 import { roleLabel, useUserRole } from '../../hooks/useUserRole';
 import { AiInsightsStub } from './components/AiInsightsStub';
 import { AppointmentsDonut } from './components/AppointmentsDonut';
 import { DashboardCalendar } from './components/DashboardCalendar';
-import { PatientsBarChart } from './components/PatientsBarChart';
 import { PatientQrScanner } from './components/PatientQrScanner';
-import { StatCardRow } from './components/StatCardRow';
+import { PatientsBarChart } from './components/PatientsBarChart';
 import type { StatCardProps } from './components/StatCard';
+import { StatCardRow } from './components/StatCardRow';
 import { TasksList } from './components/TasksList';
 import classes from './DashboardPage.module.css';
 
@@ -197,7 +203,10 @@ export function DashboardPage(): JSX.Element {
 
   // Assemble the analytics/list/calendar panels with their responsive spans.
   const panels: { span: Record<string, number> | number; node: ReactNode }[] = [
-    { span: { base: 12, lg: 5 }, node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} /> },
+    {
+      span: { base: 12, lg: 5 },
+      node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} />,
+    },
     ...(showBar ? [{ span: { base: 12, lg: 7 }, node: <PatientsBarChart /> }] : []),
     { span: { base: 12, lg: 5 }, node: <TasksList ownerRef={profileRef} /> },
     { span: { base: 12, lg: 7 }, node: <DashboardCalendar /> },
@@ -248,7 +257,13 @@ export function DashboardPage(): JSX.Element {
               </ActionIcon>
             </Tooltip>
             {can.registerPatients && (
-              <Button component={Link} to="/onboarding" variant="white" color="brand" leftSection={<IconUserPlus size={16} />}>
+              <Button
+                component={Link}
+                to="/Patient/new"
+                variant="white"
+                color="brand"
+                leftSection={<IconUserPlus size={16} />}
+              >
                 New Patient
               </Button>
             )}

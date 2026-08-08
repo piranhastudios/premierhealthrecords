@@ -15,6 +15,7 @@ import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ChartTablePanel } from '../../components/tables/ChartTablePanel';
+import { useBulkDelete } from '../../components/tables/useBulkDelete';
 import { hasDoseSpotIdentifier } from '../../components/utils';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath, tableTabLabel } from './PatientPage.utils';
@@ -28,6 +29,7 @@ export function MedicationsPage(): JSX.Element {
   const [total, setTotal] = useState<number>();
   const [syncing, setSyncing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const bulkDelete = useBulkDelete('MedicationRequest', () => setRefreshKey((k) => k + 1));
   const membership = medplum.getProjectMembership();
   const hasDoseSpot = hasDoseSpotIdentifier(membership);
 
@@ -147,10 +149,12 @@ export function MedicationsPage(): JSX.Element {
         onNew={() => {
           navigate(prependPatientPath(patient, '/MedicationRequest/new'))?.catch(console.error);
         }}
+        onDelete={bulkDelete.requestDelete}
         onChange={(e) => {
           navigate(`/Patient/${patient.id}/MedicationRequest${formatSearchQuery(e.definition)}`)?.catch(console.error);
         }}
       />
+      {bulkDelete.confirmElement}
     </ChartTablePanel>
   );
 }

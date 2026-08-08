@@ -62,7 +62,7 @@ export function OpenTasksPanel(props: OpenTasksPanelProps): JSX.Element {
                   <Text size="sm" lineClamp={1}>
                     {task.code ? <CodeableConceptDisplay value={task.code} /> : (task.description ?? 'Task')}
                   </Text>
-                  <Text size="xs" c="dark.2">
+                  <Text size="xs" c="dimmed">
                     {task.status}
                     {due ? ` · due ${formatDate(due)}` : ''}
                   </Text>

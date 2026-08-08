@@ -10,6 +10,7 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ChartTablePanel } from '../components/tables/ChartTablePanel';
+import { useBulkDelete } from '../components/tables/useBulkDelete';
 import { useResourceType } from './resource/useResourceType';
 
 export function SearchPage(): JSX.Element {
@@ -18,6 +19,8 @@ export function SearchPage(): JSX.Element {
   const location = useLocation();
   const [search, setSearch] = useState<SearchRequest>();
   const [total, setTotal] = useState<number>();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bulkDelete = useBulkDelete(search?.resourceType, () => setRefreshKey((k) => k + 1));
 
   useEffect(() => {
     const parsedSearch = parseSearchRequest(location.pathname + location.search);
@@ -60,6 +63,7 @@ export function SearchPage(): JSX.Element {
       }
     >
       <SearchControl
+        key={refreshKey}
         checkboxesEnabled={true}
         hideFilters
         search={search}
@@ -69,10 +73,12 @@ export function SearchPage(): JSX.Element {
         onNew={() => {
           navigate(`/${resourceType}/new`)?.catch(console.error);
         }}
+        onDelete={bulkDelete.requestDelete}
         onChange={(e) => {
           navigate(`/${resourceType}${formatSearchQuery(e.definition)}`)?.catch(console.error);
         }}
       />
+      {bulkDelete.confirmElement}
     </ChartTablePanel>
   );
 }

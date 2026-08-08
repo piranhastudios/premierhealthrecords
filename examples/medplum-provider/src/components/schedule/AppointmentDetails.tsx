@@ -81,6 +81,8 @@ export function AppointmentDetails(props: {
   const medplum = useMedplum();
   const [planDefinition, setPlanDefinition] = useState<PlanDefinition | undefined>();
   const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
+  // Fallback practitioner for appointments that carry none (e.g. manually created).
+  const [selectedPractitioner, setSelectedPractitioner] = useState<Practitioner | undefined>();
 
   // Extract references to a Patient and a Practitioner from `Appointment.participants`; we expect
   // one of each.
@@ -102,41 +104,44 @@ export function AppointmentDetails(props: {
       return;
     }
 
-    if (!practitionerRef) {
+    const practitioner = practitionerRef ?? (selectedPractitioner && createReference(selectedPractitioner));
+    if (!practitioner || !encounterClass) {
       showNotification({
         color: 'yellow',
         icon: <IconAlertSquareRounded />,
         title: 'Error',
-        message: 'Appointment has no Practitioner participant',
-      });
-      return;
-    }
-
-    if (!encounterClass || !planDefinition) {
-      showNotification({
-        color: 'yellow',
-        icon: <IconAlertSquareRounded />,
-        title: 'Error',
-        message: 'Please fill out required fields.',
+        message: practitioner ? 'Please select an encounter class.' : 'Please select a practitioner.',
       });
       return;
     }
 
     try {
+      // The appointment gains the chosen practitioner so schedule views agree with
+      // the encounter.
+      if (!practitionerRef) {
+        const updated = await medplum.updateResource<Appointment>({
+          ...props.appointment,
+          participant: [...props.appointment.participant, { actor: practitioner, status: 'accepted' }],
+        });
+        props.onUpdate?.(updated);
+      }
+
+      // The care template is optional: without one, a plain encounter is created.
       const encounter = await createEncounter(
         medplum,
         encounterClass,
         patient,
         planDefinition,
         props.appointment,
-        practitionerRef
+        practitioner
       );
 
-      navigate(`/Patient/${patient.id}/Encounter/${encounter.id}`)?.catch(console.error);
+      // Land on the chart with the point-of-service payment step open.
+      navigate(`/Patient/${patient.id}/Encounter/${encounter.id}?collect=1`)?.catch(console.error);
     } catch (err) {
       showErrorNotification(err);
     }
-  }, [medplum, patient, encounterClass, planDefinition, props.appointment, navigate, practitionerRef]);
+  }, [medplum, patient, encounterClass, planDefinition, props, navigate, practitionerRef, selectedPractitioner]);
 
   return (
     <Stack gap="md">
@@ -164,8 +169,10 @@ export function AppointmentDetails(props: {
                   resourceType="Practitioner"
                   label="Practitioner"
                   defaultValue={practitionerRef}
-                  disabled={true}
+                  // Selectable when the appointment carries no practitioner.
+                  disabled={!!practitionerRef}
                   required={true}
+                  onChange={setSelectedPractitioner}
                 />
 
                 <CodingInput
@@ -174,7 +181,7 @@ export function AppointmentDetails(props: {
                   binding="http://terminology.hl7.org/ValueSet/v3-ActEncounterCode"
                   required={true}
                   onChange={setEncounterClass}
-                  path="Encounter.type"
+                  path="Encounter.class"
                 />
 
                 <ResourceInput<PlanDefinition>

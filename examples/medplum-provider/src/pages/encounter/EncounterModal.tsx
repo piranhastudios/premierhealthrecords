@@ -92,10 +92,12 @@ export const EncounterModal = (): JSX.Element => {
         patient,
         planDefinitionData,
         appointment,
-        practitioner
+        practitioner,
+        status
       );
       showNotification({ icon: <IconCircleCheck />, title: 'Success', message: 'Encounter created' });
-      navigate(`/Patient/${patient.id}/Encounter/${encounter.id}`)?.catch(console.error);
+      // Land on the chart with the point-of-service payment step open.
+      navigate(`/Patient/${patient.id}/Encounter/${encounter.id}?collect=1`)?.catch(console.error);
     } catch (err) {
       showNotification({ color: 'red', icon: <IconCircleOff />, title: 'Error', message: normalizeErrorString(err) });
     } finally {
@@ -146,6 +148,7 @@ export const EncounterModal = (): JSX.Element => {
                     data={[
                       { label: APPOINTMENT_TYPES.ROUTINE.label, value: 'ROUTINE' },
                       { label: APPOINTMENT_TYPES.FOLLOWUP.label, value: 'FOLLOWUP' },
+                      { label: APPOINTMENT_TYPES.VIRTUAL.label, value: 'VIRTUAL' },
                     ]}
                   />
                 </Input.Wrapper>
@@ -169,7 +172,7 @@ export const EncounterModal = (): JSX.Element => {
                   binding="http://terminology.hl7.org/ValueSet/v3-ActEncounterCode"
                   required={true}
                   onChange={setEncounterClass}
-                  path="Encounter.type"
+                  path="Encounter.class"
                 />
 
                 <CodeInput

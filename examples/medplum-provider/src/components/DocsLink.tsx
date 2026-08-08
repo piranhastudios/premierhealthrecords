@@ -12,9 +12,5 @@ interface DocsLinkProps extends Omit<AnchorProps, 'href'> {
 // A hyperlink to the in-app Provider docs page.
 export function DocsLink(props: DocsLinkProps): JSX.Element {
   const anchor = props.path.replace(/^\//, '');
-  return (
-    <Anchor href={`/docs#${anchor}`}>
-      {props.children}
-    </Anchor>
-  );
+  return <Anchor href={`/docs#${anchor}`}>{props.children}</Anchor>;
 }

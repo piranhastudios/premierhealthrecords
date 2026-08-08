@@ -43,58 +43,56 @@ export function AppointmentsDonut(props: AppointmentsDonutProps): JSX.Element {
   } else {
     body = (
       <Group h="100%" wrap="nowrap" gap="md">
-          <div style={{ position: 'relative', width: 160, height: 160, flexShrink: 0 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  nameKey="label"
-                  innerRadius={52}
-                  outerRadius={78}
-                  paddingAngle={2}
-                  stroke="none"
-                >
-                  {data.map((d) => (
-                    <Cell key={d.status} fill={d.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <Center
-              style={{ position: 'absolute', inset: 0, flexDirection: 'column', pointerEvents: 'none' }}
-            >
-              <Text fw={700} size="xl" lh={1}>
-                {total}
+        <div style={{ position: 'relative', width: 160, height: 160, flexShrink: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="label"
+                innerRadius={52}
+                outerRadius={78}
+                paddingAngle={2}
+                stroke="none"
+              >
+                {data.map((d) => (
+                  <Cell key={d.status} fill={d.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+          <Center style={{ position: 'absolute', inset: 0, flexDirection: 'column', pointerEvents: 'none' }}>
+            <Text fw={700} size="xl" lh={1}>
+              {total}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Total
+            </Text>
+          </Center>
+        </div>
+        <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
+          {data.map((d) => (
+            <Group key={d.status} gap="xs" wrap="nowrap">
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 3,
+                  backgroundColor: d.color,
+                  flexShrink: 0,
+                }}
+              />
+              <Text size="sm" style={{ flex: 1 }} lineClamp={1}>
+                {d.label}
               </Text>
-              <Text size="xs" c="dimmed">
-                Total
+              <Text size="sm" fw={600}>
+                {d.value}
               </Text>
-            </Center>
-          </div>
-          <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-            {data.map((d) => (
-              <Group key={d.status} gap="xs" wrap="nowrap">
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 3,
-                    backgroundColor: d.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <Text size="sm" style={{ flex: 1 }} lineClamp={1}>
-                  {d.label}
-                </Text>
-                <Text size="sm" fw={600}>
-                  {d.value}
-                </Text>
-              </Group>
-            ))}
-          </Stack>
-        </Group>
+            </Group>
+          ))}
+        </Stack>
+      </Group>
     );
   }
 

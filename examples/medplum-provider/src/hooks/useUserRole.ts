@@ -25,12 +25,42 @@ export interface UserRole {
 }
 
 /**
+ * Returns true if the compiled access policy grants READ access to the given
+ * resource type. An unscoped user (no policy) reads everything. Used to hide UI
+ * surfaces (tabs, summary sections) that would only produce "Forbidden" errors.
+ * @param policy - The compiled access policy, or undefined for unscoped users.
+ * @param resourceType - The FHIR resource type to test for read access.
+ * @returns True if the policy grants read for the resource type.
+ */
+export function canReadResource(policy: AccessPolicy | undefined, resourceType: string): boolean {
+  if (policy === undefined) {
+    return true;
+  }
+  const entries = policy.resource?.filter((r) => r.resourceType === resourceType || r.resourceType === '*') ?? [];
+  return entries.some((entry) => {
+    // `interaction`, when present, must include a read verb; readonly or plain
+    // entries grant read implicitly.
+    if (entry.interaction) {
+      return entry.interaction.some((i) => i === 'read' || i === 'search' || i === 'vread');
+    }
+    return true;
+  });
+}
+
+/**
  * Returns true if the compiled access policy grants create/update access to the
  * given resource type. Admins (no scoped policy) short-circuit to true elsewhere.
  * @param policy - The compiled access policy, or undefined for unscoped users.
  * @param resourceType - The FHIR resource type to test for write access.
  * @returns True if the policy grants create/update for the resource type.
  */
+export function canWriteResource(policy: AccessPolicy | undefined, resourceType: string): boolean {
+  if (policy === undefined) {
+    return true;
+  }
+  return canWrite(policy, resourceType);
+}
+
 function canWrite(policy: AccessPolicy | undefined, resourceType: string): boolean {
   const entries = policy?.resource?.filter((r) => r.resourceType === resourceType || r.resourceType === '*') ?? [];
   return entries.some((entry) => {

@@ -13,7 +13,7 @@
 .pane {
   display: flex;
   padding: var(--mantine-spacing-md);
-  background-color: var(--mantine-color-dark-9);
+  background-color: var(--phc-surface);
   height: calc(100vh - var(--app-shell-header-height, 0px));
 }
 
@@ -45,6 +45,6 @@
 /* Sits outside the table's scroll area, so it stays docked at the card's bottom. */
 .footer {
   flex-shrink: 0;
-  border-top: 1px solid var(--mantine-color-dark-4);
-  background-color: var(--mantine-color-dark-7);
+  border-top: 1px solid var(--phc-border);
+  background-color: var(--phc-surface-card);
 }

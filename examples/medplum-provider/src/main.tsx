@@ -144,7 +144,8 @@ const root = createRoot(container);
 root.render(
   <StrictMode>
     <MedplumProvider medplum={medplum} navigate={navigate}>
-      <MantineProvider theme={theme} defaultColorScheme="dark" forceColorScheme="dark">
+      {/* Dark by default; the AppShell user menu offers light/dark/auto. */}
+      <MantineProvider theme={theme} defaultColorScheme="dark">
         <Notifications position="bottom-right" />
         <RouterProvider router={router} />
       </MantineProvider>

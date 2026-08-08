@@ -131,7 +131,7 @@ function VitalTile({ metric, data, selected, onSelect }: VitalTileProps): JSX.El
       onClick={() => onSelect(metric.key)}
       aria-pressed={selected}
     >
-      <Text size="xs" c="dark.2" lineClamp={1}>
+      <Text size="xs" c="dimmed" lineClamp={1}>
         {metric.label}
       </Text>
       <Group gap={4} align="baseline" wrap="nowrap">
@@ -139,12 +139,12 @@ function VitalTile({ metric, data, selected, onSelect }: VitalTileProps): JSX.El
           {formatVitalValue(latest, metric)}
         </Text>
         {latest && (
-          <Text size="xs" c="dark.2">
+          <Text size="xs" c="dimmed">
             {metric.unit}
           </Text>
         )}
       </Group>
-      <Text size="xs" c="dark.3" lineClamp={1}>
+      <Text size="xs" c="dimmed" lineClamp={1}>
         {latest ? new Date(latest.time).toLocaleDateString() : 'Not recorded'}
       </Text>
     </UnstyledButton>
@@ -169,7 +169,7 @@ function VitalsChart({ metric, data }: VitalsChartProps): JSX.Element {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--mantine-color-dark-5)" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--phc-border-subtle)" />
         <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} minTickGap={16} />
         <YAxis
           tickLine={false}
@@ -182,14 +182,14 @@ function VitalsChart({ metric, data }: VitalsChartProps): JSX.Element {
         <Tooltip
           formatter={(value) => `${value} ${metric.unit}`}
           contentStyle={{
-            background: 'var(--mantine-color-dark-6)',
-            border: '1px solid var(--mantine-color-dark-4)',
+            background: 'var(--phc-surface-card)',
+            border: '1px solid var(--phc-border)',
             borderRadius: 12,
             fontSize: 12,
           }}
-          labelStyle={{ color: 'var(--mantine-color-dark-0)' }}
-          itemStyle={{ color: 'var(--mantine-color-dark-0)' }}
-          cursor={{ stroke: 'var(--mantine-color-dark-4)' }}
+          labelStyle={{ color: 'var(--mantine-color-text)' }}
+          itemStyle={{ color: 'var(--mantine-color-text)' }}
+          cursor={{ stroke: 'var(--phc-border)' }}
         />
         {metric.series.map((series) => (
           <Line

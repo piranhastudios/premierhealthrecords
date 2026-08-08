@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { SimpleGrid } from '@mantine/core';
 import type { JSX } from 'react';
-import { StatCard } from './StatCard';
 import type { StatCardProps } from './StatCard';
+import { StatCard } from './StatCard';
 
 export interface StatCardRowProps {
   /** The resolved stat tiles to render. Fetch counts in the parent and pass them here. */

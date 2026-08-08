@@ -70,7 +70,7 @@ interface DetailRowProps {
 function DetailRow({ icon, children }: DetailRowProps): JSX.Element {
   return (
     <Group gap="xs" wrap="nowrap" align="center">
-      <span style={{ color: 'var(--mantine-color-dark-2)', display: 'flex' }} aria-hidden>
+      <span style={{ color: 'var(--phc-text-muted)', display: 'flex' }} aria-hidden>
         {icon}
       </span>
       <Text size="sm" style={{ minWidth: 0 }} lineClamp={1}>
@@ -111,8 +111,10 @@ export function AppointmentCard(props: AppointmentCardProps): JSX.Element {
       withBorder
       radius="lg"
       p="md"
-      bg={featured ? 'dark.6' : 'dark.7'}
-      style={{ borderColor: featured ? 'var(--mantine-color-brand-6)' : 'var(--mantine-color-dark-4)' }}
+      style={{
+        backgroundColor: featured ? 'var(--phc-surface-raised)' : 'var(--phc-surface-card)',
+        borderColor: featured ? 'var(--mantine-color-brand-6)' : 'var(--phc-border)',
+      }}
     >
       <Stack gap="xs">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
@@ -121,7 +123,7 @@ export function AppointmentCard(props: AppointmentCardProps): JSX.Element {
               {start ? relativeDayLabel(start) : 'Date not set'}
             </Text>
             {window && (
-              <Text size="sm" c="dark.1">
+              <Text size="sm" c="dimmed">
                 {window}
               </Text>
             )}

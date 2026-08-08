@@ -3,6 +3,15 @@
 Prod base URL: `https://app.premierhealthcentres.com/api/`
 Public webhook form: `https://app.premierhealthcentres.com/api/webhook/{ProjectMembershipId}`
 
+> **Bot creation + Subscriptions are scripted.** `node scripts/seed-subscriptions.mjs
+> [--base ... --email ... --password ...]` (repo root) creates any missing bot from the
+> built `dist/`, deploys its code, and upserts every bot Subscription (MRN,
+> auto-BMI, paid-task release, the two QuickBooks pushes, and outbound dispatch).
+> It is idempotent and runs automatically on `scripts/dev.sh`. The manual
+> `medplum bot create` steps below remain valid — the script skips anything that
+> already exists — but the webhook-bot extras (publicWebhook, AccessPolicy,
+> membership ids) are still manual.
+
 > **No new Coolify / server env vars are required.** Bots (vmcontext), Redis, and the base URL are
 > already set in `docker-compose.full-stack.yml`. The messaging credentials below are **Medplum
 > Project Secrets** — vmcontext bots read them from `event.secrets`, not `process.env`, so they go in

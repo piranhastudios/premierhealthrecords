@@ -89,11 +89,16 @@ export function ResourceFormWithRequiredProfile(props: ResourceFormWithRequiredP
     <>
       {profileMissing && (
         <Alert icon={<IconAlertTriangle size={16} />} title="Using the standard form" color="yellow" mb="md">
-          {missingProfileMessage ?? 'The customized form for this project is not installed, so the standard form is shown.'}
+          {missingProfileMessage ??
+            'The customized form for this project is not installed, so the standard form is shown.'}
           {profileError && <div>Server error: {normalizeErrorString(profileError)}</div>}
         </Alert>
       )}
-      <ResourceForm onSubmit={handleSubmit} {...resourceFormProps} profileUrl={profileMissing ? undefined : profileUrl} />
+      <ResourceForm
+        onSubmit={handleSubmit}
+        {...resourceFormProps}
+        profileUrl={profileMissing ? undefined : profileUrl}
+      />
     </>
   );
 }

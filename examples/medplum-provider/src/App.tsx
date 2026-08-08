@@ -26,9 +26,10 @@ import './index.css';
 
 const SETUP_DISMISSED_KEY = 'medplum-provider-setup-completed';
 
+import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { DocsPage } from './pages/docs/DocsPage';
 import { EncounterChartPage } from './pages/encounter/EncounterChartPage';
 import { EncounterModal } from './pages/encounter/EncounterModal';
-import { DocsPage } from './pages/docs/DocsPage';
 import { FaxPage } from './pages/fax/FaxPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
@@ -36,19 +37,17 @@ import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotifica
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ScriptSurePage } from './pages/integrations/ScriptSurePage';
 import { MessagesPage } from './pages/messages/MessagesPage';
-import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { CoveragePage } from './pages/patient/CoveragePage';
 import { DoseSpotTab } from './pages/patient/DoseSpotTab';
 import { EditTab } from './pages/patient/EditTab';
 import { ExportTab } from './pages/patient/ExportTab';
-import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { LabsPage } from './pages/patient/LabsPage';
 import { MedicationsPage } from './pages/patient/MedicationsPage';
 import { OverviewTab } from './pages/patient/overview/OverviewTab';
 import { PatientPage } from './pages/patient/PatientPage';
-import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
+import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { ScriptSureTab } from './pages/patient/ScriptSureTab';
 import { TasksTab } from './pages/patient/TasksTab';
 import { TimelineTab } from './pages/patient/TimelineTab';
@@ -59,11 +58,11 @@ import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { ScheduleSettingsPage } from './pages/schedule/ScheduleSettingsPage';
-import { TelehealthPage } from './pages/telehealth/TelehealthPage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
 import { SpacesPage } from './pages/spaces/SpacesPage';
 import { TasksPage } from './pages/tasks/TasksPage';
+import { TelehealthPage } from './pages/telehealth/TelehealthPage';
 
 export function App(): JSX.Element | null {
   const medplum = useMedplum();
@@ -159,7 +158,7 @@ export function App(): JSX.Element | null {
                         },
                       ]
                     : []),
-                  { icon: <IconUserPlus />, label: 'New Patient', href: '/onboarding' },
+                  { icon: <IconUserPlus />, label: 'New Patient', href: '/Patient/new' },
                   { icon: <IconApps />, label: 'Integrations', href: '/integrations' },
                   ...(hasDoseSpot
                     ? [
@@ -199,10 +198,7 @@ export function App(): JSX.Element | null {
                 <Route index element={<SpacesPage />} />
                 <Route path=":topicId" element={<SpacesPage />} />
               </Route>
-              <Route
-                path="/"
-                element={<Navigate to={setupDismissed ? '/dashboard' : '/getstarted'} replace />}
-              />
+              <Route path="/" element={<Navigate to={setupDismissed ? '/dashboard' : '/getstarted'} replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/Patient/new" element={<ResourceCreatePage />} />
               <Route path="/Patient/:patientId" element={<PatientPage />}>
@@ -244,7 +240,8 @@ export function App(): JSX.Element | null {
               <Route path="/Task/:taskId" element={<TasksPage />} />
               <Route path="/Fax/Communication" element={<FaxPage />} />
               <Route path="/Fax/Communication/:faxId" element={<FaxPage />} />
-              <Route path="/onboarding" element={<IntakeFormPage />} />
+              {/* /onboarding retired: registration is the profile-driven /Patient/new. */}
+              <Route path="/onboarding" element={<Navigate to="/Patient/new" replace />} />
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id/settings" element={<ScheduleSettingsPage />} />

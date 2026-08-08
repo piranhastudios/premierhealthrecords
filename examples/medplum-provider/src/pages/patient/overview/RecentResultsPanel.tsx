@@ -52,7 +52,7 @@ export function RecentResultsPanel(props: RecentResultsPanelProps): JSX.Element 
                 <Text size="sm" lineClamp={1}>
                   {report.code ? <CodeableConceptDisplay value={report.code} /> : 'Report'}
                 </Text>
-                <Text size="xs" c="dark.2">
+                <Text size="xs" c="dimmed">
                   {formatDate(report.effectiveDateTime ?? report.issued ?? report.meta?.lastUpdated)}
                 </Text>
               </div>
