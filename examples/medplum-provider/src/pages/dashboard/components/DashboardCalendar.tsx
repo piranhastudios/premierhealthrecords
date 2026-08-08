@@ -29,7 +29,13 @@ function patientRefOf(appointment: Appointment): string | undefined {
  *
  * @returns The calendar panel.
  */
-export function DashboardCalendar(): JSX.Element {
+export interface DashboardCalendarProps {
+  /** Bump to refetch the visible range (live Appointment events). */
+  refreshKey?: number;
+}
+
+export function DashboardCalendar(props: DashboardCalendarProps = {}): JSX.Element {
+  const { refreshKey = 0 } = props;
   const medplum = useMedplum();
   const navigate = useNavigate();
   const [range, setRange] = useState<Range | undefined>(undefined);
@@ -51,7 +57,7 @@ export function DashboardCalendar(): JSX.Element {
     return () => {
       active = false;
     };
-  }, [medplum, range]);
+  }, [medplum, range, refreshKey]);
 
   const handleSelectAppointment = useCallback(
     async (appointment: Appointment): Promise<void> => {

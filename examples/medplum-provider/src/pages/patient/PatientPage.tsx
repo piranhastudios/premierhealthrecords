@@ -22,7 +22,7 @@ import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
 import { useDoseSpotAccess } from '../../hooks/useDoseSpotAccess';
 import { usePatient } from '../../hooks/usePatient';
-import { canReadResource } from '../../hooks/useUserRole';
+import { canReadResource, useUserRole } from '../../hooks/useUserRole';
 import classes from './PatientPage.module.css';
 import type { PatientPageTabInfo } from './PatientPage.utils';
 import { formatPatientPageTabUrl, getPatientPageTabs } from './PatientPage.utils';
@@ -49,9 +49,11 @@ export function PatientPage(): JSX.Element {
   const PharmacyDialogComponent = usePharmacyDialog();
   const { hasAccess: hasDoseSpotAccess } = useDoseSpotAccess();
   // Hide tabs the compiled access policy cannot read — a scoped user (front desk,
-  // nurse) would only get "Forbidden" errors from them.
+  // nurse) would only get "Forbidden" errors from them. Front desk additionally
+  // sees only the administrative slice of the chart.
   const policy = medplum.getAccessPolicy();
-  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess, policy });
+  const { role } = useUserRole();
+  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess, policy, role });
   const [currentTab, setCurrentTab] = useState<string>(() => {
     return (getTabFromLocation(location, tabs) ?? tabs[0]).id;
   });
@@ -93,13 +95,16 @@ export function PatientPage(): JSX.Element {
       getDefaultSections(() => setIsLabsModalOpen(true))
         // US-specific demographics not collected in Cameroon (see intake localization).
         .filter((s) => s.key !== 'sexualOrientation' && s.key !== 'smokingStatus')
+        // Front desk sees the administrative sidebar only: who the patient is and
+        // how they are covered — no clinical sections.
+        .filter((s) => role !== 'front-desk' || s.key === 'demographics' || s.key === 'insurance')
         // Drop sections whose searches the access policy cannot read — they would
         // only surface a "Forbidden" partial-load error in the sidebar.
         .filter((s) => (s.searches ?? []).every((search) => canReadResource(policy, search.resourceType)))
         // The pharmacies section loads CareTeam internally.
         .filter((s) => s.key !== 'pharmacies' || canReadResource(policy, 'CareTeam'))
         .map((s) => (s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s)),
-    [setIsLabsModalOpen, PharmacyDialogComponent, policy]
+    [setIsLabsModalOpen, PharmacyDialogComponent, policy, role]
   );
 
   if (outcome && !isOk(outcome)) {
@@ -140,14 +145,17 @@ export function PatientPage(): JSX.Element {
             currentTab={currentTab}
             onTabChange={onTabChange}
             action={
-              <Button
-                variant="default"
-                size="xs"
-                leftSection={<IconTimeline size={16} />}
-                onClick={timelineHandlers.open}
-              >
-                Timeline
-              </Button>
+              // The activity timeline is clinical — hidden from front desk.
+              role !== 'front-desk' ? (
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<IconTimeline size={16} />}
+                  onClick={timelineHandlers.open}
+                >
+                  Timeline
+                </Button>
+              ) : undefined
             }
           />
           <div className={classes.contentBody}>
@@ -159,7 +167,7 @@ export function PatientPage(): JSX.Element {
         <NewLabOrder patient={patient} onCreated={handleCloseLabsModal} />
       </Modal>
       <Drawer
-        opened={timelineOpened}
+        opened={timelineOpened && role !== 'front-desk'}
         onClose={timelineHandlers.close}
         position="right"
         size="xl"

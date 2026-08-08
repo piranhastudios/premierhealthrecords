@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { AccessPolicy, Patient, ProjectMembership } from '@medplum/fhirtypes';
 import { hasDoseSpotIdentifier, hasScriptSureIdentifier } from '../../components/utils';
+import type { ProviderRole } from '../../hooks/useUserRole';
 import { canReadResource } from '../../hooks/useUserRole';
 
 export function patientPathPrefix(patientId: string): string {
@@ -73,9 +74,17 @@ const TAB_READ_REQUIREMENTS: Record<string, string> = {
   payments: 'Invoice',
 };
 
+/**
+ * Front desk works the administrative slice of the chart only: visits (the
+ * landing tab), demographics editing, and payments. Clinical tabs stay hidden
+ * even where the access policy technically grants read (reads the booking
+ * workflow needs).
+ */
+const FRONT_DESK_TABS = ['edit', 'encounter', 'payments'];
+
 export function getPatientPageTabs(
   membership: ProjectMembership | undefined,
-  options?: { hasDoseSpotAccess?: boolean; policy?: AccessPolicy }
+  options?: { hasDoseSpotAccess?: boolean; policy?: AccessPolicy; role?: ProviderRole }
 ): PatientPageTabInfo[] {
   const hasDoseSpot = options?.hasDoseSpotAccess ?? hasDoseSpotIdentifier(membership);
   const hasScriptSure = hasScriptSureIdentifier(membership);
@@ -85,6 +94,9 @@ export function getPatientPageTabs(
     }
     if (tab.id === 'scriptsure') {
       return hasScriptSure;
+    }
+    if (options?.role === 'front-desk' && !FRONT_DESK_TABS.includes(tab.id)) {
+      return false;
     }
     const requiredType = TAB_READ_REQUIREMENTS[tab.id];
     if (requiredType) {

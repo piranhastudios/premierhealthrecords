@@ -155,6 +155,9 @@
     {
       "resourceType": "Device",
       "readonly": true
+    },
+    {
+      "resourceType": "Subscription"
     }
   ]
 }

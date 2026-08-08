@@ -3,7 +3,7 @@
 import { ActionIcon, Avatar, Badge, Box, Button, Grid, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { getDisplayString, getReferenceString } from '@medplum/core';
-import { Loading, useMedplumProfile } from '@medplum/react';
+import { Loading, useMedplumProfile, useSubscription } from '@medplum/react';
 import {
   IconActivity,
   IconCalendarEvent,
@@ -16,6 +16,7 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import type { JSX, ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { CountResult } from '../../hooks/useDashboardMetrics';
 import {
@@ -33,6 +34,7 @@ import { PatientQrScanner } from './components/PatientQrScanner';
 import { PatientsBarChart } from './components/PatientsBarChart';
 import type { StatCardProps } from './components/StatCard';
 import { StatCardRow } from './components/StatCardRow';
+import { StationQueue } from './components/StationQueue';
 import { TasksList } from './components/TasksList';
 import classes from './DashboardPage.module.css';
 
@@ -74,6 +76,8 @@ export function DashboardPage(): JSX.Element {
   const profile = useMedplumProfile();
   const { role, can } = useUserRole();
   const [scannerOpened, scannerHandlers] = useDisclosure(false);
+  const [vitalsRefresh, setVitalsRefresh] = useState(0);
+  const [apptRefresh, setApptRefresh] = useState(0);
 
   const todayStart = startOfToday();
   const todayEnd = endOfToday();
@@ -83,26 +87,47 @@ export function DashboardPage(): JSX.Element {
   const showClinical = role === 'nurse' || role === 'clinician' || role === 'admin';
   const isFrontOrAdmin = role === 'front-desk' || role === 'admin';
 
-  // Shared appointment data (used by the donut and the overview list).
+  // Shared appointment data (used by the donut and the station queue).
   const today = useTodayAppointments();
+  const refreshToday = today.refresh;
+
+  // Live feeds. WebSocket subscriptions push changes as they happen: any
+  // appointment change today (bookings, check-ins, status moves) refreshes the
+  // shared appointment data, the KPI counts, and the calendar; any new vitals
+  // refresh the station queue and the vitals KPI. A slow poll backstops the
+  // socket so a dropped connection degrades to eventually-fresh, not stale.
+  const onAppointmentEvent = useCallback(() => {
+    refreshToday();
+    setApptRefresh((t) => t + 1);
+  }, [refreshToday]);
+  useSubscription(`Appointment?date=ge${todayStart}`, onAppointmentEvent);
+  useSubscription(
+    can.recordVitals ? 'Observation?category=vital-signs' : undefined,
+    useCallback(() => setVitalsRefresh((t) => t + 1), [])
+  );
+  useEffect(() => {
+    const timer = setInterval(onAppointmentEvent, 60_000);
+    return () => clearInterval(timer);
+  }, [onAppointmentEvent]);
 
   // KPI counts — all hooks run unconditionally; `enabled` gates the network call.
   // Front desk doesn't show the all-time patient total, so skip that query for them.
   const patients = useCount('Patient', '', role !== 'front-desk');
-  const apptToday = useCount('Appointment', `date=ge${todayStart}&date=le${todayEnd}`, true);
+  const apptToday = useCount('Appointment', `date=ge${todayStart}&date=le${todayEnd}`, true, apptRefresh);
   const myTasks = useCount(
     'Task',
     profileRef ? `owner=${profileRef}&status=${OPEN_TASK_STATUSES}` : '',
     Boolean(profileRef)
   );
-  const encountersInProgress = useCount('Encounter', 'status=in-progress', showClinical);
-  const vitalsToday = useCount('Observation', `date=ge${todayStart}`, can.recordVitals);
+  const encountersInProgress = useCount('Encounter', 'status=in-progress', showClinical, apptRefresh);
+  const vitalsToday = useCount('Observation', `category=vital-signs&date=ge${todayStart}`, can.recordVitals, vitalsRefresh);
   const newPatientsWeek = useCount('Patient', `_lastUpdated=ge${weekStart}`, isFrontOrAdmin);
   const outstandingInvoices = useCount('Invoice', 'status=issued', can.manageBilling);
   const checkInQueue = useCount(
     'Appointment',
     `status=arrived,booked&date=ge${todayStart}&date=le${todayEnd}`,
-    can.schedule
+    can.schedule,
+    apptRefresh
   );
 
   if (!profile) {
@@ -186,6 +211,7 @@ export function DashboardPage(): JSX.Element {
       label: 'Vitals Recorded Today',
       value: statValue(vitalsToday),
       color: 'grape',
+      href: `/Observation?category=vital-signs&date=ge${todayStart}&_sort=-date`,
     });
   } else {
     // clinician + admin
@@ -198,20 +224,48 @@ export function DashboardPage(): JSX.Element {
     });
   }
 
-  const showBar = role === 'clinician' || role === 'admin' || role === 'front-desk';
   const showAi = role === 'clinician' || role === 'admin';
+  const stationMode = role === 'nurse' || role === 'front-desk' ? role : undefined;
 
   // Assemble the analytics/list/calendar panels with their responsive spans.
-  const panels: { span: Record<string, number> | number; node: ReactNode }[] = [
-    {
-      span: { base: 12, lg: 5 },
-      node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} />,
-    },
-    ...(showBar ? [{ span: { base: 12, lg: 7 }, node: <PatientsBarChart /> }] : []),
-    { span: { base: 12, lg: 5 }, node: <TasksList ownerRef={profileRef} /> },
-    { span: { base: 12, lg: 7 }, node: <DashboardCalendar /> },
-    ...(showAi ? [{ span: 12, node: <AiInsightsStub /> }] : []),
-  ];
+  // Every row must sum to 12 and panels sharing a row share a height, so the
+  // grid never renders with holes or stretched half-empty cards.
+  //
+  // Station roles (nurse, front desk) get the check-in → vitals → doctor work
+  // queue as the hero panel: front desk marks patients arrived; the nurse
+  // records vitals for arrived patients and hands them to the doctor.
+  const panels: { span: Record<string, number> | number; node: ReactNode }[] = stationMode
+    ? [
+        {
+          span: { base: 12, lg: 8 },
+          node: (
+            <StationQueue
+              mode={stationMode}
+              appointments={today.appointments}
+              loading={today.loading}
+              onRefresh={today.refresh}
+              onVitalsRecorded={() => setVitalsRefresh((t) => t + 1)}
+              refreshKey={vitalsRefresh}
+            />
+          ),
+        },
+        { span: { base: 12, lg: 4 }, node: <TasksList ownerRef={profileRef} /> },
+        {
+          span: { base: 12, lg: 4 },
+          node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} bodyHeight={460} />,
+        },
+        { span: { base: 12, lg: 8 }, node: <DashboardCalendar refreshKey={apptRefresh} /> },
+      ]
+    : [
+        {
+          span: { base: 12, lg: 5 },
+          node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} />,
+        },
+        { span: { base: 12, lg: 7 }, node: <PatientsBarChart /> },
+        { span: { base: 12, lg: 5 }, node: <TasksList ownerRef={profileRef} /> },
+        { span: { base: 12, lg: 7 }, node: <DashboardCalendar refreshKey={apptRefresh} /> },
+        ...(showAi ? [{ span: 12, node: <AiInsightsStub /> }] : []),
+      ];
 
   return (
     <Box className={classes.page}>

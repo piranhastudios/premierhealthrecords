@@ -7,7 +7,7 @@ import { IconAlertTriangle, IconCircleCheck, IconClipboardList, IconClock } from
 import type { JSX, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { DashboardPanel } from './DashboardPanel';
+import { DashboardPanel, PanelEmptyState } from './DashboardPanel';
 import classes from './TasksList.module.css';
 
 const OPEN_TASK_STATUSES = 'requested,ready,received,accepted,in-progress,draft';
@@ -140,11 +140,11 @@ export function TasksList(props: TasksListProps): JSX.Element {
     );
   } else if (rows.length === 0) {
     body = (
-      <Center h="100%">
-        <Text c="dimmed" size="sm">
-          No open tasks
-        </Text>
-      </Center>
+      <PanelEmptyState
+        icon={<IconCircleCheck size={22} />}
+        label="All caught up"
+        hint="Tasks assigned to you will appear here"
+      />
     );
   } else {
     body = (

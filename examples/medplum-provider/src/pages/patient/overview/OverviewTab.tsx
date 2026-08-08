@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Grid, Loader, Stack } from '@mantine/core';
 import type { JSX } from 'react';
+import { Navigate } from 'react-router';
 import { usePatient } from '../../../hooks/usePatient';
+import { useUserRole } from '../../../hooks/useUserRole';
+import { formatPatientPageTabUrl, getPatientPageTabOrThrow } from '../PatientPage.utils';
 import { AppointmentsPanel } from './AppointmentsPanel';
 import { OpenTasksPanel } from './OpenTasksPanel';
 import { RecentResultsPanel } from './RecentResultsPanel';
@@ -14,19 +17,28 @@ import { useOpenTasks, usePatientAppointments, useRecentReports, useVitalsHistor
  * and what still needs attention. The full activity feed lives in the timeline
  * drawer rather than on this page.
  *
+ * The overview is clinical — front desk has no Overview tab and lands on the
+ * Visits tab instead.
+ *
  * @returns The overview tab.
  */
 export function OverviewTab(): JSX.Element {
   const patient = usePatient();
   const patientId = patient?.id;
+  const { role } = useUserRole();
+  const clinical = role !== 'front-desk';
 
-  const vitals = useVitalsHistory(patientId);
-  const appointments = usePatientAppointments(patientId);
-  const reports = useRecentReports(patientId);
-  const tasks = useOpenTasks(patientId);
+  const vitals = useVitalsHistory(clinical ? patientId : undefined);
+  const appointments = usePatientAppointments(clinical ? patientId : undefined);
+  const reports = useRecentReports(clinical ? patientId : undefined);
+  const tasks = useOpenTasks(clinical ? patientId : undefined);
 
   if (!patientId) {
     return <Loader m="md" />;
+  }
+
+  if (!clinical) {
+    return <Navigate to={formatPatientPageTabUrl(patientId, getPatientPageTabOrThrow('encounter'))} replace />;
   }
 
   return (

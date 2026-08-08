@@ -5,12 +5,15 @@ import type { Appointment } from '@medplum/fhirtypes';
 import type { JSX, ReactNode } from 'react';
 import { useMemo } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { DashboardPanel } from './DashboardPanel';
+import { IconCalendarOff } from '@tabler/icons-react';
+import { DashboardPanel, PanelEmptyState } from './DashboardPanel';
 import { groupByStatus } from './appointmentStatus';
 
 export interface AppointmentsDonutProps {
   appointments: Appointment[] | undefined;
   loading: boolean;
+  /** Body height (px) — matches the panel sharing this row. */
+  bodyHeight?: number;
 }
 
 /**
@@ -21,7 +24,7 @@ export interface AppointmentsDonutProps {
  * @returns The donut panel.
  */
 export function AppointmentsDonut(props: AppointmentsDonutProps): JSX.Element {
-  const { appointments, loading } = props;
+  const { appointments, loading, bodyHeight = 260 } = props;
   const data = useMemo(() => groupByStatus(appointments ?? []), [appointments]);
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
@@ -34,11 +37,11 @@ export function AppointmentsDonut(props: AppointmentsDonutProps): JSX.Element {
     );
   } else if (total === 0) {
     body = (
-      <Center h="100%">
-        <Text c="dimmed" size="sm">
-          No appointments scheduled today
-        </Text>
-      </Center>
+      <PanelEmptyState
+        icon={<IconCalendarOff size={22} />}
+        label="No appointments today"
+        hint="Today's bookings will be broken down by status here"
+      />
     );
   } else {
     body = (
@@ -97,7 +100,7 @@ export function AppointmentsDonut(props: AppointmentsDonutProps): JSX.Element {
   }
 
   return (
-    <DashboardPanel title="Appointment Status" subtitle="Today's appointments by status" bodyHeight={260}>
+    <DashboardPanel title="Appointment Status" subtitle="Today's appointments by status" bodyHeight={bodyHeight}>
       {body}
     </DashboardPanel>
   );

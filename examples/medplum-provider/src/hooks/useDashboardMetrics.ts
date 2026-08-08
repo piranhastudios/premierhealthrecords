@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Appointment, ResourceType } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Start of the local day, as an ISO string (inclusive lower bound).
@@ -49,9 +49,10 @@ export interface CountResult {
  * @param resourceType - The FHIR resource type to count.
  * @param criteria - Search criteria (without `_summary`), e.g. `status=in-progress`.
  * @param enabled - When false, the query is skipped (for role-gated tiles).
+ * @param refreshKey - Bump to refetch (e.g. after a dashboard action mutates data).
  * @returns The count and a loading flag.
  */
-export function useCount(resourceType: ResourceType, criteria = '', enabled = true): CountResult {
+export function useCount(resourceType: ResourceType, criteria = '', enabled = true, refreshKey = 0): CountResult {
   const medplum = useMedplum();
   const [count, setCount] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(enabled);
@@ -82,7 +83,7 @@ export function useCount(resourceType: ResourceType, criteria = '', enabled = tr
     return () => {
       active = false;
     };
-  }, [medplum, resourceType, criteria, enabled]);
+  }, [medplum, resourceType, criteria, enabled, refreshKey]);
 
   return { count, loading };
 }
@@ -90,20 +91,24 @@ export function useCount(resourceType: ResourceType, criteria = '', enabled = tr
 export interface TodayAppointmentsResult {
   appointments: Appointment[] | undefined;
   loading: boolean;
+  /** Refetches today's appointments (after a check-in or status change). */
+  refresh: () => void;
 }
 
 /**
  * Loads today's appointments (across all practitioners) ordered by start time.
- * Shared by the "today by status" donut and the appointment-overview list so we
- * only hit the server once.
+ * Shared by the "today by status" donut and the station queue so we only hit
+ * the server once. `refresh()` refetches after a queue action mutates a status.
  *
  * @param enabled - When false, the query is skipped.
- * @returns Today's appointments and a loading flag.
+ * @returns Today's appointments, a loading flag, and a refresh callback.
  */
 export function useTodayAppointments(enabled = true): TodayAppointmentsResult {
   const medplum = useMedplum();
   const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(enabled);
+  const [tick, setTick] = useState(0);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     if (!enabled) {
@@ -133,7 +138,7 @@ export function useTodayAppointments(enabled = true): TodayAppointmentsResult {
     return () => {
       active = false;
     };
-  }, [medplum, enabled]);
+  }, [medplum, enabled, tick]);
 
-  return { appointments, loading };
+  return { appointments, loading, refresh };
 }
