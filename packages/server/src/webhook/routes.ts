@@ -63,3 +63,7 @@ export const webhookHandler = async (req: Request, res: Response): Promise<void>
 
 export const webhookRouter = Router();
 webhookRouter.post('/:id', webhookHandler);
+// GET so a public webhook bot can serve a link clicked from an email (the
+// handler already passes the query string as the bot input). Used by the
+// campaign unsubscribe link.
+webhookRouter.get('/:id', webhookHandler);

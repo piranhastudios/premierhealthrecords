@@ -4,7 +4,6 @@ import { getReferenceString } from '@medplum/core';
 import { useDoseSpotNotifications } from '@medplum/dosespot-react';
 import { AppShell, Loading, Logo, useMedplum, useMedplumProfile } from '@medplum/react';
 import {
-  IconApps,
   IconBook2,
   IconCalendarEvent,
   IconClipboardCheck,
@@ -34,7 +33,6 @@ import { FaxPage } from './pages/fax/FaxPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
 import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotificationsPage';
-import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ScriptSurePage } from './pages/integrations/ScriptSurePage';
 import { MessagesPage } from './pages/messages/MessagesPage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
@@ -170,7 +168,6 @@ export function App(): JSX.Element | null {
                       ]
                     : []),
                   { icon: <IconUserPlus />, label: 'New Patient', href: '/Patient/new' },
-                  { icon: <IconApps />, label: 'Integrations', href: '/integrations' },
                   ...(hasDoseSpot
                     ? [
                         {
@@ -259,7 +256,6 @@ export function App(): JSX.Element | null {
               <Route path="/signin" element={<SignInPage />} />
               {hasDoseSpot && <Route path="/dosespot" element={<DoseSpotNotificationsPage />} />}
               {hasScriptSure && <Route path="/scriptsure" element={<ScriptSurePage />} />}
-              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
               <Route path="/:resourceType/:id" element={<ResourcePage />}>

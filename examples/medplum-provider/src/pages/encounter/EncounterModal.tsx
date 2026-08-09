@@ -207,6 +207,8 @@ export const EncounterModal = (): JSX.Element => {
                 <ResourceInput
                   name="plandefinition"
                   resourceType="PlanDefinition"
+                  // Exclude campaign PlanDefinitions (marketing engine) from the care-template picker.
+                  searchCriteria={{ 'type:not': 'https://premierhealth.cm/fhir/CodeSystem/plan-type|campaign' }}
                   onChange={(value) => setPlanDefinitionData(value as PlanDefinition)}
                   required={false}
                 />

@@ -4,7 +4,7 @@ import type { AccessPolicy } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
 import { useMemo } from 'react';
 
-export type ProviderRole = 'admin' | 'clinician' | 'nurse' | 'front-desk';
+export type ProviderRole = 'admin' | 'clinician' | 'nurse' | 'front-desk' | 'marketing';
 
 export interface UserRole {
   /** Coarse role label, used for greetings and picking a dashboard preset. */
@@ -21,6 +21,8 @@ export interface UserRole {
     registerPatients: boolean;
     /** Write access to Invoice / ChargeItem (collect payments). */
     manageBilling: boolean;
+    /** Write access to PlanDefinition + Group (campaign management). */
+    manageCampaigns: boolean;
   };
 }
 
@@ -104,6 +106,7 @@ export function useUserRole(): UserRole {
       schedule: unscoped || canWrite(policy, 'Appointment'),
       registerPatients: unscoped || canWrite(policy, 'Patient'),
       manageBilling: unscoped || canWrite(policy, 'Invoice') || canWrite(policy, 'ChargeItem'),
+      manageCampaigns: unscoped || (canWrite(policy, 'PlanDefinition') && canWrite(policy, 'Group')),
     };
 
     let role: ProviderRole;
@@ -115,6 +118,10 @@ export function useUserRole(): UserRole {
       role = 'nurse';
     } else if (can.schedule && !can.recordVitals) {
       role = 'front-desk';
+    } else if (can.manageCampaigns && !can.recordVitals && !can.schedule) {
+      // Marketing policy: writes PlanDefinition (campaigns) + Group (audiences)
+      // but no clinical/scheduling writes.
+      role = 'marketing';
     } else {
       role = 'clinician';
     }
@@ -137,6 +144,8 @@ export function roleLabel(role: ProviderRole): string {
       return 'Nurse';
     case 'front-desk':
       return 'Front Desk';
+    case 'marketing':
+      return 'Marketing';
     case 'clinician':
     default:
       return 'Clinician';

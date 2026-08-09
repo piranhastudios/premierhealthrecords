@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@medplum/bot-layer": "5.1.9",
+    "@medplum/campaigns": "5.1.9",
     "@medplum/cli": "5.1.9",
     "@medplum/core": "5.1.9",
     "@medplum/eslint-config": "5.1.9",

@@ -65,15 +65,19 @@ fi
 $COMPOSE up -d
 
 # In the background: once the FHIR server is healthy, provision the scoped staff
-# logins (frontdesk@ / nurse@example.com, password medplum_user) and the Cameroon
-# reference data (terminology/ValueSets, insurers, care templates) so local matches
-# live. Both are idempotent; self-terminates if the server never comes up (e.g. Ctrl-C).
+# logins (frontdesk@ / nurse@ / marketing@example.com, password medplum_user), the
+# Cameroon reference data (terminology/ValueSets, insurers, care templates) and the
+# bot subscriptions, then report campaign-engine readiness. All idempotent;
+# self-terminates if the server never comes up (e.g. Ctrl-C).
 (
   for _ in $(seq 1 150); do
     if curl -fsS 'http://localhost:8103/healthcheck' >/dev/null 2>&1; then
       node "$SCRIPT_DIR/seed-users.mjs" || echo 'seed-users: failed (see output above)' >&2
       node "$SCRIPT_DIR/seed-cameroon.mjs" || echo 'seed-cameroon: failed (see output above)' >&2
       node "$SCRIPT_DIR/seed-subscriptions.mjs" || echo 'seed-subscriptions: failed (see output above)' >&2
+      # Reports what the campaign engine still needs (Resend secrets, cron feature,
+      # bot cron/webhook wiring) — these fail silently at runtime otherwise.
+      node "$SCRIPT_DIR/marketing-preflight.mjs" || echo 'marketing-preflight: failed (see output above)' >&2
       exit 0
     fi
     sleep 2

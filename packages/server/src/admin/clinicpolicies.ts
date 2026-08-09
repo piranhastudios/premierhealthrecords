@@ -4,6 +4,7 @@ import type { AccessPolicy, Project } from '@medplum/fhirtypes';
 import { getLogger } from '../logger';
 import type { SystemRepository } from '../fhir/repo';
 import frontDeskPolicy from './clinic-policies/front-desk-access-policy.json' with { type: 'json' };
+import marketingPolicy from './clinic-policies/marketing-access-policy.json' with { type: 'json' };
 import nursePolicy from './clinic-policies/nurse-access-policy.json' with { type: 'json' };
 
 /**
@@ -11,7 +12,7 @@ import nursePolicy from './clinic-policies/nurse-access-policy.json' with { type
  * are the single source of truth — `scripts/seed-users.mjs` uploads the same
  * files into the stock FHIR R4 project.
  */
-const CLINIC_ACCESS_POLICIES = [frontDeskPolicy, nursePolicy] as unknown as AccessPolicy[];
+const CLINIC_ACCESS_POLICIES = [frontDeskPolicy, nursePolicy, marketingPolicy] as unknown as AccessPolicy[];
 
 /**
  * Installs the default clinic access policies (front desk, nurse) into a newly

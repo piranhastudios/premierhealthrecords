@@ -54,6 +54,7 @@ const QR_SIGNING_KEY_DEV = '5f9d3c7a1e0b46829d5a7c1f3e8b0a2c4d6e8f10121416182022
 const STAFF = [
   { firstName: 'Front', lastName: 'Desk', email: 'frontdesk@example.com', policyFile: 'front-desk-access-policy.json' },
   { firstName: 'Nurse', lastName: 'User', email: 'nurse@example.com', policyFile: 'nurse-access-policy.json' },
+  { firstName: 'Marketing', lastName: 'User', email: 'marketing@example.com', policyFile: 'marketing-access-policy.json' },
 ];
 
 async function http(method, path, body, { token, form } = {}) {
@@ -189,6 +190,23 @@ async function ensureWebsocketSubscriptions(token) {
   console.log('  + websocket-subscriptions enabled (live dashboard feeds)');
 }
 
+// The campaign executor is a cron Bot; the server's cron worker skips projects
+// without the "cron" feature (packages/server/src/workers/cron.ts).
+async function ensureCronFeature(token) {
+  const project = await http('GET', `/fhir/R4/Project/${R4_PROJECT_ID}`, undefined, { token });
+  if (project.features?.includes('cron')) {
+    console.log('  = cron already enabled');
+    return;
+  }
+  await http(
+    'PUT',
+    `/fhir/R4/Project/${R4_PROJECT_ID}`,
+    { ...project, features: [...(project.features ?? []), 'cron'] },
+    { token }
+  );
+  console.log('  + cron enabled (campaign executor schedule)');
+}
+
 // Provision the dev QR signing key on the FHIR R4 project (idempotent). Required by the
 // Patient/$issue-qr and $verify-qr operations (dashboard QR scanner + portal QR).
 async function ensureQrSigningKey(token) {
@@ -236,6 +254,7 @@ async function main() {
   await ensureAdminMembership(token);
   await ensureStrictMode(token);
   await ensureWebsocketSubscriptions(token);
+  await ensureCronFeature(token);
   await ensureQrSigningKey(token);
 
   console.log('Done. Log in at the provider app as frontdesk@example.com / nurse@example.com (password medplum_user).');

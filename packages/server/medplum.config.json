@@ -18,6 +18,7 @@
   "defaultBotRuntimeVersion": "vmcontext",
   "allowedOrigins": "*",
   "introspectionEnabled": true,
+  "defaultProjectFeatures": ["bots", "cron", "websocket-subscriptions"],
   "database": {
     "host": "localhost",
     "port": 5432,

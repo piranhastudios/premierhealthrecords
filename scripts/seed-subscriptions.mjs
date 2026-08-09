@@ -85,6 +85,53 @@ const WIRING = [
       { url: FHIRPATH_CRITERIA_URL, valueString: "%current.sender.reference.startsWith('Practitioner/')" },
     ],
   },
+  // --- Campaign engine ------------------------------------------------------------
+  // One trigger bot behind several static Subscriptions; the bot's registry decides
+  // which active campaigns an incoming resource feeds.
+  {
+    bot: 'premierhealth-campaign-trigger',
+    reason: 'Enrol patients into campaigns (patient-created trigger)',
+    criteria: 'Patient',
+  },
+  {
+    bot: 'premierhealth-campaign-trigger',
+    reason: 'Enrol patients into campaigns (appointment triggers)',
+    criteria: 'Appointment',
+  },
+  {
+    bot: 'premierhealth-campaign-trigger',
+    reason: 'Enrol patients into campaigns (encounter-finished trigger)',
+    criteria: 'Encounter?status=finished',
+  },
+  {
+    bot: 'premierhealth-campaign-trigger',
+    reason: 'Enrol patients into campaigns (consent-granted trigger)',
+    criteria: 'Consent',
+  },
+  {
+    bot: 'premierhealth-campaign-executor',
+    reason: 'Process due campaign enrolments (sends, delays, conditions)',
+    // Cron bot — no Subscription. Requires the project `cron` feature (seed-users.mjs).
+    cron: '*/2 * * * *',
+  },
+  {
+    bot: 'premierhealth-campaign-resend-events',
+    reason: 'Ingest Resend delivery events (delivered/opened/clicked/bounced/complained)',
+    // Public webhook — register the printed URL in the Resend dashboard.
+    publicWebhook: true,
+    // Minimal policy for the anonymous webhook route: event append (Communication),
+    // suppression (Patient tag + Consent deny), enrolment cancellation (Task).
+    webhookPolicy: ['Communication', 'Patient', 'Consent', 'Task'],
+  },
+  {
+    bot: 'premierhealth-campaign-unsubscribe',
+    reason: 'Handle signed unsubscribe links from marketing email footers',
+    // Public webhook. Its URL + HMAC secret are stored as project secrets so the
+    // executor can generate per-recipient links (see ensureUnsubscribeSecrets).
+    publicWebhook: true,
+    webhookPolicy: ['Patient', 'Consent', 'Task'],
+    unsubscribeEndpoint: true,
+  },
 ];
 
 async function http(method, path, body, { token, form } = {}) {
@@ -204,6 +251,95 @@ async function ensureBotCode(token, bot) {
   console.log(`  + ${bot.name}: deployed code to code-less bot`);
 }
 
+// Ensure a cron bot runs on the given schedule (Bot.cronString). Requires the
+// project `cron` feature (see seed-users.mjs ensureCronFeature) or the server
+// worker skips it silently (packages/server/src/workers/cron.ts).
+async function ensureBotCron(token, bot, cron) {
+  // Re-read: the in-hand copy may predate $deploy, and PUTting it would wipe
+  // Bot.executableCode (deployed code lives on the resource).
+  const fresh = await http('GET', `/fhir/R4/Bot/${bot.id}`, undefined, { token });
+  if (fresh.cronString === cron) {
+    return;
+  }
+  await http('PUT', `/fhir/R4/Bot/${bot.id}`, { ...fresh, cronString: cron }, { token });
+  console.log(`  + ${bot.name}: cron schedule set (${cron})`);
+}
+
+// Ensure a bot is exposed as a public webhook and print the URL to register with
+// the external service (Resend dashboard). The anonymous webhook route refuses
+// memberships without an AccessPolicy (packages/server/src/webhook/routes.ts),
+// so a minimal bot policy is upserted and attached too.
+// Provision the project secrets that make unsubscribe links automatic: the
+// unsubscribe bot's public webhook URL and the HMAC key used to sign each
+// recipient's link. Operators never configure an unsubscribe URL.
+async function ensureUnsubscribeSecrets(token, projectId, webhookUrl) {
+  const project = await http('GET', `/fhir/R4/Project/${projectId}`, undefined, { token });
+  const secrets = [...(project.secret ?? [])];
+  const existingUrl = secrets.find((s) => s.name === 'CAMPAIGN_UNSUBSCRIBE_URL');
+  const hasSecret = secrets.some((s) => s.name === 'CAMPAIGN_UNSUBSCRIBE_SECRET');
+  let changed = false;
+
+  if (existingUrl?.valueString !== webhookUrl) {
+    if (existingUrl) {
+      existingUrl.valueString = webhookUrl;
+    } else {
+      secrets.push({ name: 'CAMPAIGN_UNSUBSCRIBE_URL', valueString: webhookUrl });
+    }
+    changed = true;
+  }
+  if (!hasSecret) {
+    secrets.push({ name: 'CAMPAIGN_UNSUBSCRIBE_SECRET', valueString: randomBytes(32).toString('hex') });
+    changed = true;
+  }
+  if (changed) {
+    await http('PUT', `/fhir/R4/Project/${projectId}`, { ...project, secret: secrets }, { token });
+    console.log('  + unsubscribe secrets provisioned (URL + signing key)');
+  }
+}
+
+async function ensureBotWebhook(token, bot, policyResources) {
+  // Re-read before PUT — see ensureBotCron.
+  const fresh = await http('GET', `/fhir/R4/Bot/${bot.id}`, undefined, { token });
+  if (!fresh.publicWebhook) {
+    await http('PUT', `/fhir/R4/Bot/${bot.id}`, { ...fresh, publicWebhook: true }, { token });
+    console.log(`  + ${bot.name}: publicWebhook enabled`);
+  }
+
+  // Upsert the bot's scoped policy (named after the bot).
+  const policyName = `${bot.name} webhook policy`;
+  const policySearch = await http('GET', `/fhir/R4/AccessPolicy?name=${encodeURIComponent(policyName)}`, undefined, {
+    token,
+  });
+  const desiredPolicy = {
+    resourceType: 'AccessPolicy',
+    name: policyName,
+    resource: policyResources.map((resourceType) => ({ resourceType })),
+  };
+  const existingPolicy = (policySearch.entry ?? []).map((e) => e.resource).find((p) => p.name === policyName);
+  const policy = existingPolicy
+    ? await http('PUT', `/fhir/R4/AccessPolicy/${existingPolicy.id}`, { ...desiredPolicy, id: existingPolicy.id }, { token })
+    : await http('POST', '/fhir/R4/AccessPolicy', desiredPolicy, { token });
+
+  const memberships = await http('GET', `/fhir/R4/ProjectMembership?profile=Bot/${bot.id}`, undefined, { token });
+  const membership = memberships.entry?.[0]?.resource;
+  if (!membership) {
+    console.log(`  ! ${bot.name}: no ProjectMembership found — cannot derive webhook URL`);
+    return undefined;
+  }
+  if (membership.accessPolicy?.reference !== `AccessPolicy/${policy.id}`) {
+    await http(
+      'PUT',
+      `/fhir/R4/ProjectMembership/${membership.id}`,
+      { ...membership, accessPolicy: { reference: `AccessPolicy/${policy.id}` } },
+      { token }
+    );
+    console.log(`  + ${bot.name}: webhook access policy attached`);
+  }
+  const webhookUrl = `${BASE}/webhook/${membership.id}`;
+  console.log(`  i ${bot.name}: webhook URL ${webhookUrl}`);
+  return webhookUrl;
+}
+
 // Upsert one Subscription, matched by criteria + bot endpoint.
 async function ensureSubscription(token, bot, { reason, criteria, extension }) {
   const endpoint = `Bot/${bot.id}`;
@@ -232,9 +368,11 @@ async function ensureSubscription(token, bot, { reason, criteria, extension }) {
 
 console.log(`Wiring bot subscriptions on ${BASE} (project ${PROJECT}) ...`);
 
-// Enabling the project's `bots` feature is a Project-resource write — super admin
-// only, so use the unscoped console login for just that step.
-await ensureBotsFeature(await login(), PROJECT);
+// Enabling the project's `bots` feature and writing project secrets are
+// Project-resource writes — super admin only, so keep the unscoped console
+// login around for those steps (re-logging in would risk the auth rate limit).
+const superToken = await login();
+await ensureBotsFeature(superToken, PROJECT);
 
 // Everything else runs scoped to the data project: bot search/create/deploy and
 // the Subscriptions land there naturally.
@@ -252,7 +390,18 @@ for (const entry of WIRING) {
     missing.push(entry.bot);
     continue;
   }
-  await ensureSubscription(token, bot, entry);
+  if (entry.cron) {
+    await ensureBotCron(token, bot, entry.cron);
+  }
+  if (entry.publicWebhook) {
+    const webhookUrl = await ensureBotWebhook(token, bot, entry.webhookPolicy ?? []);
+    if (entry.unsubscribeEndpoint && webhookUrl) {
+      await ensureUnsubscribeSecrets(superToken, PROJECT, webhookUrl);
+    }
+  }
+  if (entry.criteria) {
+    await ensureSubscription(token, bot, entry);
+  }
 }
 
 if (missing.length) {

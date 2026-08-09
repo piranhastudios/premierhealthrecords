@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+import { canManageCampaigns } from '@medplum/campaigns';
 import { MEDPLUM_VERSION } from '@medplum/core';
 import type { UserConfiguration } from '@medplum/fhirtypes';
 import type { NavbarMenu } from '@medplum/react';
@@ -13,10 +14,12 @@ import {
   IconId,
   IconLock,
   IconLockAccess,
+  IconMail,
   IconMicroscope,
   IconPackages,
   IconReceipt,
   IconReportMedical,
+  IconSpeakerphone,
   IconStar,
   IconWebhook,
 } from '@tabler/icons-react';
@@ -43,7 +46,7 @@ export function App(): JSX.Element {
       pathname={location.pathname}
       searchParams={searchParams}
       version={MEDPLUM_VERSION}
-      menus={userConfigToMenu(config)}
+      menus={userConfigToMenu(config, canManageCampaigns(medplum))}
       displayAddBookmark={!!config?.id}
     >
       <Suspense fallback={<Loading />}>
@@ -53,7 +56,7 @@ export function App(): JSX.Element {
   );
 }
 
-function userConfigToMenu(config: UserConfiguration | undefined): NavbarMenu[] {
+function userConfigToMenu(config: UserConfiguration | undefined, showMarketing: boolean): NavbarMenu[] {
   const result =
     config?.menu?.map((menu) => ({
       title: menu.title,
@@ -64,6 +67,18 @@ function userConfigToMenu(config: UserConfiguration | undefined): NavbarMenu[] {
           icon: getIcon(link.target),
         })) || [],
     })) || [];
+
+  // Marketing operators are not project admins and get no UserConfiguration
+  // menu, so without this they'd have no way into the campaign tools.
+  if (showMarketing) {
+    result.push({
+      title: 'Marketing',
+      links: [
+        { label: 'Campaigns', href: '/admin/campaigns', icon: <IconSpeakerphone /> },
+        { label: 'Email templates', href: '/admin/templates', icon: <IconMail /> },
+      ],
+    });
+  }
 
   result.push({
     title: 'Settings',

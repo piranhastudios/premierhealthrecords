@@ -199,6 +199,8 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
             name="plandefinition"
             resourceType="PlanDefinition"
             label="Care template"
+            // Exclude campaign PlanDefinitions (marketing engine) from the care-template picker.
+            searchCriteria={{ 'type:not': 'https://premierhealth.cm/fhir/CodeSystem/plan-type|campaign' }}
             onChange={(value) => {
               setPlanDefinitionData(value as PlanDefinition);
             }}

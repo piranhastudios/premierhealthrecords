@@ -16,7 +16,7 @@ RUN npm ci
 # @medplum packages in the app's runtime graph, so vite resolves non-aliased
 # transitive deps. Building react here also emits dist/esm/index.css, imported as
 # '@medplum/react/styles.css'.
-RUN set -eux; for p in core react-hooks react fhir-router mock; do \
+RUN set -eux; for p in core react-hooks react fhir-router mock campaigns; do \
       if [ -f "packages/$p/esbuild.mjs" ]; then ( cd "packages/$p" && node esbuild.mjs ); fi; \
     done
 # Inline runtime-config placeholder tokens. The app reads import.meta.env.MEDPLUM_*
