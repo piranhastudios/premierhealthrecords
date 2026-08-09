@@ -26,7 +26,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const configDir = join(here, '..', 'examples', 'medplum-demo-bots', 'src', 'premierhealth', 'config');
+// Canonical staff-policy JSONs live in the server package — the server installs
+// them automatically into every NEW project (createProject → createClinicAccessPolicies);
+// this seed uploads the same files into the stock FHIR R4 project.
+const configDir = join(here, '..', 'packages', 'server', 'src', 'admin', 'clinic-policies');
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, cur, i, arr) => {
@@ -168,6 +171,24 @@ async function ensureStrictMode(token) {
   console.log('  + strictMode enabled (profile constraints now reject invalid writes)');
 }
 
+// The role dashboards subscribe to live Appointment/Observation feeds over
+// WebSocket (useSubscription). The server gates that behind the project-level
+// "websocket-subscriptions" feature, off by default on the stock FHIR R4 project.
+async function ensureWebsocketSubscriptions(token) {
+  const project = await http('GET', `/fhir/R4/Project/${R4_PROJECT_ID}`, undefined, { token });
+  if (project.features?.includes('websocket-subscriptions')) {
+    console.log('  = websocket-subscriptions already enabled');
+    return;
+  }
+  await http(
+    'PUT',
+    `/fhir/R4/Project/${R4_PROJECT_ID}`,
+    { ...project, features: [...(project.features ?? []), 'websocket-subscriptions'] },
+    { token }
+  );
+  console.log('  + websocket-subscriptions enabled (live dashboard feeds)');
+}
+
 // Provision the dev QR signing key on the FHIR R4 project (idempotent). Required by the
 // Patient/$issue-qr and $verify-qr operations (dashboard QR scanner + portal QR).
 async function ensureQrSigningKey(token) {
@@ -214,6 +235,7 @@ async function main() {
 
   await ensureAdminMembership(token);
   await ensureStrictMode(token);
+  await ensureWebsocketSubscriptions(token);
   await ensureQrSigningKey(token);
 
   console.log('Done. Log in at the provider app as frontdesk@example.com / nurse@example.com (password medplum_user).');

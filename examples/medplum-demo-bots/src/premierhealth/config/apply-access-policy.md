@@ -41,8 +41,11 @@ creates under the caller's own policy).
 ## Upload / update the policy (idempotent)
 
 Uses a FHIR conditional update (`PUT AccessPolicy?name=...`): creates the policy the
-first time, updates it in place on every subsequent run. Run from this directory
-against the production project (sign in first with a project-admin account):
+first time, updates it in place on every subsequent run. The policy JSONs now live in
+`packages/server/src/admin/clinic-policies/` (the server auto-installs them into every
+NEW project via `createProject`; this manual upload is for existing projects). Run from
+that directory against the production project (sign in first with a project-admin
+account):
 
 ```bash
 npx medplum login --base-url https://api.premierhealthcentres.com

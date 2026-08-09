@@ -33,6 +33,16 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Optional local server overrides (git-ignored). Used for secrets that must not
+# live in medplum.config.json — e.g. MEDPLUM_SMTP_* (Resend) so invite / reset
+# emails send in dev. See .env.server.local.example.
+if [ -f "$SCRIPT_DIR/../.env.server.local" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$SCRIPT_DIR/../.env.server.local"
+  set +a
+fi
+
 # Require Node 22.18+ (see package.json "engines")
 NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 if [ "$NODE_MAJOR" -lt 22 ]; then

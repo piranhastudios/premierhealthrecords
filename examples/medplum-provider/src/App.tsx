@@ -59,6 +59,7 @@ import { ResourcePage } from './pages/resource/ResourcePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { ScheduleSettingsPage } from './pages/schedule/ScheduleSettingsPage';
 import { SearchPage } from './pages/SearchPage';
+import { SetPasswordPage } from './pages/SetPasswordPage';
 import { SignInPage } from './pages/SignInPage';
 import { SpacesPage } from './pages/spaces/SpacesPage';
 import { TasksPage } from './pages/tasks/TasksPage';
@@ -90,6 +91,16 @@ export function App(): JSX.Element | null {
     return (
       <Routes>
         <Route path="/telehealth/:appointmentId" element={<TelehealthPage />} />
+      </Routes>
+    );
+  }
+
+  // Emailed invite / password-reset links also render standalone — the person
+  // following the link is usually not signed in, and app chrome would be noise.
+  if (location.pathname.startsWith('/setpassword/')) {
+    return (
+      <Routes>
+        <Route path="/setpassword/:id/:secret" element={<SetPasswordPage />} />
       </Routes>
     );
   }
