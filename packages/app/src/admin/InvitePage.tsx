@@ -103,7 +103,11 @@ export function InvitePage(): JSX.Element {
           </FormSection>
           <Checkbox name="sendEmail" label="Send email" defaultChecked={true} />
           <Checkbox name="isAdmin" label="Admin" />
-          <Checkbox name="isProjectScoped" label="Project scoped" />
+          <Checkbox
+            name="isProjectScoped"
+            label="Project scoped"
+            description="Leave OFF for staff. A project-scoped account can only sign in through a link that names its project, so it fails with 'User not found' on the normal provider sign-in."
+          />
           <Checkbox name="mfaRequired" label="MFA required" />
           <Group justify="flex-end">
             <SubmitButton>Invite</SubmitButton>

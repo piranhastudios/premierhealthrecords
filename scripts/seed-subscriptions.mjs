@@ -40,6 +40,9 @@ const PASSWORD = args.password ?? 'medplum_admin';
 // Medplum server seeds. Bots must live here for their Subscriptions to fire on
 // the clinic's data. The admin's membership is created by scripts/seed-users.mjs.
 const PROJECT = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
+// Wire every clinic project on the server rather than just one. Bots and their
+// Subscriptions are project-scoped, so each clinic needs its own copies.
+const ALL_PROJECTS = process.argv.includes('--all-projects');
 
 const SUPPORTED_INTERACTION_URL = 'https://medplum.com/fhir/StructureDefinition/subscription-supported-interaction';
 const FHIRPATH_CRITERIA_URL = 'https://medplum.com/fhir/StructureDefinition/fhir-path-criteria-expression';
@@ -198,19 +201,20 @@ async function findBot(token, name) {
 // The bot manifest maps names to built dist files.
 const botManifest = JSON.parse(readFileSync(join(botsDir, 'medplum.config.json'), 'utf8')).bots;
 
-// Bot creation/deployment requires the project's `bots` feature flag.
-async function ensureBotsFeature(token, projectId) {
+// Features every clinic project needs: `bots` to create/deploy bots at all,
+// `cron` for the campaign executor's schedule, `websocket-subscriptions` for the
+// provider dashboard's live feeds.
+const REQUIRED_FEATURES = ['bots', 'cron', 'websocket-subscriptions'];
+
+async function ensureProjectFeatures(token, projectId) {
   const project = await http('GET', `/fhir/R4/Project/${projectId}`, undefined, { token });
-  if (project.features?.includes('bots')) {
+  const features = project.features ?? [];
+  const missingFeatures = REQUIRED_FEATURES.filter((f) => !features.includes(f));
+  if (missingFeatures.length === 0) {
     return;
   }
-  await http(
-    'PUT',
-    `/fhir/R4/Project/${projectId}`,
-    { ...project, features: [...(project.features ?? []), 'bots'] },
-    { token }
-  );
-  console.log(`  + enabled 'bots' feature on project ${project.name ?? projectId}`);
+  await http('PUT', `/fhir/R4/Project/${projectId}`, { ...project, features: [...features, ...missingFeatures] }, { token });
+  console.log(`  + enabled features on ${project.name ?? projectId}: ${missingFeatures.join(', ')}`);
 }
 
 function readDistCode(name) {
@@ -366,48 +370,80 @@ async function ensureSubscription(token, bot, { reason, criteria, extension }) {
   }
 }
 
-console.log(`Wiring bot subscriptions on ${BASE} (project ${PROJECT}) ...`);
+// Bots, Subscriptions and their counters are PER PROJECT. Each clinic is its own
+// project, so a clinic without this wiring silently loses every bot workflow —
+// no MRNs assigned, no BMI, no pay-gate release, no campaigns. `--all-projects`
+// wires every clinic on the server (everything except the Super Admin project).
+async function wireProject(superToken, projectId, projectName) {
+  console.log(`\n--- ${projectName ?? projectId} ---`);
+  await ensureProjectFeatures(superToken, projectId);
 
-// Enabling the project's `bots` feature and writing project secrets are
-// Project-resource writes — super admin only, so keep the unscoped console
-// login around for those steps (re-logging in would risk the auth rate limit).
-const superToken = await login();
-await ensureBotsFeature(superToken, PROJECT);
+  // Scoped to the data project: bot search/create/deploy and the Subscriptions
+  // land there naturally.
+  const token = await login(projectId);
+  const missing = [];
 
-// Everything else runs scoped to the data project: bot search/create/deploy and
-// the Subscriptions land there naturally.
-const token = await login(PROJECT);
-
-const missing = [];
-for (const entry of WIRING) {
-  let bot = await findBot(token, entry.bot);
-  if (bot) {
-    await ensureBotCode(token, bot);
-  } else {
-    bot = await createAndDeployBot(token, PROJECT, entry.bot, entry.reason);
-  }
-  if (!bot) {
-    missing.push(entry.bot);
-    continue;
-  }
-  if (entry.cron) {
-    await ensureBotCron(token, bot, entry.cron);
-  }
-  if (entry.publicWebhook) {
-    const webhookUrl = await ensureBotWebhook(token, bot, entry.webhookPolicy ?? []);
-    if (entry.unsubscribeEndpoint && webhookUrl) {
-      await ensureUnsubscribeSecrets(superToken, PROJECT, webhookUrl);
+  for (const entry of WIRING) {
+    let bot = await findBot(token, entry.bot);
+    if (bot) {
+      await ensureBotCode(token, bot);
+    } else {
+      bot = await createAndDeployBot(token, projectId, entry.bot, entry.reason);
+    }
+    if (!bot) {
+      missing.push(entry.bot);
+      continue;
+    }
+    if (entry.cron) {
+      await ensureBotCron(token, bot, entry.cron);
+    }
+    if (entry.publicWebhook) {
+      const webhookUrl = await ensureBotWebhook(token, bot, entry.webhookPolicy ?? []);
+      if (entry.unsubscribeEndpoint && webhookUrl) {
+        await ensureUnsubscribeSecrets(superToken, projectId, webhookUrl);
+      }
+    }
+    if (entry.criteria) {
+      await ensureSubscription(token, bot, entry);
     }
   }
-  if (entry.criteria) {
-    await ensureSubscription(token, bot, entry);
+  return missing;
+}
+
+console.log(`Wiring bot subscriptions on ${BASE} ...`);
+
+// Project-resource writes (features, secrets) are super-admin only, so keep the
+// unscoped console login around (re-logging in risks the auth rate limit).
+const superToken = await login();
+
+let targets;
+if (ALL_PROJECTS) {
+  const bundle = await http('GET', '/fhir/R4/Project?_count=100', undefined, { token: superToken });
+  targets = (bundle.entry ?? [])
+    .map((e) => e.resource)
+    .filter((p) => !p.superAdmin)
+    .map((p) => ({ id: p.id, name: p.name }));
+  console.log(`Targeting ${targets.length} clinic project(s): ${targets.map((t) => t.name).join(', ')}`);
+} else {
+  targets = [{ id: PROJECT, name: PROJECT }];
+}
+
+const missing = [];
+for (const target of targets) {
+  // A project the admin has no membership in cannot be wired — report and move on
+  // rather than aborting the whole run.
+  try {
+    missing.push(...(await wireProject(superToken, target.id, target.name)));
+  } catch (err) {
+    console.log(`  ! ${target.name}: skipped (${err.message.split('\n')[0]})`);
   }
 }
 
 if (missing.length) {
+  const unique = [...new Set(missing)];
   console.log(
-    `\nACTION REQUIRED — ${missing.length} bot(s) could not be wired, so their workflows stay` +
-      ` inert:\n${missing.map((m) => `  - ${m}`).join('\n')}\n` +
+    `\nACTION REQUIRED — ${unique.length} bot(s) could not be wired, so their workflows stay` +
+      ` inert:\n${unique.map((m) => `  - ${m}`).join('\n')}\n` +
       `Build the bots (cd examples/medplum-demo-bots && npm run build), then re-run this script.\n` +
       `See src/premierhealth/SETUP.md.`
   );

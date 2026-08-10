@@ -74,7 +74,9 @@ $COMPOSE up -d
     if curl -fsS 'http://localhost:8103/healthcheck' >/dev/null 2>&1; then
       node "$SCRIPT_DIR/seed-users.mjs" || echo 'seed-users: failed (see output above)' >&2
       node "$SCRIPT_DIR/seed-cameroon.mjs" || echo 'seed-cameroon: failed (see output above)' >&2
-      node "$SCRIPT_DIR/seed-subscriptions.mjs" || echo 'seed-subscriptions: failed (see output above)' >&2
+      # --all-projects: bots and Subscriptions are per project, so every clinic
+      # (not just FHIR R4) needs its own copies or its patients get no MRNs.
+      node "$SCRIPT_DIR/seed-subscriptions.mjs" --all-projects || echo 'seed-subscriptions: failed (see output above)' >&2
       # Reports what the campaign engine still needs (Resend secrets, cron feature,
       # bot cron/webhook wiring) — these fail silently at runtime otherwise.
       node "$SCRIPT_DIR/marketing-preflight.mjs" || echo 'marketing-preflight: failed (see output above)' >&2
