@@ -13,7 +13,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PasswordInput } from '../../src/components/PasswordInput';
 import { signIn } from '../../src/medplum/auth';
+import { config } from '../../src/lib/config';
 import { cardShadow, colors, heroGradient } from '../../src/theme/tokens';
 
 export default function SignIn(): JSX.Element {
@@ -85,19 +87,21 @@ export default function SignIn(): JSX.Element {
 
               <View className="gap-1.5">
                 <Text className="text-ink-secondary text-sm font-semibold">Password</Text>
-                <TextInput
+                <PasswordInput
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Your password"
-                  placeholderTextColor={colors.inkFaint}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="current-password"
-                  className="bg-surface-muted rounded-field px-4 h-12 text-ink text-base"
                   returnKeyType="go"
                   onSubmitEditing={onSignIn}
                 />
               </View>
+
+              <Link href="/(auth)/forgot-password" asChild>
+                <Pressable className="self-end py-0.5">
+                  <Text className="text-phc-orange text-sm font-semibold">Forgot password?</Text>
+                </Pressable>
+              </Link>
 
               {error ? <Text className="text-status-error text-sm">{error}</Text> : null}
 
@@ -128,6 +132,12 @@ export default function SignIn(): JSX.Element {
             <Text className="text-white/70 text-xs text-center">
               By continuing you agree to Premier Health&apos;s Terms &amp; Privacy Policy.
             </Text>
+
+            {__DEV__ ? (
+              <Text className="text-white/60 text-xs text-center">
+                dev · connected to {config.medplumBaseUrl}
+              </Text>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

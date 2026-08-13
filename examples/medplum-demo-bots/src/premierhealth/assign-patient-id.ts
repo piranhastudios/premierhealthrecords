@@ -22,9 +22,14 @@
  * loser gets an HTTP 409/412, re-reads the counter, and retries (up to 5 attempts with
  * a tiny backoff).
  *
- * The MRN is appended to `Patient.identifier`; any existing identifiers (e.g. the
- * Cameroon national ID / CNI) are preserved. The bot is idempotent: if the patient
- * already carries an MRN identifier, it returns without changes.
+ * The MRN is appended to `Patient.identifier` with a standard `MR` type coding; any
+ * existing identifiers (e.g. the Cameroon national ID / CNI) are preserved. The bot is
+ * idempotent: if the patient already carries an MRN identifier, it returns without
+ * changes.
+ *
+ * A patient with no `birthDate` is skipped rather than stamped with a permanent
+ * `0000` birth-year segment — the Subscription fires on updates too, so the MRN is
+ * assigned as soon as the birth date is recorded.
  */
 
 import type { BotEvent, MedplumClient } from '@medplum/core';
@@ -40,11 +45,17 @@ const COUNTER_SYSTEM = 'https://premierhealth.cm/fhir/sid/mrn-counter';
 const LAST_SEQUENCE_URL = 'https://premierhealth.cm/fhir/StructureDefinition/mrn-last-sequence';
 
 // How the recitable value is assembled. Change these two helpers together to alter
-// the scheme (e.g. two-digit years). An empty-string birthDate counts as missing.
+// the scheme (e.g. two-digit years).
 const SEQUENCE_PAD = 4;
-const formatBirthYear = (birthDate: string | undefined): string => (birthDate ? birthDate.slice(0, 4) : '0000');
 const formatMrn = (regYear: number, birthYear: string, sequence: number): string =>
   `${regYear}-${birthYear}-${String(sequence).padStart(SEQUENCE_PAD, '0')}`;
+
+// Standard identifier-type coding so downstream systems recognise the MRN as a
+// Medical Record Number rather than an opaque local identifier.
+const MRN_TYPE: Identifier['type'] = {
+  coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0203', code: 'MR', display: 'Medical record number' }],
+  text: 'MRN',
+};
 
 // Max attempts to increment the counter when another registration races us, with a
 // small linear backoff between attempts.
@@ -62,6 +73,13 @@ export async function handler(
     return { skipped: 'already-has-mrn' };
   }
 
+  // The birth year is part of the MRN. Wait for it rather than permanently stamping
+  // `0000`: the Subscription also fires on update, so the MRN is assigned as soon as
+  // the birth date is recorded. (An empty-string birthDate counts as missing.)
+  if (!input.birthDate) {
+    return { skipped: 'no-birth-date' };
+  }
+
   // Read-modify-write on the freshest copy so we never clobber existing identifiers,
   // and re-check idempotency before reserving a sequence.
   const current = await medplum.readResource('Patient', input.id as string);
@@ -72,8 +90,9 @@ export async function handler(
   const regYear = new Date().getFullYear();
   const sequence = await allocateSequence(medplum, regYear);
   const mrn: Identifier = {
+    type: MRN_TYPE,
     system: MRN_SYSTEM,
-    value: formatMrn(regYear, formatBirthYear(input.birthDate), sequence),
+    value: formatMrn(regYear, input.birthDate.slice(0, 4), sequence),
   };
 
   return medplum.updateResource<Patient>({

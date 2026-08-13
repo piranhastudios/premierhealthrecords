@@ -56,7 +56,14 @@ export function VideoVisitFullscreen(props: VideoVisitFullscreenProps): JSX.Elem
           ref={call.remoteVideoRef}
           autoPlay
           playsInline
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#202124' }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            background: '#202124',
+          }}
         />
 
         {call.status !== 'connected' && (
@@ -73,10 +80,7 @@ export function VideoVisitFullscreen(props: VideoVisitFullscreenProps): JSX.Elem
           </Stack>
         )}
 
-        <Text
-          style={{ position: 'absolute', top: 16, left: 20, zIndex: 2, color: 'rgba(255,255,255,0.85)' }}
-          fw={700}
-        >
+        <Text style={{ position: 'absolute', top: 16, left: 20, zIndex: 2, color: 'rgba(255,255,255,0.85)' }} fw={700}>
           Premier Health
         </Text>
 
@@ -105,11 +109,7 @@ export function VideoVisitFullscreen(props: VideoVisitFullscreenProps): JSX.Elem
         </Box>
 
         {/* Floating controls */}
-        <Group
-          justify="center"
-          gap="sm"
-          style={{ position: 'absolute', bottom: 24, left: 0, right: 0, zIndex: 3 }}
-        >
+        <Group justify="center" gap="sm" style={{ position: 'absolute', bottom: 24, left: 0, right: 0, zIndex: 3 }}>
           <ControlButton
             label={call.micOn ? 'Mute' : 'Unmute'}
             danger={!call.micOn}
@@ -220,7 +220,9 @@ function ControlButton(props: {
         onClick={props.onClick}
         disabled={props.disabled}
         aria-label={props.label}
-        style={props.hangup ? undefined : { background: props.active ? '#fff' : 'rgba(255,255,255,0.15)', color: '#fff' }}
+        style={
+          props.hangup ? undefined : { background: props.active ? '#fff' : 'rgba(255,255,255,0.15)', color: '#fff' }
+        }
       >
         {props.icon}
       </ActionIcon>

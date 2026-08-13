@@ -139,25 +139,52 @@ describe('assign-patient-id bot', () => {
     expect(result.identifier).toHaveLength(2);
   });
 
-  test('uses 0000 for the birth-year segment when birthDate is missing', async () => {
+  test('skips a patient with no birthDate without burning a sequence', async () => {
     const patient = await medplum.createResource<Patient>({
       resourceType: 'Patient',
       name: [{ family: 'NoBirthDate' }],
     });
 
-    const result = (await handler(medplum, event(patient))) as Patient;
-    expect(mrnValue(result)).toBe('2026-0000-0001');
+    const result = await handler(medplum, event(patient));
+    expect(result).toEqual({ skipped: 'no-birth-date' });
+    expect(await readCounter('2026')).toBeUndefined();
   });
 
-  test('treats an empty-string birthDate as missing (0000 birth-year segment)', async () => {
+  test('treats an empty-string birthDate as missing (skipped)', async () => {
     const patient = await medplum.createResource<Patient>({
       resourceType: 'Patient',
       name: [{ family: 'EmptyBirthDate' }],
       birthDate: '',
     });
 
+    const result = await handler(medplum, event(patient));
+    expect(result).toEqual({ skipped: 'no-birth-date' });
+  });
+
+  test('assigns the MRN once the birth date is recorded (update firing)', async () => {
+    const patient = await medplum.createResource<Patient>({
+      resourceType: 'Patient',
+      name: [{ family: 'LateBirthDate' }],
+    });
+    expect(await handler(medplum, event(patient))).toEqual({ skipped: 'no-birth-date' });
+
+    const updated = await medplum.updateResource<Patient>({ ...patient, birthDate: '1993-07-04' });
+    const result = (await handler(medplum, event(updated))) as Patient;
+    expect(mrnValue(result)).toBe('2026-1993-0001');
+  });
+
+  test('stamps the MR identifier-type coding on the MRN', async () => {
+    const patient = await medplum.createResource<Patient>({
+      resourceType: 'Patient',
+      birthDate: '1990-05-20',
+    });
+
     const result = (await handler(medplum, event(patient))) as Patient;
-    expect(mrnValue(result)).toBe('2026-0000-0001');
+    const mrn = result.identifier?.find((id) => id.system === MRN_SYSTEM);
+    expect(mrn?.type?.coding?.[0]).toMatchObject({
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+      code: 'MR',
+    });
   });
 
   test('re-reads and retries when the counter increment hits a version conflict', async () => {

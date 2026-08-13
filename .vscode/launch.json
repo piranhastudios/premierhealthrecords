@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run dev.sh",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash ./scripts/dev.sh",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run dev.sh (with admin)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash ./scripts/dev.sh --with-admin",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

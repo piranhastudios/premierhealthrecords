@@ -6,10 +6,13 @@ import { createReference, normalizeErrorString, normalizeOperationOutcome } from
 import type { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
+import type { InsuranceSelection } from '../../components/registration/InsuranceStep';
+import { InsuranceStep } from '../../components/registration/InsuranceStep';
 import { usePatient } from '../../hooks/usePatient';
+import { createCoverage } from '../../utils/insurance';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { RESOURCE_PROFILE_URLS } from './utils';
 
@@ -26,6 +29,12 @@ const PatientReferencesElements: Partial<Record<ResourceType, string[]>> = {
 
 function getDefaultValue(resourceType: ResourceType, patient: Patient | undefined): Partial<Resource> {
   const dv = { resourceType } as Partial<Resource>;
+  if (resourceType === 'Patient') {
+    // Pre-render one phone row: the profile requires a telecom (min=1) but the form
+    // renders no row for it, and the dialing-code selector only appears once the
+    // row's system is "phone".
+    (dv as Partial<Patient>).telecom = [{ system: 'phone' }];
+  }
   const refKeys = PatientReferencesElements[resourceType];
   if (patient && refKeys) {
     for (const key of refKeys) {
@@ -69,6 +78,11 @@ export function ResourceCreatePage(): JSX.Element {
     return getDefaultValue(resourceType, patient);
   });
   const profileUrl = resourceType && RESOURCE_PROFILE_URLS[resourceType];
+  // Held in a ref: the insurance step is submitted with the form, not on change.
+  const insuranceRef = useRef<InsuranceSelection | undefined>(undefined);
+  // Standalone /Patient/new is the front-desk registration flow; inside a patient's
+  // chart (/Patient/:id/Patient/new makes no sense anyway) there is no insurance step.
+  const isRegistration = resourceType === 'Patient' && !patientId;
 
   useEffect(() => {
     if (patient && resourceType) {
@@ -83,7 +97,24 @@ export function ResourceCreatePage(): JSX.Element {
     }
     medplum
       .createResource(newResource)
-      .then((result) => navigate(prependPatientPath(patient, '/' + result.resourceType + '/' + result.id)))
+      .then(async (result) => {
+        // Registration extra: attach the selected insurer as a Coverage. A failure
+        // here must not strand the registration — surface it and continue to the chart.
+        const selection = insuranceRef.current;
+        if (result.resourceType === 'Patient' && selection?.insurer) {
+          try {
+            await createCoverage(medplum, result, selection.insurer, selection.subscriberId, selection.copayPercent);
+          } catch (err) {
+            showNotification({
+              color: 'yellow',
+              title: 'Patient created, but adding insurance failed',
+              message: normalizeErrorString(err),
+              autoClose: false,
+            });
+          }
+        }
+        return navigate(prependPatientPath(patient, '/' + result.resourceType + '/' + result.id));
+      })
       .catch((err) => {
         if (setOutcome) {
           setOutcome(normalizeOperationOutcome(err));
@@ -105,6 +136,13 @@ export function ResourceCreatePage(): JSX.Element {
     <Document shadow="xs">
       <Stack>
         <Text fw={500}>New&nbsp;{resourceType}</Text>
+        {isRegistration && (
+          <InsuranceStep
+            onChange={(selection) => {
+              insuranceRef.current = selection;
+            }}
+          />
+        )}
         <ResourceFormWithRequiredProfile
           defaultValue={defaultValue}
           onSubmit={handleSubmit}

@@ -13,6 +13,7 @@ import type {
 } from '@medplum/fhirtypes';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '../../admin/client';
+import { createClinicAccessPolicies } from '../../admin/clinicpolicies';
 import { createUser } from '../../auth/newuser';
 import { createProfile, createProjectMembership } from '../../auth/utils';
 import { getConfig } from '../../config/loader';
@@ -170,6 +171,10 @@ export async function createProject(
     name: project.name + ' Default Client',
     description: 'Default client for ' + project.name,
   });
+
+  // Every clinic project starts with the default staff access policies
+  // (front desk, nurse) so role assignment works without a seeding step.
+  await createClinicAccessPolicies(systemRepo, project);
 
   if (admin) {
     const profile = await createProfile(

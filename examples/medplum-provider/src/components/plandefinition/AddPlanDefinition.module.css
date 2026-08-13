@@ -21,8 +21,8 @@
 
 .notFound {
   display: flex;
-  background-color: var(--mantine-color-yellow-0);
-  color: var(--mantine-color-yellow-8);
+  background-color: light-dark(var(--mantine-color-yellow-0), var(--mantine-color-dark-6));
+  color: light-dark(var(--mantine-color-yellow-8), var(--mantine-color-yellow-4));
   align-items: center;
   justify-content: center;
 }

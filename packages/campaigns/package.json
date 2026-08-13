@@ -1,0 +1,97 @@
+{
+  "name": "@medplum/campaigns",
+  "version": "5.1.9",
+  "description": "Premier Health email campaign engine and builder components",
+  "homepage": "https://www.medplum.com/",
+  "bugs": {
+    "url": "https://github.com/medplum/medplum/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/medplum/medplum.git",
+    "directory": "packages/campaigns"
+  },
+  "license": "Apache-2.0",
+  "author": "Medplum <hello@medplum.com>",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/esm/react.d.ts",
+        "default": "./dist/esm/react.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/react.d.ts",
+        "default": "./dist/cjs/react.cjs"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./dist/esm/node.d.ts",
+        "default": "./dist/esm/node.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/node.d.ts",
+        "default": "./dist/cjs/node.cjs"
+      }
+    }
+  },
+  "main": "dist/cjs/index.cjs",
+  "module": "dist/esm/index.mjs",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist/cjs",
+    "dist/esm",
+    "dist/types"
+  ],
+  "scripts": {
+    "api-extractor": "api-extractor run --local && shx cp dist/types.d.ts dist/cjs/index.d.ts && shx cp dist/types.d.ts dist/esm/index.d.ts",
+    "build": "npm run clean && tsc && node esbuild.mjs && npm run api-extractor",
+    "clean": "rimraf dist",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "test": "vitest run",
+    "test:watch": "vitest watch"
+  },
+  "devDependencies": {
+    "@mantine/core": "8.3.18",
+    "@mantine/hooks": "8.3.18",
+    "@medplum/core": "5.1.9",
+    "@medplum/fhirtypes": "5.1.9",
+    "@medplum/mock": "5.1.9",
+    "@medplum/react-hooks": "5.1.9",
+    "@tabler/icons-react": "3.41.1",
+    "@types/node": "22.19.17",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@xyflow/react": "12.8.6",
+    "jsdom": "29.0.2",
+    "mjml-browser": "4.15.3",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "vitest": "4.1.4"
+  },
+  "peerDependencies": {
+    "@mantine/core": "8.3.18",
+    "@medplum/core": "5.1.9",
+    "@medplum/fhirtypes": "5.1.9",
+    "@medplum/react-hooks": "5.1.9",
+    "@xyflow/react": "12.8.6",
+    "mjml-browser": "4.15.3",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.2.0"
+  }
+}

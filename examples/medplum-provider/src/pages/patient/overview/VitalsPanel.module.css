@@ -1,0 +1,22 @@
+.tile {
+  padding: 8px 12px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--phc-border-subtle);
+  background-color: var(--phc-surface-raised);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.tile:hover {
+  border-color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.tile[data-selected] {
+  border-color: var(--mantine-color-brand-6);
+  background-color: color-mix(in srgb, var(--mantine-color-brand-6) 12%, var(--phc-surface-raised));
+}
+
+.tile[data-empty] {
+  opacity: 0.55;
+}

@@ -61,6 +61,17 @@ export async function handler(medplum: MedplumClient, event: BotEvent<Invoice>):
     resolvedCharges++;
 
     await releaseTasks(medplum, await findBlockedTasks(medplum, chargeItem), seen, released);
+
+    // Close the charge: a paid ChargeItem must not appear at the next checkout
+    // (getOpenChargeItemsForPatient only surfaces planned/billable). Idempotent —
+    // an already-billed charge is left alone.
+    if (chargeItem.status !== 'billed') {
+      try {
+        await medplum.updateResource<ChargeItem>({ ...chargeItem, status: 'billed' });
+      } catch (err) {
+        console.error(`Error marking ${ref.reference} billed:`, err);
+      }
+    }
   }
 
   // Fallback for bare (amount-only) invoices: no ChargeItem was resolvable, so

@@ -26,6 +26,10 @@ const args = Object.fromEntries(
 const BASE = (args.base ?? process.env.MEDPLUM_BASE_URL ?? 'http://localhost:8103').replace(/\/$/, '');
 const EMAIL = args.email ?? 'admin@example.com';
 const PASSWORD = args.password ?? 'medplum_admin';
+// Install into the FHIR R4 data project (where staff and patients live) by
+// default — the fixed id every Medplum server seeds (packages/server/src/constants.ts).
+// The admin's membership there is created by scripts/seed-users.mjs.
+const PROJECT = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
 
 const PHR = 'https://premierhealth.cm/fhir';
 
@@ -44,22 +48,43 @@ const SYS = {
 // --- Curated, Cameroon-relevant concepts (real standard codes where applicable) ---
 const CONCEPTS = {
   [SYS.iso3166_2]: [
-    ['CM-AD', 'Adamaoua'], ['CM-CE', 'Centre'], ['CM-ES', 'Est'], ['CM-EN', 'Extrême-Nord'],
-    ['CM-LT', 'Littoral'], ['CM-NO', 'Nord'], ['CM-NW', 'Nord-Ouest'], ['CM-OU', 'Ouest'],
-    ['CM-SU', 'Sud'], ['CM-SW', 'Sud-Ouest'],
+    ['CM-AD', 'Adamaoua'],
+    ['CM-CE', 'Centre'],
+    ['CM-ES', 'Est'],
+    ['CM-EN', 'Extrême-Nord'],
+    ['CM-LT', 'Littoral'],
+    ['CM-NO', 'Nord'],
+    ['CM-NW', 'Nord-Ouest'],
+    ['CM-OU', 'Ouest'],
+    ['CM-SU', 'Sud'],
+    ['CM-SW', 'Sud-Ouest'],
   ],
   [SYS.icd10]: [
-    ['B54', 'Unspecified malaria'], ['B50', 'Plasmodium falciparum malaria'],
-    ['A01.0', 'Typhoid fever'], ['A09', 'Infectious gastroenteritis and colitis'],
-    ['A15', 'Respiratory tuberculosis'], ['B20', 'HIV disease'], ['B05', 'Measles'],
-    ['I10', 'Essential (primary) hypertension'], ['I50', 'Heart failure'],
-    ['E11', 'Type 2 diabetes mellitus'], ['E66', 'Obesity'], ['D50', 'Iron deficiency anaemia'],
-    ['J18', 'Pneumonia, unspecified organism'], ['J45', 'Asthma'], ['J02', 'Acute pharyngitis'],
-    ['N39.0', 'Urinary tract infection, site not specified'], ['N18', 'Chronic kidney disease'],
-    ['K29', 'Gastritis and duodenitis'], ['H66', 'Suppurative and unspecified otitis media'],
-    ['L30', 'Other and unspecified dermatitis'], ['M54', 'Dorsalgia'],
-    ['F32', 'Depressive episode'], ['O80', 'Single spontaneous delivery'],
-    ['B77', 'Ascariasis'], ['A06', 'Amoebiasis'],
+    ['B54', 'Unspecified malaria'],
+    ['B50', 'Plasmodium falciparum malaria'],
+    ['A01.0', 'Typhoid fever'],
+    ['A09', 'Infectious gastroenteritis and colitis'],
+    ['A15', 'Respiratory tuberculosis'],
+    ['B20', 'HIV disease'],
+    ['B05', 'Measles'],
+    ['I10', 'Essential (primary) hypertension'],
+    ['I50', 'Heart failure'],
+    ['E11', 'Type 2 diabetes mellitus'],
+    ['E66', 'Obesity'],
+    ['D50', 'Iron deficiency anaemia'],
+    ['J18', 'Pneumonia, unspecified organism'],
+    ['J45', 'Asthma'],
+    ['J02', 'Acute pharyngitis'],
+    ['N39.0', 'Urinary tract infection, site not specified'],
+    ['N18', 'Chronic kidney disease'],
+    ['K29', 'Gastritis and duodenitis'],
+    ['H66', 'Suppurative and unspecified otitis media'],
+    ['L30', 'Other and unspecified dermatitis'],
+    ['M54', 'Dorsalgia'],
+    ['F32', 'Depressive episode'],
+    ['O80', 'Single spontaneous delivery'],
+    ['B77', 'Ascariasis'],
+    ['A06', 'Amoebiasis'],
   ],
   [SYS.loinc]: [
     ['718-7', 'Hemoglobin [Mass/volume] in Blood'],
@@ -76,27 +101,54 @@ const CONCEPTS = {
     ['2106-3', 'Choriogonadotropin [Presence] in Urine (pregnancy)'],
   ],
   [SYS.cvx]: [
-    ['19', 'BCG'], ['2', 'Oral polio vaccine (OPV)'], ['10', 'Inactivated polio vaccine (IPV)'],
-    ['45', 'Hepatitis B'], ['17', 'Haemophilus influenzae type b (Hib)'],
-    ['133', 'Pneumococcal conjugate PCV13'], ['116', 'Rotavirus'], ['05', 'Measles'],
-    ['03', 'Measles, mumps, rubella (MMR)'], ['37', 'Yellow fever'], ['09', 'Td (tetanus, diphtheria)'],
-    ['35', 'Tetanus toxoid'], ['137', 'HPV, unspecified'], ['213', 'COVID-19, unspecified'],
+    ['19', 'BCG'],
+    ['2', 'Oral polio vaccine (OPV)'],
+    ['10', 'Inactivated polio vaccine (IPV)'],
+    ['45', 'Hepatitis B'],
+    ['17', 'Haemophilus influenzae type b (Hib)'],
+    ['133', 'Pneumococcal conjugate PCV13'],
+    ['116', 'Rotavirus'],
+    ['05', 'Measles'],
+    ['03', 'Measles, mumps, rubella (MMR)'],
+    ['37', 'Yellow fever'],
+    ['09', 'Td (tetanus, diphtheria)'],
+    ['35', 'Tetanus toxoid'],
+    ['137', 'HPV, unspecified'],
+    ['213', 'COVID-19, unspecified'],
   ],
   [SYS.atc]: [
-    ['N02BE01', 'Paracetamol'], ['M01AE01', 'Ibuprofen'], ['J01CA04', 'Amoxicillin'],
-    ['J01CR02', 'Amoxicillin and beta-lactamase inhibitor'], ['J01FA10', 'Azithromycin'],
-    ['P01BF01', 'Artemether and lumefantrine'], ['P01BA02', 'Hydroxychloroquine'],
-    ['A10BA02', 'Metformin'], ['C08CA01', 'Amlodipine'], ['C09AA05', 'Ramipril'],
-    ['C03CA01', 'Furosemide'], ['R03AC02', 'Salbutamol'], ['A02BC01', 'Omeprazole'],
-    ['B03AA07', 'Ferrous sulfate'], ['J05AR03', 'Tenofovir disoproxil, emtricitabine and dolutegravir'],
+    ['N02BE01', 'Paracetamol'],
+    ['M01AE01', 'Ibuprofen'],
+    ['J01CA04', 'Amoxicillin'],
+    ['J01CR02', 'Amoxicillin and beta-lactamase inhibitor'],
+    ['J01FA10', 'Azithromycin'],
+    ['P01BF01', 'Artemether and lumefantrine'],
+    ['P01BA02', 'Hydroxychloroquine'],
+    ['A10BA02', 'Metformin'],
+    ['C08CA01', 'Amlodipine'],
+    ['C09AA05', 'Ramipril'],
+    ['C03CA01', 'Furosemide'],
+    ['R03AC02', 'Salbutamol'],
+    ['A02BC01', 'Omeprazole'],
+    ['B03AA07', 'Ferrous sulfate'],
+    ['J05AR03', 'Tenofovir disoproxil, emtricitabine and dolutegravir'],
   ],
   [SYS.allergen]: [
-    ['penicillin', 'Penicillin'], ['sulfonamide', 'Sulfonamides'], ['aspirin', 'Aspirin'],
-    ['nsaid', 'NSAIDs'], ['peanut', 'Peanut'], ['shellfish', 'Shellfish'], ['egg', 'Egg'],
-    ['latex', 'Latex'], ['pollen', 'Pollen'], ['dust-mite', 'House dust mite'],
+    ['penicillin', 'Penicillin'],
+    ['sulfonamide', 'Sulfonamides'],
+    ['aspirin', 'Aspirin'],
+    ['nsaid', 'NSAIDs'],
+    ['peanut', 'Peanut'],
+    ['shellfish', 'Shellfish'],
+    ['egg', 'Egg'],
+    ['latex', 'Latex'],
+    ['pollen', 'Pollen'],
+    ['dust-mite', 'House dust mite'],
   ],
   [SYS.tobacco]: [
-    ['current', 'Current tobacco user'], ['former', 'Former tobacco user'], ['never', 'Never used tobacco'],
+    ['current', 'Current tobacco user'],
+    ['former', 'Former tobacco user'],
+    ['never', 'Never used tobacco'],
   ],
 };
 
@@ -134,7 +186,16 @@ async function http(method, path, body, { token, form } = {}) {
     payload = JSON.stringify(body);
   }
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(BASE + path, { method, headers, body: payload });
+  let res = await fetch(BASE + path, { method, headers, body: payload });
+  // The auth endpoints are rate-limited (5/min); the seed chain logs in several
+  // times back to back, so wait out a 429 instead of failing the whole seed.
+  for (let retry = 0; res.status === 429 && retry < 3; retry++) {
+    const detail = await res.text();
+    const wait = Math.min(65000, (Number(/_msBeforeNext\\?":(\d+)/.exec(detail)?.[1]) || 30000) + 1000);
+    console.log(`  … rate limited on ${path}, retrying in ${Math.round(wait / 1000)}s`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    res = await fetch(BASE + path, { method, headers, body: payload });
+  }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${text.slice(0, 300)}`);
@@ -149,12 +210,19 @@ async function login() {
     password: PASSWORD,
     codeChallenge: challenge,
     codeChallengeMethod: 'S256',
+    // Scoped login: resources are created in this project.
+    projectId: PROJECT,
   });
-  const { access_token } = await http('POST', '/oauth2/token', {
-    grant_type: 'authorization_code',
-    code,
-    code_verifier: verifier,
-  }, { form: true });
+  const { access_token } = await http(
+    'POST',
+    '/oauth2/token',
+    {
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: verifier,
+    },
+    { form: true }
+  );
   return access_token;
 }
 
@@ -177,15 +245,23 @@ async function main() {
       url: system,
       status: 'active',
       content: local ? 'complete' : 'fragment',
-      name: system.split('/').pop().replace(/[^A-Za-z0-9]/g, ''),
+      name: system
+        .split('/')
+        .pop()
+        .replace(/[^A-Za-z0-9]/g, ''),
     }));
-    await http('POST', '/fhir/R4/CodeSystem/$import', {
-      resourceType: 'Parameters',
-      parameter: [
-        { name: 'system', valueUri: system },
-        ...concepts.map(([code, display]) => ({ name: 'concept', valueCoding: { system, code, display } })),
-      ],
-    }, { token });
+    await http(
+      'POST',
+      '/fhir/R4/CodeSystem/$import',
+      {
+        resourceType: 'Parameters',
+        parameter: [
+          { name: 'system', valueUri: system },
+          ...concepts.map(([code, display]) => ({ name: 'concept', valueCoding: { system, code, display } })),
+        ],
+      },
+      { token }
+    );
     console.log(`  CodeSystem ${system}: imported ${concepts.length} concepts`);
   }
 
@@ -205,9 +281,8 @@ async function main() {
       title: name,
       compose: { include: [{ system, ...(concepts.length ? { concept: concepts } : {}) }] },
     };
-    const found = (
-      await http('GET', `/fhir/R4/ValueSet?url=${encodeURIComponent(url)}`, undefined, { token })
-    ).entry?.[0]?.resource;
+    const found = (await http('GET', `/fhir/R4/ValueSet?url=${encodeURIComponent(url)}`, undefined, { token }))
+      .entry?.[0]?.resource;
     if (found) {
       await http('PUT', `/fhir/R4/ValueSet/${found.id}`, { ...valueSet, id: found.id }, { token });
     } else {

@@ -9,11 +9,16 @@ export interface MedplumAppConfig {
   awsTextractEnabled?: boolean | string;
 }
 
+// Default recaptcha site key — the same dev/test key pair as the server's
+// medplum.config.json, whose secret makes /auth/resetpassword demand a token.
+// Override with RECAPTCHA_SITE_KEY (and matching server secret) in prod.
+const DEFAULT_RECAPTCHA_SITE_KEY = '6LfHdsYdAAAAAC0uLnnRrDrhcXnziiUwKd8VtLNq';
+
 const config: MedplumAppConfig = {
   baseUrl: import.meta.env?.MEDPLUM_BASE_URL,
   clientId: import.meta.env?.MEDPLUM_CLIENT_ID,
   googleClientId: import.meta.env?.GOOGLE_CLIENT_ID,
-  recaptchaSiteKey: import.meta.env?.RECAPTCHA_SITE_KEY,
+  recaptchaSiteKey: import.meta.env?.RECAPTCHA_SITE_KEY ?? DEFAULT_RECAPTCHA_SITE_KEY,
   registerEnabled: import.meta.env?.MEDPLUM_REGISTER_ENABLED,
   awsTextractEnabled: import.meta.env?.MEDPLUM_AWS_TEXTRACT_ENABLED,
 };

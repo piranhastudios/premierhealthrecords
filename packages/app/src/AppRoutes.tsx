@@ -12,6 +12,11 @@ import { MemberDetailsPage } from './admin/MemberDetailsPage';
 import { ProjectAdminConfigPage } from './admin/ProjectAdminConfigPage';
 import { ProjectDetailsPage } from './admin/ProjectDetailsPage';
 import { ProjectPage } from './admin/ProjectPage';
+import { CampaignBuilderPage } from './admin/CampaignBuilderPage';
+import { CampaignsPage } from './admin/CampaignsPage';
+import { QuickBooksPage } from './admin/QuickBooksPage';
+import { TemplateEditorPage } from './admin/TemplateEditorPage';
+import { TemplatesPage } from './admin/TemplatesPage';
 import { SecretsPage } from './admin/SecretsPage';
 import { SitesPage } from './admin/SitesPage';
 import { SuperAdminAsyncDashboardPage } from './admin/SuperAdminAsyncJobPage';
@@ -102,6 +107,11 @@ export function AppRoutes(): JSX.Element {
           <Route path="project" element={<ProjectDetailsPage />} />
           <Route path="secrets" element={<SecretsPage />} />
           <Route path="sites" element={<SitesPage />} />
+          <Route path="quickbooks" element={<QuickBooksPage />} />
+          <Route path="campaigns" element={<CampaignsPage />} />
+          <Route path="campaigns/:campaignId" element={<CampaignBuilderPage />} />
+          <Route path="templates" element={<TemplatesPage />} />
+          <Route path="templates/:templateId" element={<TemplateEditorPage />} />
         </Route>
         <Route path="/lab/assays" element={<AssaysPage />} />
         <Route path="/lab/panels" element={<PanelsPage />} />

@@ -9,6 +9,7 @@ import { ErrorBoundary } from '../ErrorBoundary/ErrorBoundary';
 import { Loading } from '../Loading/Loading';
 import classes from './AppShell.module.css';
 import { Header } from './Header';
+import type { HeaderDropdownLink } from './HeaderDropdown';
 import type { NavbarMenu } from './Navbar';
 import { Navbar } from './Navbar';
 
@@ -29,6 +30,7 @@ export interface AppShellProps {
   readonly layoutVersion?: 'v1' | 'v2';
   readonly showLayoutVersionToggle?: boolean;
   readonly spotlightPatientsOnly?: boolean;
+  readonly userMenuLinks?: HeaderDropdownLink[];
 }
 
 export function AppShell(props: AppShellProps): JSX.Element {
@@ -91,6 +93,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
         userMenuEnabled={true}
         version={props.version}
         showLayoutVersionToggle={props.showLayoutVersionToggle}
+        userMenuLinks={props.userMenuLinks}
       />
     ) : undefined;
   } else {
@@ -114,6 +117,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
         navbarOpen={navbarOpen}
         navbarToggle={toggleNavbar}
         notifications={props.notifications}
+        userMenuLinks={props.userMenuLinks}
       />
     );
     navbarComponent =
@@ -127,6 +131,7 @@ export function AppShell(props: AppShellProps): JSX.Element {
           displayAddBookmark={props.displayAddBookmark}
           resourceTypeSearchDisabled={props.resourceTypeSearchDisabled}
           patientsOnly={props.spotlightPatientsOnly}
+          userMenuLinks={props.userMenuLinks}
         />
       ) : undefined;
   }

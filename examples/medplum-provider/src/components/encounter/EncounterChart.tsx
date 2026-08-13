@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Box, Button, Card, Flex, Group, Stack, Textarea, Title } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { IconCopy } from '@tabler/icons-react';
 import type { WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
 import type { ClinicalImpression, Encounter, Practitioner, Provenance, Reference, Task } from '@medplum/fhirtypes';
 import { Loading, useMedplum } from '@medplum/react';
+import { IconCopy } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { SAVE_TIMEOUT_MS } from '../../config/constants';
@@ -15,8 +15,8 @@ import { useEncounterChart } from '../../hooks/useEncounterChart';
 import { ChartNoteStatus } from '../../types/encounter';
 import { updateEncounterStatus } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
-import { VideoVisit } from '../telehealth/VideoVisit';
 import { TaskPanel } from '../tasks/encounter/TaskPanel';
+import { VideoVisit } from '../telehealth/VideoVisit';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
 import { SignAddendum } from './SignAddendum';
@@ -238,48 +238,48 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
         />
         <Flex align="flex-start" gap={0}>
           <Box p="md" style={{ flex: 1, minWidth: 0 }}>
-          {activeTab === 'notes' && (
-            <Stack gap="md">
-              <SignAddendum encounter={encounter} provenances={provenances} chartNoteStatus={chartNoteStatus} />
+            {activeTab === 'notes' && (
+              <Stack gap="md">
+                <SignAddendum encounter={encounter} provenances={provenances} chartNoteStatus={chartNoteStatus} />
 
-              {clinicalImpression && (
-                <Card withBorder shadow="sm" mt="md">
-                  <Title>Fill chart note</Title>
-                  <Textarea
-                    defaultValue={clinicalImpression.note?.[0]?.text}
-                    value={chartNote}
-                    onChange={handleChartNoteChange}
-                    autosize
-                    minRows={4}
-                    maxRows={8}
-                    disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+                {clinicalImpression && (
+                  <Card withBorder shadow="sm" mt="md">
+                    <Title>Fill chart note</Title>
+                    <Textarea
+                      defaultValue={clinicalImpression.note?.[0]?.text}
+                      value={chartNote}
+                      onChange={handleChartNoteChange}
+                      autosize
+                      minRows={4}
+                      maxRows={8}
+                      disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+                    />
+                  </Card>
+                )}
+                {tasks.map((task) => (
+                  <TaskPanel
+                    key={task.id}
+                    task={task}
+                    onUpdateTask={updateTaskList}
+                    enabled={chartNoteStatus !== ChartNoteStatus.SignedAndLocked}
                   />
-                </Card>
-              )}
-              {tasks.map((task) => (
-                <TaskPanel
-                  key={task.id}
-                  task={task}
-                  onUpdateTask={updateTaskList}
-                  enabled={chartNoteStatus !== ChartNoteStatus.SignedAndLocked}
-                />
-              ))}
-            </Stack>
-          )}
-          {activeTab === 'details' && (
-            <BillingTab
-              encounter={encounter}
-              setEncounter={setEncounter}
-              claim={claim}
-              patient={patientResource}
-              practitioner={practitioner}
-              setPractitioner={setPractitioner}
-              chargeItems={chargeItems}
-              setChargeItems={setChargeItems}
-              setClaim={setClaim}
-              chartNoteStatus={chartNoteStatus}
-            />
-          )}
+                ))}
+              </Stack>
+            )}
+            {activeTab === 'details' && (
+              <BillingTab
+                encounter={encounter}
+                setEncounter={setEncounter}
+                claim={claim}
+                patient={patientResource}
+                practitioner={practitioner}
+                setPractitioner={setPractitioner}
+                chargeItems={chargeItems}
+                setChargeItems={setChargeItems}
+                setClaim={setClaim}
+                chartNoteStatus={chartNoteStatus}
+              />
+            )}
           </Box>
           {videoOpen && (
             <Box

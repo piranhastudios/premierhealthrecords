@@ -359,7 +359,9 @@ describe('AppointmentDetails', () => {
         expect(screen.getByText('Set Up Encounter')).toBeInTheDocument();
       });
 
-      // Bypass the disabled button by submitting the form directly
+      // Bypass the disabled button by submitting the form directly. The appointment
+      // carries a practitioner, so the missing field is the encounter class (the
+      // care template is optional).
       const form = screen.getByText('Set Up Encounter').closest('div')?.querySelector('form');
       expect(form).toBeTruthy();
       await act(async () => {
@@ -367,7 +369,7 @@ describe('AppointmentDetails', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Please fill out required fields.')).toBeInTheDocument();
+        expect(screen.getByText('Please select an encounter class.')).toBeInTheDocument();
       });
     });
 

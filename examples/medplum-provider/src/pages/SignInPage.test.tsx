@@ -72,7 +72,7 @@ describe('SignInPage', () => {
       fireEvent.click(submitButton);
     });
 
-    // After successful sign-in, user is redirected to /getstarted
+    // After successful sign-in, the user lands on / (Get Started on first run).
     expect(await screen.findByText('Get Started with Medplum Provider')).toBeInTheDocument();
   });
 });

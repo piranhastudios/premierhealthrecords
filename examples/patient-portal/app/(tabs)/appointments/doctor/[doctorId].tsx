@@ -26,8 +26,19 @@ export default function DoctorProfile(): JSX.Element {
       const practitioner = await medplum.readResource('Practitioner', String(doctorId));
       setDoctor(practitioner);
       try {
+        // Only THIS doctor's published slots: resolve their Schedule(s) first —
+        // an unfiltered Slot search would list every free slot in the project.
+        const schedules = await medplum.searchResources('Schedule', `actor=Practitioner/${doctorId}&_count=10`);
+        if (schedules.length === 0) {
+          setSlots([]);
+          return;
+        }
         const now = new Date().toISOString();
-        const free = await medplum.searchResources('Slot', `status=free&start=ge${now}&_sort=start&_count=8`);
+        const scheduleRefs = schedules.map((s) => `Schedule/${s.id}`).join(',');
+        const free = await medplum.searchResources(
+          'Slot',
+          `schedule=${scheduleRefs}&status=free&start=ge${now}&_sort=start&_count=8`
+        );
         setSlots(free);
       } catch {
         setSlots([]);
@@ -45,6 +56,8 @@ export default function DoctorProfile(): JSX.Element {
     if (!activePatient?.id || !doctor?.id) {
       return;
     }
+    // New-patient bookings default to the agreed 30 minutes; a chosen slot keeps
+    // its own published duration.
     const start = slot?.start ?? new Date(Date.now() + 86_400_000).toISOString();
     const end = slot?.end ?? new Date(Date.now() + 86_400_000 + 1_800_000).toISOString();
     const idempotencyKey = `book-${activePatient.id}-${doctor.id}-${start}`;
@@ -52,6 +65,15 @@ export default function DoctorProfile(): JSX.Element {
       resourceType: 'Appointment',
       status: 'proposed',
       identifier: [{ system: 'https://premierhealth.cm/fhir/sid/booking', value: idempotencyKey }],
+      appointmentType: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+            code: 'ROUTINE',
+            display: 'Routine appointment - default if not valued',
+          },
+        ],
+      },
       start,
       end,
       slot: slot?.id ? [{ reference: `Slot/${slot.id}` }] : undefined,
@@ -62,7 +84,22 @@ export default function DoctorProfile(): JSX.Element {
     };
     setBooking(slot?.id ?? 'request');
     try {
-      if (online) {
+      if (online && slot) {
+        // Proper booking: $book marks the slot busy and rejects double-booking.
+        // Fall back to a plain request if the operation is not permitted for
+        // patient sessions on this server.
+        try {
+          await medplum.post(medplum.fhirUrl('Appointment', '$book'), {
+            resourceType: 'Parameters',
+            parameter: [
+              { name: 'slot', resource: slot },
+              { name: 'patient-reference', valueReference: { reference: `Patient/${activePatient.id}` } },
+            ],
+          });
+        } catch {
+          await medplum.createResource(appointment);
+        }
+      } else if (online) {
         await medplum.createResource(appointment);
       } else {
         await queueBooking(appointment, idempotencyKey);

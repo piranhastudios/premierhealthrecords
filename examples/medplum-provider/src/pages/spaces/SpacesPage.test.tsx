@@ -70,8 +70,8 @@ describe('SpacesPage', () => {
       setup(['/Spaces']);
     });
 
-    expect(screen.getByText('Spaces is not available')).toBeInTheDocument();
-    expect(screen.getByText(/requires both/i)).toBeInTheDocument();
+    expect(screen.getByText('AI Spaces is coming soon')).toBeInTheDocument();
+    expect(screen.getByText(/bringing it to Premier Health/i)).toBeInTheDocument();
   });
 
   test('shows disabled message when only bots feature is enabled', async () => {
@@ -81,7 +81,7 @@ describe('SpacesPage', () => {
       setup(['/Spaces']);
     });
 
-    expect(screen.getByText('Spaces is not available')).toBeInTheDocument();
+    expect(screen.getByText('AI Spaces is coming soon')).toBeInTheDocument();
   });
 
   test('shows disabled message when only ai feature is enabled', async () => {
@@ -91,7 +91,7 @@ describe('SpacesPage', () => {
       setup(['/Spaces']);
     });
 
-    expect(screen.getByText('Spaces is not available')).toBeInTheDocument();
+    expect(screen.getByText('AI Spaces is coming soon')).toBeInTheDocument();
   });
 
   test('renders SpaceInbox with no topicId when at root', async () => {

@@ -9,6 +9,10 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
+// 0. Treat .wasm as a bundled asset so expo-sqlite's web build can import
+//    wa-sqlite.wasm (Metro doesn't resolve .wasm imports by default).
+config.resolver.assetExts.push('wasm');
+
 // 1. Watch the whole monorepo so changes in packages/* trigger reloads.
 config.watchFolders = [monorepoRoot];
 

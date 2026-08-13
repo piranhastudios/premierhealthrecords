@@ -24,6 +24,7 @@ export default function RootLayout(): JSX.Element {
               <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(auth)" />
+                <Stack.Screen name="setpassword/[id]/[secret]" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
                 <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />

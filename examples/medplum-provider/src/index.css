@@ -1,3 +1,36 @@
+/* ---------------------------------------------------------------------------
+ * Premier Health semantic surface tokens.
+ *
+ * One place that decides what each surface means in both color schemes — brand
+ * styling must reference these (or a `light-dark()` pair) rather than a raw
+ * `--mantine-color-dark-N`, which does not change with the scheme.
+ *
+ * Defined on `body` (not `:root`): postcss-preset-mantine lowers `light-dark()`
+ * into a `[data-mantine-color-scheme=dark] body` descendant rule, and the
+ * attribute lives on <html>. Inherited custom properties reach everything,
+ * including portals.
+ * ------------------------------------------------------------------------- */
+body {
+  /* Page ground behind cards. */
+  --phc-surface: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-9));
+  /* Panels and cards. */
+  --phc-surface-card: light-dark(#ffffff, var(--mantine-color-dark-7));
+  /* Nested tiles, table headers, chrome docked inside a card. */
+  --phc-surface-raised: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  /* Hover wash on interactive rows/tiles. */
+  --phc-surface-hover: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  /* Card and section hairlines. */
+  --phc-border: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  /* Softer in-table hairlines. */
+  --phc-border-subtle: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  /* Muted labels/meta (matches Mantine's `dimmed` in both schemes). */
+  --phc-text-muted: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  /* Secondary chrome text, one step brighter than muted. */
+  --phc-text-chrome: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  /* High-emphasis values (stat numbers). */
+  --phc-text-strong: light-dark(var(--mantine-color-gray-9), var(--mantine-color-white));
+}
+
 .rbc-calendar {
   font-family:
     -apple-system, 'system-ui', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
@@ -5,6 +38,72 @@
 
 .rbc-btn-group button {
   font-size: 14px;
+}
+
+/* react-big-calendar dark-theme overrides (the library ships light-only
+   default styles; the app forces dark Mantine color scheme). */
+.rbc-off-range-bg {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8));
+}
+
+.rbc-off-range {
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-2));
+}
+
+.rbc-today {
+  background-color: light-dark(var(--mantine-color-brand-0), rgba(244, 123, 32, 0.12));
+}
+
+.rbc-header {
+  padding: 8px 4px;
+  font-weight: 600;
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-gray-0));
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)) !important;
+}
+
+.rbc-header + .rbc-header,
+.rbc-time-content > * + * > *,
+.rbc-day-bg + .rbc-day-bg,
+.rbc-month-row + .rbc-month-row,
+.rbc-month-view,
+.rbc-time-view,
+.rbc-time-header.rbc-overflowing,
+.rbc-time-header-content,
+.rbc-time-content,
+.rbc-timeslot-group,
+.rbc-day-slot .rbc-time-slot {
+  border-color: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)) !important;
+}
+
+.rbc-time-gutter .rbc-timeslot-group {
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+}
+
+.rbc-time-gutter,
+.rbc-time-header-gutter {
+  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+}
+
+.rbc-day-bg {
+  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-7));
+}
+
+.rbc-current-time-indicator {
+  background-color: var(--mantine-color-brand-6);
+  height: 2px;
+}
+
+.rbc-selected-cell {
+  background-color: light-dark(var(--mantine-color-brand-1), rgba(244, 123, 32, 0.2));
+}
+
+.rbc-show-more {
+  color: var(--mantine-color-brand-6);
+  background-color: transparent;
+}
+
+.rbc-event {
+  border-radius: var(--mantine-radius-sm) !important;
 }
 
 .mantine-ActionIcon-root:active {
@@ -28,7 +127,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .pill-tabs .mantine-Tabs-tab:hover {
@@ -71,4 +172,165 @@
 
 .filter-submenu-dropdown {
   min-width: 200px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Resource tables (SearchControl) framed by ChartTablePanel.
+ *
+ * SearchControl exposes no className/styles prop, so everything here is scoped
+ * to the app-owned `.ph-table-panel` wrapper — the same mechanism `.pill-tabs`
+ * above uses. Two things to know before editing:
+ *
+ *  - Several Mantine values are written as INLINE styles and can only be beaten
+ *    with `!important`: `--table-vertical-spacing` (Table's own defaultProps),
+ *    the header button's `p={2}`, the toolbar's `mb="xl"`, `--button-*`/`--ai-*`,
+ *    and the empty state's `--text-fz`/`--text-color`. Each is flagged below.
+ *  - Row hover must beat `[data-mantine-color-scheme=dark] .SearchControl_tr:hover`,
+ *    which is specificity (0,3,0) and always live under `forceColorScheme="dark"`.
+ * ------------------------------------------------------------------------- */
+
+.ph-table-panel {
+  /* Shared by the sticky toolbar's height and the sticky header's offset, so the
+     two stay in step without a magic number. */
+  --ph-toolbar-h: 44px;
+}
+
+/* The SearchControl root becomes the table's scroll container (the panel above it
+   caps the height), which is what gives the sticky header something to stick to. */
+.ph-table-panel .SearchControl_root {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.ph-table-panel .mantine-Table-table {
+  --table-horizontal-spacing: var(--mantine-spacing-md);
+  --table-border-color: var(--phc-border-subtle);
+  --table-vertical-spacing: 10px !important; /* inline via Table defaultProps */
+  cursor: default; /* SearchControl sets pointer on the whole table */
+}
+
+/* Header: the muted, uppercase voice used by the dashboard panel subtitles. The
+   header <Text> has no size/color prop, so --text-fz is unset and color inherits. */
+.ph-table-panel .mantine-Table-thead .mantine-Table-th {
+  --text-fz: var(--mantine-font-size-xs);
+  position: sticky;
+  top: var(--ph-toolbar-h);
+  z-index: 4;
+  padding: 0;
+  background-color: var(--phc-surface-raised);
+  color: var(--phc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--phc-border);
+}
+
+/* The checkbox column is the one header cell with no inner button to own the
+   padding zeroed above, so it needs the normal cell padding back — otherwise the
+   checkbox sits flush against the card edge, out of line with the rows below. */
+.ph-table-panel .mantine-Table-thead .mantine-Table-th:has(input[type='checkbox']) {
+  padding: var(--table-vertical-spacing) var(--table-horizontal-spacing);
+}
+
+/* The column menu trigger fills its cell instead of painting an inset strip. */
+.ph-table-panel .SearchControl_control {
+  padding: 10px var(--mantine-spacing-md) !important; /* beats inline p={2} */
+  border-radius: 0;
+}
+
+.ph-table-panel .SearchControl_control:hover {
+  background-color: var(--phc-surface-hover);
+}
+
+.ph-table-panel .mantine-Table-tbody .mantine-Table-tr {
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* (0,4,0), so it beats SearchControl's own (0,3,0) dark-scheme hover. The tint
+   alone is only ~1.4:1 against the card — the brand rail is what actually reads. */
+.ph-table-panel .mantine-Table-tbody .mantine-Table-tr:hover {
+  background-color: var(--phc-surface-hover);
+  box-shadow: inset 3px 0 0 var(--mantine-color-brand-6);
+}
+
+/* String-valued cells render with no width limit, so long text blows the column
+   out. The inner element sets `white-space: pre-wrap` inline, which beats
+   inheritance — hence the child rule and its `!important`. */
+.ph-table-panel .mantine-Table-tbody .mantine-Table-td {
+  max-width: 280px;
+  overflow: hidden;
+}
+
+.ph-table-panel .mantine-Table-tbody .mantine-Table-td > *:not(input) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+}
+
+.ph-table-panel .SearchControl_root input[type='checkbox'] {
+  accent-color: var(--mantine-color-brand-6);
+  inline-size: 16px;
+  block-size: 16px;
+  cursor: pointer;
+}
+
+/* Toolbar docks under the panel header and recedes to chrome. */
+.ph-table-panel .SearchControl_root > .mantine-Group-root:first-of-type {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: var(--ph-toolbar-h);
+  margin-bottom: 0 !important; /* beats inline mb="xl" */
+  padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-sm);
+  background-color: var(--phc-surface-card);
+}
+
+/* Button/ActionIcon colors are written inline by their vars resolvers. */
+.ph-table-panel .SearchControl_root .mantine-Button-root {
+  --button-color: var(--phc-text-chrome) !important;
+  --button-hover: var(--phc-surface-hover) !important;
+  --button-radius: var(--mantine-radius-xl);
+}
+
+.ph-table-panel .SearchControl_root .mantine-ActionIcon-root {
+  --ai-color: var(--phc-text-muted) !important;
+  --ai-hover: var(--phc-surface-hover) !important;
+}
+
+/* The panel header owns the record count now. */
+.ph-table-panel [data-testid='count-display'] {
+  display: none;
+}
+
+/* SearchControl's own pager sits inside the scroll area and offers no page-size
+   control, and there is no prop to suppress it — ChartTablePanel renders a
+   docked footer instead. Matched by content so a stray sibling can't shift it. */
+.ph-table-panel .SearchControl_root > *:has(> .mantine-Pagination-root) {
+  display: none;
+}
+
+/* Empty state: no column headers above zero rows, and the panel's muted voice
+   rather than size="xl" (both are inline on that Text, hence !important). */
+.ph-table-panel .mantine-Table-table:has(> tbody:empty) .mantine-Table-thead {
+  display: none;
+}
+
+.ph-table-panel .SearchControl_root .mantine-Container-root {
+  max-width: none;
+  padding: 0;
+}
+
+.ph-table-panel .SearchControl_root .mantine-Container-root .mantine-Text-root {
+  font-size: var(--mantine-font-size-sm) !important;
+  color: var(--phc-text-muted) !important;
+}
+
+/* The observation table inside the Labs tab hardcodes a light-scheme grey. */
+.DiagnosticReportDisplay_table,
+.DiagnosticReportDisplay_table td,
+.DiagnosticReportDisplay_table th {
+  border-color: var(--phc-border);
 }

@@ -4,10 +4,10 @@ import { getReferenceString } from '@medplum/core';
 import { useDoseSpotNotifications } from '@medplum/dosespot-react';
 import { AppShell, Loading, Logo, useMedplum, useMedplumProfile } from '@medplum/react';
 import {
-  IconApps,
   IconBook2,
   IconCalendarEvent,
   IconClipboardCheck,
+  IconLayoutDashboard,
   IconMail,
   IconPill,
   IconPrinter,
@@ -25,13 +25,14 @@ import './index.css';
 
 const SETUP_DISMISSED_KEY = 'medplum-provider-setup-completed';
 
+import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { DocsPage } from './pages/docs/DocsPage';
 import { EncounterChartPage } from './pages/encounter/EncounterChartPage';
 import { EncounterModal } from './pages/encounter/EncounterModal';
 import { FaxPage } from './pages/fax/FaxPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
 import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotificationsPage';
-import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ScriptSurePage } from './pages/integrations/ScriptSurePage';
 import { MessagesPage } from './pages/messages/MessagesPage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
@@ -39,12 +40,12 @@ import { CoveragePage } from './pages/patient/CoveragePage';
 import { DoseSpotTab } from './pages/patient/DoseSpotTab';
 import { EditTab } from './pages/patient/EditTab';
 import { ExportTab } from './pages/patient/ExportTab';
-import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { LabsPage } from './pages/patient/LabsPage';
 import { MedicationsPage } from './pages/patient/MedicationsPage';
+import { OverviewTab } from './pages/patient/overview/OverviewTab';
 import { PatientPage } from './pages/patient/PatientPage';
-import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
+import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { ScriptSureTab } from './pages/patient/ScriptSureTab';
 import { TasksTab } from './pages/patient/TasksTab';
 import { TimelineTab } from './pages/patient/TimelineTab';
@@ -55,11 +56,12 @@ import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { ScheduleSettingsPage } from './pages/schedule/ScheduleSettingsPage';
-import { TelehealthPage } from './pages/telehealth/TelehealthPage';
 import { SearchPage } from './pages/SearchPage';
+import { SetPasswordPage } from './pages/SetPasswordPage';
 import { SignInPage } from './pages/SignInPage';
 import { SpacesPage } from './pages/spaces/SpacesPage';
 import { TasksPage } from './pages/tasks/TasksPage';
+import { TelehealthPage } from './pages/telehealth/TelehealthPage';
 
 export function App(): JSX.Element | null {
   const medplum = useMedplum();
@@ -91,6 +93,16 @@ export function App(): JSX.Element | null {
     );
   }
 
+  // Emailed invite / password-reset links also render standalone — the person
+  // following the link is usually not signed in, and app chrome would be noise.
+  if (location.pathname.startsWith('/setpassword/')) {
+    return (
+      <Routes>
+        <Route path="/setpassword/:id/:secret" element={<SetPasswordPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <AppShell
       logo={<Logo size={24} />}
@@ -98,11 +110,19 @@ export function App(): JSX.Element | null {
       searchParams={searchParams}
       layoutVersion="v2"
       showLayoutVersionToggle={false}
+      userMenuLinks={[
+        {
+          icon: <IconBook2 size={14} stroke={1.5} />,
+          label: 'Docs',
+          href: '/docs',
+        },
+      ]}
       menus={
         profile
           ? [
               {
                 links: [
+                  { icon: <IconLayoutDashboard />, label: 'Dashboard', href: '/dashboard' },
                   { icon: <IconBook2 />, label: 'Spaces', href: '/Spaces/Communication' },
                   {
                     icon: <IconUsers />,
@@ -147,8 +167,7 @@ export function App(): JSX.Element | null {
                         },
                       ]
                     : []),
-                  { icon: <IconUserPlus />, label: 'New Patient', href: '/onboarding' },
-                  { icon: <IconApps />, label: 'Integrations', href: '/integrations' },
+                  { icon: <IconUserPlus />, label: 'New Patient', href: '/Patient/new' },
                   ...(hasDoseSpot
                     ? [
                         {
@@ -181,24 +200,14 @@ export function App(): JSX.Element | null {
         <Routes>
           {profile ? (
             <>
+              <Route path="/docs" element={<DocsPage />} />
               <Route path="/getstarted" element={<GetStartedPage />} />
               <Route path="/Spaces/Communication" element={<SpacesPage />}>
                 <Route index element={<SpacesPage />} />
                 <Route path=":topicId" element={<SpacesPage />} />
               </Route>
-              <Route
-                path="/"
-                element={
-                  <Navigate
-                    to={
-                      setupDismissed
-                        ? '/Patient?_count=20&_fields=name,email,gender&_sort=-_lastUpdated'
-                        : '/getstarted'
-                    }
-                    replace
-                  />
-                }
-              />
+              <Route path="/" element={<Navigate to={setupDismissed ? '/dashboard' : '/getstarted'} replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/Patient/new" element={<ResourceCreatePage />} />
               <Route path="/Patient/:patientId" element={<PatientPage />}>
                 <Route path="Encounter/new" element={<EncounterModal />} />
@@ -212,6 +221,7 @@ export function App(): JSX.Element | null {
                 <Route path="Task/:taskId" element={<TasksTab />} />
                 {hasDoseSpot && <Route path="dosespot" element={<DoseSpotTab />} />}
                 {hasScriptSure && <Route path="scriptsure" element={<ScriptSureTab />} />}
+                <Route path="overview" element={<OverviewTab />} />
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path="payments" element={<PaymentsTab />} />
                 <Route path="export" element={<ExportTab />} />
@@ -228,7 +238,7 @@ export function App(): JSX.Element | null {
                   <Route path="edit" element={<ResourceEditPage />} />
                   <Route path="history" element={<ResourceHistoryPage />} />
                 </Route>
-                <Route path="" element={<TimelineTab />} />
+                <Route path="" element={<OverviewTab />} />
               </Route>
               <Route path="/Communication" element={<MessagesPage />}>
                 <Route index element={<MessagesPage />} />
@@ -238,14 +248,14 @@ export function App(): JSX.Element | null {
               <Route path="/Task/:taskId" element={<TasksPage />} />
               <Route path="/Fax/Communication" element={<FaxPage />} />
               <Route path="/Fax/Communication/:faxId" element={<FaxPage />} />
-              <Route path="/onboarding" element={<IntakeFormPage />} />
+              {/* /onboarding retired: registration is the profile-driven /Patient/new. */}
+              <Route path="/onboarding" element={<Navigate to="/Patient/new" replace />} />
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id/settings" element={<ScheduleSettingsPage />} />
               <Route path="/signin" element={<SignInPage />} />
               {hasDoseSpot && <Route path="/dosespot" element={<DoseSpotNotificationsPage />} />}
               {hasScriptSure && <Route path="/scriptsure" element={<ScriptSurePage />} />}
-              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
               <Route path="/:resourceType/:id" element={<ResourcePage />}>

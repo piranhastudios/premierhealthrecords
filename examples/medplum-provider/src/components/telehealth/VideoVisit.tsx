@@ -1,7 +1,26 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { ActionIcon, Alert, Badge, Divider, Group, Paper, ScrollArea, Stack, Text, TextInput, Tooltip } from '@mantine/core';
-import { IconMicrophone, IconMicrophoneOff, IconPhoneOff, IconSend, IconVideo, IconVideoOff } from '@tabler/icons-react';
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Divider,
+  Group,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
+import {
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhoneOff,
+  IconSend,
+  IconVideo,
+  IconVideoOff,
+} from '@tabler/icons-react';
 import type { JSX, RefObject } from 'react';
 import type { CallStatus } from './useVideoCall';
 import { useVideoCall } from './useVideoCall';
@@ -117,8 +136,19 @@ function VideoTile({
   muted?: boolean;
 }): JSX.Element {
   return (
-    <Paper withBorder radius="md" pos="relative" style={{ overflow: 'hidden', aspectRatio: '4 / 3', background: '#000' }}>
-      <video ref={videoRef} autoPlay playsInline muted={muted} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    <Paper
+      withBorder
+      radius="md"
+      pos="relative"
+      style={{ overflow: 'hidden', aspectRatio: '4 / 3', background: '#000' }}
+    >
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
       <Badge pos="absolute" bottom={8} left={8} variant="filled" color="dark">
         {label}
       </Badge>

@@ -9,7 +9,9 @@ provider app to work correctly.
 (`https://premierhealth.cm/fhir/StructureDefinition/premier-health-patient`) used by the
 patient create/edit form:
 
-- `Patient.telecom` is mandatory (`min = 1`) — every patient needs a phone number.
+- `Patient.telecom` is mandatory (`min = 1`), and `Patient.telecom.value` is mandatory
+  within each entry (`min = 1`) — a valueless telecom row does not satisfy the phone
+  requirement.
 - `Patient.deceased[x]` is removed from data entry (`max = 0`).
 - The snapshot element order drives the form field order: `name`, `birthDate`,
   `gender`, `telecom`, then all remaining fields. `multipleBirth[x]` is retained
@@ -17,14 +19,15 @@ patient create/edit form:
 
 The provider app requests this profile by URL (see
 `src/pages/resource/utils.ts` `RESOURCE_PROFILE_URLS`). Until the profile is uploaded,
-the patient create/edit form shows a red "Not found" alert
-("Could not find the Premier Health Patient Profile") instead of the form.
+the patient create/edit form shows a yellow warning and falls back to the base FHIR
+form — which silently drops the constraints above, so make sure the profile is
+installed.
 
 ### Upload
 
-Idempotent conditional update by canonical URL (creates the resource on first run,
-updates it in place on subsequent runs). Run from this directory with the
-[Medplum CLI](https://www.medplum.com/docs/cli) after `npx medplum login`:
+Scripted and idempotent: `node scripts/seed-profiles.mjs [--base ... --email ...
+--password ...]` (repo root) — also run as part of `scripts/seed-cameroon.mjs` on
+every `scripts/dev.sh`. The manual CLI equivalent, after `npx medplum login`:
 
 ```bash
 npx medplum put 'StructureDefinition?url=https://premierhealth.cm/fhir/StructureDefinition/premier-health-patient' "$(cat premier-health-patient.json)"

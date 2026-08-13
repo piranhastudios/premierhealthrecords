@@ -1,0 +1,54 @@
+.page {
+  padding: var(--mantine-spacing-md);
+  background-color: var(--phc-surface);
+  min-height: 100%;
+  position: relative;
+}
+
+/* Subtle dotted "constellation" texture behind the panels, echoing the
+   node-link visual motif without a full interactive graph. */
+.constellation {
+  background-image: radial-gradient(circle, rgba(244, 123, 32, 0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -4px -4px;
+  border-radius: var(--mantine-radius-xl);
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--mantine-color-dark-7);
+  border: 1px solid var(--mantine-color-dark-4);
+  border-radius: var(--mantine-radius-xl);
+  padding: var(--mantine-spacing-lg);
+  color: #ffffff;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 85% -10%, rgba(244, 123, 32, 0.35), transparent 55%);
+  pointer-events: none;
+}
+
+.heroAvatar {
+  border: 2px solid var(--mantine-color-dark-9); /* hero stays dark in both schemes */
+  box-shadow: 0 0 0 1px var(--mantine-color-brand-6);
+}
+
+.heroTitle {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.heroSubtitle {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.heroDate {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}

@@ -97,6 +97,37 @@ export async function register(medplum: MedplumClient, input: RegisterInput): Pr
 }
 
 /**
+ * Request a password-reset email for an existing patient.
+ *
+ * Calls Medplum's `auth/resetpassword`, scoped to the portal project so it can
+ * locate the (project-scoped) patient User. The server emails a link to the web
+ * set-password page; the user resets there, then returns to the app to sign in.
+ *
+ * Per OWASP anti-enumeration, the server responds "ok" whether or not the email
+ * matches an account, so this resolves without revealing account existence.
+ */
+export async function requestPasswordReset(medplum: MedplumClient, email: string): Promise<void> {
+  await medplum.post('auth/resetpassword', {
+    email: email.trim().toLowerCase(),
+    projectId: config.medplumProjectId || undefined,
+  });
+}
+
+/**
+ * Set a new password from a reset link (`id` + `secret` from the emailed URL).
+ *
+ * Calls Medplum's public `auth/setpassword` endpoint (no session required — the
+ * secret authorizes the change). The server rejects reused links, wrong secrets,
+ * and breached passwords, surfacing those as errors.
+ */
+export async function setNewPassword(
+  medplum: MedplumClient,
+  input: { id: string; secret: string; password: string }
+): Promise<void> {
+  await medplum.post('auth/setpassword', input);
+}
+
+/**
  * Sign in with OAuth2 PKCE.
  *
  * - Web: delegate to MedplumClient.signInWithRedirect() (browser has sessionStorage

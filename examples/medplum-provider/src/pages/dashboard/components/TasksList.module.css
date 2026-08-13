@@ -1,0 +1,21 @@
+.row {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  transition: background-color 120ms ease;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}

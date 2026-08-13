@@ -191,6 +191,30 @@
       "id": "",
       "source": "src/premierhealth/quickbooks-sync-payment.ts",
       "dist": "dist/premierhealth/quickbooks-sync-payment.js"
+    },
+    {
+      "name": "premierhealth-campaign-trigger",
+      "id": "",
+      "source": "src/premierhealth/campaign-trigger.ts",
+      "dist": "dist/premierhealth/campaign-trigger.js"
+    },
+    {
+      "name": "premierhealth-campaign-executor",
+      "id": "",
+      "source": "src/premierhealth/campaign-executor.ts",
+      "dist": "dist/premierhealth/campaign-executor.js"
+    },
+    {
+      "name": "premierhealth-campaign-resend-events",
+      "id": "",
+      "source": "src/premierhealth/campaign-resend-events.ts",
+      "dist": "dist/premierhealth/campaign-resend-events.js"
+    },
+    {
+      "name": "premierhealth-campaign-unsubscribe",
+      "id": "",
+      "source": "src/premierhealth/campaign-unsubscribe.ts",
+      "dist": "dist/premierhealth/campaign-unsubscribe.js"
     }
   ]
 }

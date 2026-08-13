@@ -20,6 +20,10 @@ const args = Object.fromEntries(
 const BASE = (args.base ?? process.env.MEDPLUM_BASE_URL ?? 'http://localhost:8103').replace(/\/$/, '');
 const EMAIL = args.email ?? 'admin@example.com';
 const PASSWORD = args.password ?? 'medplum_admin';
+// Install into the FHIR R4 data project (where staff and patients live) by
+// default — the fixed id every Medplum server seeds (packages/server/src/constants.ts).
+// The admin's membership there is created by scripts/seed-users.mjs.
+const PROJECT = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
 
 const INSURER_SYSTEM = 'https://premierhealth.cm/fhir/insurer';
 const INSURERS = [
@@ -42,7 +46,16 @@ async function http(method, path, body, { token, form } = {}) {
     payload = JSON.stringify(body);
   }
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(BASE + path, { method, headers, body: payload });
+  let res = await fetch(BASE + path, { method, headers, body: payload });
+  // The auth endpoints are rate-limited (5/min); the seed chain logs in several
+  // times back to back, so wait out a 429 instead of failing the whole seed.
+  for (let retry = 0; res.status === 429 && retry < 3; retry++) {
+    const detail = await res.text();
+    const wait = Math.min(65000, (Number(/_msBeforeNext\\?":(\d+)/.exec(detail)?.[1]) || 30000) + 1000);
+    console.log(`  … rate limited on ${path}, retrying in ${Math.round(wait / 1000)}s`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    res = await fetch(BASE + path, { method, headers, body: payload });
+  }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${text.slice(0, 300)}`);
@@ -57,6 +70,8 @@ async function login() {
     password: PASSWORD,
     codeChallenge: challenge,
     codeChallengeMethod: 'S256',
+    // Scoped login: resources are created in this project.
+    projectId: PROJECT,
   });
   const { access_token } = await http(
     'POST',

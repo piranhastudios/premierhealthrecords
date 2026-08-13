@@ -30,7 +30,7 @@ RUN npm ci
 # the provider imports as '@medplum/react/styles.css'.
 RUN set -eux; for p in core react-hooks react fhir-router mock \
       dosespot-core dosespot-react scriptsure-react \
-      health-gorilla-core health-gorilla-react; do \
+      health-gorilla-core health-gorilla-react campaigns; do \
       if [ -f "packages/$p/esbuild.mjs" ]; then ( cd "packages/$p" && node esbuild.mjs ); fi; \
     done
 # Build the provider with vite directly. Its npm `build` is `tsc && vite build`;

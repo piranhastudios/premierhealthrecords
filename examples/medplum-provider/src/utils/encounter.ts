@@ -17,14 +17,19 @@ import type {
   ServiceRequest,
   Task,
 } from '@medplum/fhirtypes';
+import { applyChargeItemDefinition } from './chargeitems';
 import { AWAITING_PAYMENT_BUSINESS_STATUS } from './pay-gate';
 
 const V2_0276_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0276';
+const APPOINTMENT_TYPE_SYSTEM = 'https://premierhealth.cm/fhir/CodeSystem/appointment-type';
 
-export type AppointmentTypeCode = 'ROUTINE' | 'FOLLOWUP';
+export type AppointmentTypeCode = 'ROUTINE' | 'FOLLOWUP' | 'VIRTUAL';
 
 // Appointment types with fixed default durations (end time remains manually
 // overridable in the UI). New patients get 30 minutes, follow-ups 15 minutes.
+// VIRTUAL marks a video visit: the patient portal detects it by matching
+// /telehealth|video|virtual/i against `appointmentType.coding` to show the
+// "Join video visit" action, so the code below must keep matching that.
 export const APPOINTMENT_TYPES: Record<
   AppointmentTypeCode,
   { label: string; durationMinutes: number; concept: CodeableConcept }
@@ -41,6 +46,14 @@ export const APPOINTMENT_TYPES: Record<
     durationMinutes: 15,
     concept: {
       coding: [{ system: V2_0276_SYSTEM, code: 'FOLLOWUP', display: 'A follow up visit from a previous appointment' }],
+    },
+  },
+  VIRTUAL: {
+    label: 'Virtual (30 min)',
+    durationMinutes: 30,
+    concept: {
+      coding: [{ system: APPOINTMENT_TYPE_SYSTEM, code: 'VIRTUAL', display: 'Virtual / video visit' }],
+      text: 'Virtual / video visit',
     },
   },
 };
@@ -96,19 +109,25 @@ export async function createEncounter(
   patient: Patient,
   planDefinition: PlanDefinition | undefined,
   appointment: Appointment,
-  practitioner: Practitioner | Reference<Practitioner>
+  practitioner: Practitioner | Reference<Practitioner>,
+  status: Encounter['status'] = 'planned'
 ): Promise<Encounter> {
   const practitionerRef = isResource(practitioner) ? createReference(practitioner) : practitioner;
+  const now = new Date().toISOString();
 
   const encounter: Encounter = await medplum.createResource({
     resourceType: 'Encounter',
-    status: 'planned',
+    status,
     statusHistory: [],
     classHistory: [],
     class: classification,
     subject: createReference(patient),
     appointment: [createReference(appointment)],
     participant: [{ individual: practitionerRef }],
+    // Mirror updateEncounterStatus: an encounter created directly in progress (or
+    // already finished) gets its period stamped, or the Visits list shows a blank.
+    ...(status === 'in-progress' && { period: { start: now } }),
+    ...(status === 'finished' && { period: { start: now, end: now } }),
   });
 
   const clinicalImpressionData: ClinicalImpression = {
@@ -183,7 +202,11 @@ async function createChargeItemFromPlanDefinition(
     definitionCanonical: [chargeDefinitionExtension.valueCanonical],
   };
 
-  await medplum.createResource(chargeItem);
+  const created = await medplum.createResource(chargeItem);
+  // Price immediately: checkout reads the persisted priceOverride, and without
+  // this the amount only lands once someone opens the encounter chart. A pricing
+  // failure must not break visit creation — the chart prices lazily as a backup.
+  await applyChargeItemDefinition(medplum, created).catch(console.error);
 }
 
 async function handleChargeItemsFromTasks(
@@ -268,7 +291,14 @@ async function createChargeItemFromServiceRequest(
     definitionCanonical: definitionCanonical,
   };
 
-  return medplum.createResource(chargeItem);
+  const created = await medplum.createResource(chargeItem);
+  // Price immediately so checkout (which reads the persisted priceOverride)
+  // shows the amount even before the encounter chart is ever opened. A pricing
+  // failure must not break visit creation or the pay gate itself.
+  return applyChargeItemDefinition(medplum, created).catch((err) => {
+    console.error(err);
+    return created;
+  });
 }
 
 export async function updateEncounterStatus(

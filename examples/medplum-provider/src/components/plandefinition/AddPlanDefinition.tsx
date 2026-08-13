@@ -86,7 +86,10 @@ export const AddPlanDefinition = ({ encounterId, patientId, onApply }: AddPlanDe
   const fetchPlanDefinitions = useCallback(
     (query?: string) => {
       setIsLoading(true);
-      const searchParam = query ? `name=${query}` : undefined;
+      // Campaign PlanDefinitions (type=campaign, marketing engine) are not care
+      // templates — keep them out of the picker. Untyped care templates match :not.
+      const notCampaign = 'type:not=https://premierhealth.cm/fhir/CodeSystem/plan-type|campaign';
+      const searchParam = query ? `name=${query}&${notCampaign}` : notCampaign;
       medplum
         .searchResources('PlanDefinition', searchParam)
         .then((result) => {

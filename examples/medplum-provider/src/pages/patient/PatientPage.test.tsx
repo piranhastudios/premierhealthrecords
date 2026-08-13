@@ -54,7 +54,7 @@ describe('PatientPage', () => {
     setup(`/Patient/${HomerSimpson.id}`);
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline')).toBeInTheDocument();
+      expect(screen.getByText('Overview')).toBeInTheDocument();
     });
   });
 
@@ -62,7 +62,7 @@ describe('PatientPage', () => {
     setup(`/Patient/${HomerSimpson.id}`);
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline')).toBeInTheDocument();
+      expect(screen.getByText('Overview')).toBeInTheDocument();
     });
 
     // Check for some key tabs
@@ -87,7 +87,7 @@ describe('PatientPage', () => {
     setup(`/Patient/${HomerSimpson.id}`);
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline')).toBeInTheDocument();
+      expect(screen.getByText('Overview')).toBeInTheDocument();
     });
 
     const editTab = screen.getByText('Edit');
@@ -108,16 +108,31 @@ describe('PatientPage', () => {
       expect(loader).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Timeline')).not.toBeInTheDocument();
+    expect(screen.queryByText('Overview')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Timeline' })).not.toBeInTheDocument();
   });
 
-  test('defaults to timeline tab when URL does not match any tab', async () => {
+  test('defaults to overview tab when URL does not match any tab', async () => {
     setup(`/Patient/${HomerSimpson.id}/unknown-path`);
 
     await waitFor(() => {
-      const timelineTab = screen.getByText('Timeline');
-      expect(timelineTab).toBeInTheDocument();
-      expect(timelineTab.closest('[role="tab"]')).toHaveAttribute('aria-selected', 'true');
+      const overviewTab = screen.getByText('Overview');
+      expect(overviewTab).toBeInTheDocument();
+      expect(overviewTab.closest('[role="tab"]')).toHaveAttribute('aria-selected', 'true');
+    });
+  });
+
+  test('opens the timeline in a drawer', async () => {
+    const user = userEvent.setup();
+    setup(`/Patient/${HomerSimpson.id}`);
+
+    const timelineButton = await screen.findByRole('button', { name: 'Timeline' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(timelineButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
   });
 
@@ -136,9 +151,9 @@ describe('PatientPage', () => {
     setup(`/Patient/${HomerSimpson.id}/`);
 
     await waitFor(() => {
-      const timelineTab = screen.getByText('Timeline');
-      expect(timelineTab).toBeInTheDocument();
-      expect(timelineTab.closest('[role="tab"]')).toHaveAttribute('aria-selected', 'true');
+      const overviewTab = screen.getByText('Overview');
+      expect(overviewTab).toBeInTheDocument();
+      expect(overviewTab.closest('[role="tab"]')).toHaveAttribute('aria-selected', 'true');
     });
   });
 

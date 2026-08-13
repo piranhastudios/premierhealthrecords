@@ -99,6 +99,16 @@ before running the connect flow; the rest are populated automatically.
 
 ## 3. Connect flow (OAuth)
 
+> **Preferred: use the admin UI.** The admin app has a **QuickBooks** tab
+> (Project → QuickBooks, `/admin/quickbooks` —
+> `packages/app/src/admin/QuickBooksPage.tsx`) that covers §§2–3 and §5:
+> enter the client id/secret and environment, click **Connect to QuickBooks**
+> (opens the Intuit authorize URL), and run **Pull pricing now** once
+> connected. It shows the exact redirect URI to register in the Intuit portal
+> and the current connection status. Make sure you are logged into the
+> **clinic data project** (FHIR R4) — the page configures the current project.
+> The curl flow below remains valid as the headless fallback.
+
 Routes live in `packages/server/src/accounting/routes.ts`, mounted at
 `/accounting/quickbooks/` (reachable both with and without the `/api` prefix).
 

@@ -6,7 +6,7 @@
   --icon-secondary: var(--mantine-color-gray-5);
 }
 
-[data-mantine-color-scheme="dark"] .page {
+[data-mantine-color-scheme='dark'] .page {
   --text-secondary: var(--mantine-color-gray-5);
   --text-label: var(--mantine-color-gray-5);
   --icon-secondary: var(--mantine-color-gray-6);
@@ -77,9 +77,9 @@
   box-shadow: var(--mantine-shadow-xs);
   height: 64px;
   padding: 4px;
-  background-color: var(--mantine-color-white);
+  background-color: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
   border-radius: var(--mantine-radius-md);
-  border: 1px solid var(--mantine-color-gray-3);
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
 }
 
 .integrationImage {

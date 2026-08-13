@@ -3,9 +3,9 @@
 import { ActionIcon, Box, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import type { WithId } from '@medplum/core';
-import { createReference, EMPTY, getReferenceString, isReference } from '@medplum/core';
+import { EMPTY, getReferenceString, isReference } from '@medplum/core';
 import type { Appointment, Practitioner, Reference, Schedule, Slot } from '@medplum/fhirtypes';
-import { ReferenceInput, useMedplum, useMedplumProfile } from '@medplum/react';
+import { ReferenceInput, useMedplum } from '@medplum/react';
 import { IconSettings } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router';
 import { Calendar } from '../../components/Calendar';
 import { AppointmentDetails } from '../../components/schedule/AppointmentDetails';
 import { CreateVisit } from '../../components/schedule/CreateVisit';
+import { canWriteResource } from '../../hooks/useUserRole';
 import type { Range } from '../../types/scheduling';
 import { showErrorNotification } from '../../utils/notifications';
 import { hasSchedulingParameters } from '../../utils/scheduling';
@@ -30,33 +31,10 @@ export function SchedulePage(): JSX.Element | null {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const medplum = useMedplum();
-  const profile = useMedplumProfile() as Practitioner;
 
-  // Redirect to the current user's schedule if no id in the URL
-  useEffect(() => {
-    if (id || !profile?.id) {
-      return;
-    }
-    medplum
-      .searchOne('Schedule', { actor: getReferenceString(profile as WithId<Practitioner>) })
-      .then((foundSchedule) => {
-        if (foundSchedule?.id) {
-          navigate(`/Calendar/Schedule/${foundSchedule.id}`, { replace: true })?.catch(console.log);
-        } else {
-          medplum
-            .createResource({
-              resourceType: 'Schedule',
-              actor: [createReference(profile as WithId<Practitioner>)],
-              active: true,
-            })
-            .then((created) => {
-              navigate(`/Calendar/Schedule/${created.id}`, { replace: true })?.catch(console.log);
-            })
-            .catch(showErrorNotification);
-        }
-      })
-      .catch(showErrorNotification);
-  }, [id, profile, medplum, navigate]);
+  // Without an id in the URL, the page is the clinic-wide view: every
+  // appointment across all practitioners. Picking a practitioner in "Switch
+  // schedule…" narrows to their diary (and enables slot/visit creation).
   const [createAppointmentOpened, createAppointmentHandlers] = useDisclosure(false);
   const [appointmentDetailsOpened, appointmentDetailsHandlers] = useDisclosure(false);
   const [schedule, setSchedule] = useState<WithId<Schedule> | undefined>();
@@ -67,12 +45,13 @@ export function SchedulePage(): JSX.Element | null {
   const [appointmentSlot, setAppointmentSlot] = useState<Range>();
   const [appointmentDetails, setAppointmentDetails] = useState<Appointment | undefined>(undefined);
 
-  // Load the schedule directly from the URL param
+  // Load the schedule directly from the URL param; no id = clinic-wide view.
   useEffect(() => {
+    setSchedule(undefined);
+    setSlots(undefined);
     if (!id) {
       return;
     }
-    setSchedule(undefined);
     medplum.readResource('Schedule', id).then(setSchedule).catch(showErrorNotification);
   }, [id, medplum]);
 
@@ -99,10 +78,11 @@ export function SchedulePage(): JSX.Element | null {
     };
   }, [medplum, schedule, range]);
 
-  // Find appointments visible in the current range
+  // Find appointments visible in the current range: the selected practitioner's
+  // when a schedule is loaded, or the whole clinic's when there is no id.
   useEffect(() => {
     const actorRef = schedule?.actor?.[0]?.reference;
-    if (!actorRef || !range) {
+    if (!range || (id && !actorRef)) {
       return () => {};
     }
     let active = true;
@@ -110,7 +90,7 @@ export function SchedulePage(): JSX.Element | null {
     medplum
       .searchResources('Appointment', [
         ['_count', '1000'],
-        ['actor', actorRef],
+        ...(actorRef ? [['actor', actorRef] as [string, string]] : []),
         ['date', `ge${range.start.toISOString()}`],
         ['date', `le${range.end.toISOString()}`],
       ])
@@ -120,7 +100,7 @@ export function SchedulePage(): JSX.Element | null {
     return () => {
       active = false;
     };
-  }, [medplum, schedule, range]);
+  }, [medplum, id, schedule, range]);
 
   const practitioner = schedule?.actor.find((actor) => isReference<Practitioner>(actor, 'Practitioner'));
 
@@ -129,7 +109,7 @@ export function SchedulePage(): JSX.Element | null {
   const handleSelectInterval = useCallback(
     (slot: SlotInfo) => {
       if (!practitioner) {
-        showErrorNotification("Can't create visit without associated Practitioner");
+        showErrorNotification('Pick a practitioner in "Switch schedule…" to create a visit.');
         return;
       }
 
@@ -142,7 +122,7 @@ export function SchedulePage(): JSX.Element | null {
   const handleSelectSlot = useCallback(
     (slot: Slot) => {
       if (!practitioner) {
-        showErrorNotification("Can't create visit without associated Practitioner");
+        showErrorNotification('Pick a practitioner in "Switch schedule…" to create a visit.');
         return;
       }
 
@@ -212,13 +192,25 @@ export function SchedulePage(): JSX.Element | null {
   const handleActorChange = useCallback(
     (ref: Reference | undefined) => {
       if (!ref?.reference) {
+        // Cleared the picker: back to the clinic-wide view.
+        navigate('/Calendar/Schedule')?.catch(console.error);
         return;
       }
       medplum
         .searchOne('Schedule', { actor: ref.reference })
-        .then((foundSchedule) => {
+        .then(async (foundSchedule) => {
           if (foundSchedule?.id) {
-            navigate(`/Calendar/Schedule/${foundSchedule.id}`)?.catch(console.error);
+            await navigate(`/Calendar/Schedule/${foundSchedule.id}`);
+          } else if (canWriteResource(medplum.getAccessPolicy(), 'Schedule')) {
+            // First visit to this practitioner's diary: open it.
+            const created = await medplum.createResource({
+              resourceType: 'Schedule',
+              actor: [ref as Reference<Practitioner>],
+              active: true,
+            });
+            await navigate(`/Calendar/Schedule/${created.id}`);
+          } else {
+            showErrorNotification('This practitioner has no schedule yet — ask a clinician or admin to open it.');
           }
         })
         .catch(showErrorNotification);
@@ -227,15 +219,15 @@ export function SchedulePage(): JSX.Element | null {
   );
 
   return (
-    <Box pos="relative" bg="white" p="md" style={{ height }}>
+    <Box pos="relative" p="md" style={{ height, backgroundColor: 'var(--phc-surface-card)' }}>
       <div className={classes.wrapper}>
         <Group justify="space-between">
           <Box mb="sm" w={320}>
             <ReferenceInput
-              key={schedule?.id}
+              key={schedule?.id ?? 'all'}
               name="schedule-actor"
               targetTypes={['Practitioner']}
-              placeholder="Switch schedule..."
+              placeholder={id ? 'Switch schedule...' : 'All appointments — pick a schedule...'}
               defaultValue={schedule?.actor?.[0] as Reference<Practitioner>}
               onChange={handleActorChange}
             />

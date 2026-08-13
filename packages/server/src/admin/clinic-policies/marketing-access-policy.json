@@ -1,0 +1,74 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "Marketing / Outreach",
+  "resource": [
+    {
+      "resourceType": "PlanDefinition",
+      "criteria": "PlanDefinition?type=https://premierhealth.cm/fhir/CodeSystem/plan-type|campaign"
+    },
+    {
+      "resourceType": "Group"
+    },
+    {
+      "resourceType": "Basic"
+    },
+    {
+      "resourceType": "Subscription"
+    },
+    {
+      "resourceType": "AuditEvent"
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": true
+    },
+    {
+      "resourceType": "Task",
+      "readonly": true
+    },
+    {
+      "resourceType": "Communication",
+      "readonly": true
+    },
+    {
+      "resourceType": "Consent",
+      "readonly": true
+    },
+    {
+      "resourceType": "Practitioner",
+      "readonly": true
+    },
+    {
+      "resourceType": "Organization",
+      "readonly": true
+    },
+    {
+      "resourceType": "Bot",
+      "readonly": true
+    },
+    {
+      "resourceType": "ValueSet",
+      "readonly": true
+    },
+    {
+      "resourceType": "CodeSystem",
+      "readonly": true
+    },
+    {
+      "resourceType": "StructureDefinition",
+      "readonly": true
+    },
+    {
+      "resourceType": "SearchParameter",
+      "readonly": true
+    },
+    {
+      "resourceType": "UserConfiguration",
+      "readonly": true
+    },
+    {
+      "resourceType": "ProjectMembership",
+      "readonly": true
+    }
+  ]
+}

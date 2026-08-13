@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Loader, Modal, ScrollArea } from '@mantine/core';
+import { Button, Drawer, Loader, Modal, ScrollArea, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { getReferenceString, isOk } from '@medplum/core';
 import type { OperationOutcome } from '@medplum/fhirtypes';
 import {
@@ -9,16 +10,19 @@ import {
   getDefaultSections,
   OperationOutcomeAlert,
   PatientSummary,
+  PatientTimeline,
   useMedplum,
 } from '@medplum/react';
+import { IconTimeline } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Location } from 'react-router';
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { NewLabOrder } from '../../components/labs/NewLabOrder';
 import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
 import { useDoseSpotAccess } from '../../hooks/useDoseSpotAccess';
 import { usePatient } from '../../hooks/usePatient';
-import { NewLabOrder } from '../../components/labs/NewLabOrder';
+import { canReadResource, useUserRole } from '../../hooks/useUserRole';
 import classes from './PatientPage.module.css';
 import type { PatientPageTabInfo } from './PatientPage.utils';
 import { formatPatientPageTabUrl, getPatientPageTabs } from './PatientPage.utils';
@@ -41,9 +45,15 @@ export function PatientPage(): JSX.Element {
   const [outcome, setOutcome] = useState<OperationOutcome>();
   const patient = usePatient({ setOutcome });
   const [isLabsModalOpen, setIsLabsModalOpen] = useState(false);
+  const [timelineOpened, timelineHandlers] = useDisclosure(false);
   const PharmacyDialogComponent = usePharmacyDialog();
   const { hasAccess: hasDoseSpotAccess } = useDoseSpotAccess();
-  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess });
+  // Hide tabs the compiled access policy cannot read — a scoped user (front desk,
+  // nurse) would only get "Forbidden" errors from them. Front desk additionally
+  // sees only the administrative slice of the chart.
+  const policy = medplum.getAccessPolicy();
+  const { role } = useUserRole();
+  const tabs = getPatientPageTabs(membership, { hasDoseSpotAccess, policy, role });
   const [currentTab, setCurrentTab] = useState<string>(() => {
     return (getTabFromLocation(location, tabs) ?? tabs[0]).id;
   });
@@ -85,8 +95,16 @@ export function PatientPage(): JSX.Element {
       getDefaultSections(() => setIsLabsModalOpen(true))
         // US-specific demographics not collected in Cameroon (see intake localization).
         .filter((s) => s.key !== 'sexualOrientation' && s.key !== 'smokingStatus')
+        // Front desk sees the administrative sidebar only: who the patient is and
+        // how they are covered — no clinical sections.
+        .filter((s) => role !== 'front-desk' || s.key === 'demographics' || s.key === 'insurance')
+        // Drop sections whose searches the access policy cannot read — they would
+        // only surface a "Forbidden" partial-load error in the sidebar.
+        .filter((s) => (s.searches ?? []).every((search) => canReadResource(policy, search.resourceType)))
+        // The pharmacies section loads CareTeam internally.
+        .filter((s) => s.key !== 'pharmacies' || canReadResource(policy, 'CareTeam'))
         .map((s) => (s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s)),
-    [setIsLabsModalOpen, PharmacyDialogComponent]
+    [setIsLabsModalOpen, PharmacyDialogComponent, policy, role]
   );
 
   if (outcome && !isOk(outcome)) {
@@ -122,7 +140,24 @@ export function PatientPage(): JSX.Element {
         </div>
 
         <div className={classes.content}>
-          <PatientTabsNavigation tabs={tabs} currentTab={currentTab} onTabChange={onTabChange} />
+          <PatientTabsNavigation
+            tabs={tabs}
+            currentTab={currentTab}
+            onTabChange={onTabChange}
+            action={
+              // The activity timeline is clinical — hidden from front desk.
+              role !== 'front-desk' ? (
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<IconTimeline size={16} />}
+                  onClick={timelineHandlers.open}
+                >
+                  Timeline
+                </Button>
+              ) : undefined
+            }
+          />
           <div className={classes.contentBody}>
             <Outlet />
           </div>
@@ -131,6 +166,22 @@ export function PatientPage(): JSX.Element {
       <Modal opened={isLabsModalOpen} onClose={handleCloseLabsModal} size="md" centered title="New lab order">
         <NewLabOrder patient={patient} onCreated={handleCloseLabsModal} />
       </Modal>
+      <Drawer
+        opened={timelineOpened && role !== 'front-desk'}
+        onClose={timelineHandlers.close}
+        position="right"
+        size="xl"
+        title={
+          <Text size="xl" fw={700}>
+            Timeline
+          </Text>
+        }
+        h="100%"
+        scrollAreaComponent={ScrollArea.Autosize}
+      >
+        {/* Remount per patient so the timeline never shows a previous patient's feed. */}
+        <PatientTimeline key={patientId} patient={patient} />
+      </Drawer>
     </>
   );
 }

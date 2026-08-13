@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+import type { MedplumClient } from '@medplum/core';
 import { createReference } from '@medplum/core';
 import type {
   Claim,
@@ -11,7 +12,6 @@ import type {
   Practitioner,
   Reference,
 } from '@medplum/fhirtypes';
-import type { MedplumClient } from '@medplum/core';
 
 /** Organization.type code marking a payer/insurance company. */
 export const INSURER_TYPE = 'ins';
@@ -59,8 +59,8 @@ export function computeCoPay(total: Money, coverage?: Coverage): CoPaySplit {
   }
 
   const fixedCopay = coverage.costToBeneficiary?.find((c) => c.valueMoney?.value !== undefined)?.valueMoney;
-  const coinsurancePercent = coverage.costToBeneficiary?.find((c) => c.valueQuantity?.value !== undefined)?.valueQuantity
-    ?.value;
+  const coinsurancePercent = coverage.costToBeneficiary?.find((c) => c.valueQuantity?.value !== undefined)
+    ?.valueQuantity?.value;
 
   let patientValue: number;
   if (fixedCopay?.value !== undefined) {

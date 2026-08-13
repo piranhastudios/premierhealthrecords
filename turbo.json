@@ -12,7 +12,8 @@
         "MEDPLUM_REGISTER_ENABLED",
         "GOOGLE_CLIENT_ID",
         "RECAPTCHA_SITE_KEY"
-      ]
+      ],
+      "passThroughEnv": ["MEDPLUM_*"]
     },
     "clean": {
       "outputs": ["build/**", "dist/**", "coverage/**"]

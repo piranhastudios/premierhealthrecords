@@ -73,22 +73,56 @@ describe('PatientSearchPage', () => {
     // This is tested implicitly by the component's useEffect logic
   });
 
+  // Paging is driven by the ChartTablePanel footer, not SearchControl's own
+  // pager (which is hidden — it sits inside the scroll area and has no page-size
+  // control).
   test('Next page button', async () => {
     await setup(`/Patient/${HomerSimpson.id}/Patient`);
-    expect(await screen.findByLabelText('Next page')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Next results')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByLabelText('Next page'));
+      fireEvent.click(screen.getByLabelText('Next results'));
     });
   });
 
   test('Prev page button', async () => {
     await setup(`/Patient/${HomerSimpson.id}/Patient`);
-    expect(await screen.findByLabelText('Previous page')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Previous results')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByLabelText('Previous page'));
+      fireEvent.click(screen.getByLabelText('Previous results'));
     });
+  });
+
+  test('Bulk delete: selecting rows and clicking Delete opens the confirmation', async () => {
+    await setup(`/Patient/${HomerSimpson.id}/Patient`);
+    expect(await screen.findByText('Delete...')).toBeInTheDocument();
+
+    // Without a selection, Delete only prompts to select rows.
+    await act(async () => {
+      fireEvent.click(screen.getByText('Delete...'));
+    });
+    expect(await screen.findByText('Select one or more rows first (use the checkboxes).')).toBeInTheDocument();
+
+    // Select a row, then Delete opens the confirmation dialog.
+    const checkboxes = await screen.findAllByTestId('row-checkbox');
+    await act(async () => {
+      fireEvent.click(checkboxes[0]);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Delete...'));
+    });
+    expect(await screen.findByText(/Delete 1 Patient record/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  test('Page size selector is offered', async () => {
+    await setup(`/Patient/${HomerSimpson.id}/Patient`);
+    // Mantine's Select puts the label on both the wrapper and the input.
+    const pageSize = (await screen.findAllByLabelText('Results per page')).find(
+      (el): el is HTMLInputElement => el instanceof HTMLInputElement
+    );
+    expect(pageSize).toHaveValue('20');
   });
 
   test('New button navigates to new resource page', async () => {

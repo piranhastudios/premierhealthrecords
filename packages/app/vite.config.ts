@@ -39,6 +39,8 @@ export default defineConfig({
       '@medplum/core': path.resolve(__dirname, '../core/src'),
       '@medplum/react': path.resolve(__dirname, '../react/src'),
       '@medplum/react-hooks': path.resolve(__dirname, '../react-hooks/src'),
+      '@medplum/campaigns/react': path.resolve(__dirname, '../campaigns/src/react'),
+      '@medplum/campaigns': path.resolve(__dirname, '../campaigns/src'),
     },
     // Aliasing the workspace packages to their src makes them resolve `react`/
     // `react-dom` from their own nested node_modules (19.2.5) instead of the app's

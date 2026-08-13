@@ -1,0 +1,80 @@
+.card {
+  position: relative;
+  overflow: visible;
+  color: inherit;
+  text-decoration: none;
+  background-color: var(--phc-surface-card);
+  border-color: var(--phc-border);
+  padding-top: calc(var(--mantine-spacing-md) + 6px);
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease,
+    border-color 150ms ease;
+}
+
+a.card:hover {
+  box-shadow: var(--mantine-shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--mantine-color-brand-6);
+}
+
+/* Floating circular icon badge, overlapping the card's top edge. */
+.badge {
+  position: absolute;
+  top: -14px;
+  left: var(--mantine-spacing-md);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background-color: var(--mantine-color-brand-6);
+  border: 3px solid var(--phc-surface-card);
+}
+
+.badge[data-color='brandRed'] {
+  background-color: var(--mantine-color-brandRed-6);
+}
+
+.badge[data-color='brandGold'] {
+  background-color: var(--mantine-color-brandGold-6);
+}
+
+.badge[data-color='teal'] {
+  background-color: var(--mantine-color-teal-6);
+}
+
+.badge[data-color='grape'] {
+  background-color: var(--mantine-color-grape-6);
+}
+
+.headerText {
+  min-width: 0;
+  padding-left: 48px;
+}
+
+.label {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--phc-text-muted);
+  font-weight: 500;
+}
+
+.value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--phc-text-strong);
+}
+
+.sublabel {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--phc-text-muted);
+  margin-top: 2px;
+}
+
+.arrow {
+  color: var(--phc-text-muted);
+  flex-shrink: 0;
+}
