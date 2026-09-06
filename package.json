@@ -4,7 +4,9 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "examples/*"
+    "examples/medplum-demo-bots",
+    "examples/medplum-provider",
+    "examples/patient-portal"
   ],
   "scripts": {
     "build": "turbo run build --filter=!./examples/*",
