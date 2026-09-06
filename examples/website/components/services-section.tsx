@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { Minus, Plus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -32,6 +33,7 @@ export type ServicesSectionProps = {
  */
 export function ServicesSection({ eyebrow, heading, intro, services }: ServicesSectionProps) {
   const items = services ?? []
+  const t = useTranslations("common")
   const [activeIndex, setActiveIndex] = React.useState(0)
   const [isOpen, setIsOpen] = React.useState(true)
 
@@ -123,7 +125,7 @@ export function ServicesSection({ eyebrow, heading, intro, services }: ServicesS
                           href={`/services/${service.slug}`}
                           className="mt-2 inline-block text-sm font-medium text-accent hover:underline"
                         >
-                          Learn more
+                          {t("learnMore")}
                         </Link>
                       )}
                     </div>

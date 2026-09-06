@@ -1,33 +1,42 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { FileText } from "lucide-react"
+import { getLocale, getTranslations } from "next-intl/server"
+import { stegaClean } from "next-sanity"
 
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
 import { sanityFetch } from "@/sanity/lib/live"
 import { PUBLICATIONS_QUERY } from "@/sanity/lib/queries"
 
-export const metadata: Metadata = {
-  title: "Publications | Premier Health Centres",
-  description:
-    "Research papers, clinical reports, health guidelines and patient resources from Premier Health Centres.",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("publications")
+  return { title: t("metaTitle"), description: t("metaDescription") }
 }
 
-const typeLabels: Record<string, string> = {
-  research: "Research paper",
-  report: "Clinical report",
-  guideline: "Health guideline",
-  resource: "Patient resource",
-  newsletter: "Newsletter",
-}
+// Translation key for each publication type. Values from Sanity carry stega
+// metadata, so they are cleaned before being used as a lookup key.
+const TYPE_KEYS = {
+  research: "types.research",
+  report: "types.report",
+  guideline: "types.guideline",
+  resource: "types.resource",
+  newsletter: "types.newsletter",
+} as const
+type PublicationType = keyof typeof TYPE_KEYS
+const isPublicationType = (value: string): value is PublicationType => value in TYPE_KEYS
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return null
-  return new Date(value).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+  return new Date(value).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", { month: "long", year: "numeric" })
 }
 
 export default async function PublicationsPage() {
-  const { data: publications } = await sanityFetch({ query: PUBLICATIONS_QUERY })
+  const [{ data: publications }, t, locale] = await Promise.all([
+    sanityFetch({ query: PUBLICATIONS_QUERY }),
+    getTranslations("publications"),
+    getLocale(),
+  ])
 
   return (
     <main className="min-h-screen">
@@ -36,15 +45,15 @@ export default async function PublicationsPage() {
       <section className="bg-background py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 md:px-8">
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Publications
+            {t("eyebrow")}
           </span>
           <h1 className="mt-4 max-w-2xl font-serif text-3xl leading-tight tracking-tight text-foreground md:text-4xl lg:text-5xl">
-            Research, reports and health resources
+            {t("title")}
           </h1>
 
           {publications.length === 0 ? (
             <p className="mt-10 text-base text-muted-foreground">
-              No publications yet. Check back soon.
+              {t("empty")}
             </p>
           ) : (
             <div className="mt-12 flex flex-col divide-y divide-border border-t border-border">
@@ -59,11 +68,11 @@ export default async function PublicationsPage() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       {publication.publicationType && (
                         <span className="rounded-full bg-accent/10 px-2 py-0.5 text-accent">
-                          {typeLabels[publication.publicationType] ?? publication.publicationType}
+                          {isPublicationType(publication.publicationType) ? t(TYPE_KEYS[stegaClean(publication.publicationType)]) : publication.publicationType}
                         </span>
                       )}
-                      {formatDate(publication.publishedAt) && (
-                        <span>{formatDate(publication.publishedAt)}</span>
+                      {formatDate(publication.publishedAt, locale) && (
+                        <span>{formatDate(publication.publishedAt, locale)}</span>
                       )}
                       {publication.journal && <span>{publication.journal}</span>}
                     </div>
@@ -94,7 +103,7 @@ export default async function PublicationsPage() {
                         href={`/publications/${publication.slug}`}
                         className="font-medium text-accent hover:underline"
                       >
-                        Read more
+                        {t("readMore")}
                       </Link>
                       {publication.fileUrl && (
                         <a
@@ -104,7 +113,7 @@ export default async function PublicationsPage() {
                           className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
                         >
                           <FileText className="h-4 w-4" />
-                          PDF
+                          {t("pdf")}
                         </a>
                       )}
                       {publication.doi && (

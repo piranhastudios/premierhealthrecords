@@ -1,10 +1,17 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Phone, Clock, MapPin, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-type OpeningHours = { _key?: string; days?: string | null; hours?: string | null }
+type OpeningHours = {
+  _key?: string
+  days?: string | null
+  hours?: string | null
+  daysLabel?: string | null
+  hoursLabel?: string | null
+}
 
 export type ContactSectionProps = {
   eyebrow?: string | null
@@ -26,6 +33,7 @@ export function ContactSection({
   openingHours,
 }: ContactSectionProps) {
   const hours = (openingHours ?? []).filter(Boolean) as OpeningHours[]
+  const t = useTranslations("contact")
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -67,7 +75,7 @@ export function ContactSection({
                   <Phone className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-foreground">Phone</span>
+                  <span className="text-sm font-medium text-foreground">{t("phone")}</span>
                   <p className="mt-1 text-sm text-muted-foreground">{phone}</p>
                 </div>
               </div>
@@ -77,13 +85,13 @@ export function ContactSection({
                   <Clock className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-foreground">Hours</span>
+                  <span className="text-sm font-medium text-foreground">{t("hours")}</span>
                   {hours.map((entry, index) => (
                     <p
                       key={entry._key ?? index}
                       className={index === 0 ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}
                     >
-                      {entry.days}: {entry.hours}
+                      {entry.daysLabel ?? entry.days}: {entry.hoursLabel ?? entry.hours}
                     </p>
                   ))}
                 </div>
@@ -94,7 +102,7 @@ export function ContactSection({
                   <MapPin className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-foreground">Location</span>
+                  <span className="text-sm font-medium text-foreground">{t("location")}</span>
                   <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{address}</p>
                 </div>
               </div>
@@ -104,7 +112,7 @@ export function ContactSection({
                   <Mail className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-foreground">Email</span>
+                  <span className="text-sm font-medium text-foreground">{t("email")}</span>
                   <p className="mt-1 text-sm text-muted-foreground">{email}</p>
                 </div>
               </div>
@@ -117,7 +125,7 @@ export function ContactSection({
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    First Name
+                    {t("form.firstName")}
                   </label>
                   <input
                     type="text"
@@ -129,7 +137,7 @@ export function ContactSection({
                 </div>
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Last Name
+                    {t("form.lastName")}
                   </label>
                   <input
                     type="text"
@@ -144,7 +152,7 @@ export function ContactSection({
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Email
+                    {t("form.email")}
                   </label>
                   <input
                     type="email"
@@ -156,7 +164,7 @@ export function ContactSection({
                 </div>
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Phone
+                    {t("form.phone")}
                   </label>
                   <input
                     type="tel"
@@ -169,7 +177,7 @@ export function ContactSection({
 
               <div>
                 <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Message
+                  {t("form.message")}
                 </label>
                 <textarea
                   value={formData.message}
@@ -183,7 +191,7 @@ export function ContactSection({
                 type="submit"
                 className="mt-4 w-full rounded-full bg-foreground py-6 text-background hover:bg-foreground/90 md:w-auto md:px-12"
               >
-                Submit
+                {t("form.submit")}
               </Button>
             </form>
           </div>

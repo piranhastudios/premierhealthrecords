@@ -1,34 +1,36 @@
 import Link from "next/link"
+import { getTranslations } from "next-intl/server"
 
 import { SanityImage } from "@/components/sanity-image"
 import { sanityFetch } from "@/sanity/lib/live"
-import { SITE_SETTINGS_QUERY } from "@/sanity/lib/queries"
+import { SERVICES_QUERY, SITE_SETTINGS_QUERY } from "@/sanity/lib/queries"
 
-const footerLinks = {
-  navigation: [
-    { name: "Home", href: "/" },
-    { name: "About", href: "/about" },
-    { name: "Services", href: "/services" },
-    { name: "Blog", href: "/blog" },
-    { name: "Publications", href: "/publications" },
-    { name: "Contact", href: "/#contact" },
-  ],
-  services: [
-    { name: "General Practice", href: "/services/general-practice" },
-    { name: "Cardiology", href: "/services/cardiology" },
-    { name: "Obstetrics & Gynaecology", href: "/services/obstetrics-gynaecology" },
-    { name: "Health Check-up Packages", href: "/services/health-check-up-packages" },
-  ],
-  social: [
-    { name: "Facebook", href: "#" },
-    { name: "Instagram", href: "#" },
-    { name: "Twitter", href: "#" },
-    { name: "LinkedIn", href: "#" },
-  ],
-}
+const navigation = [
+  { key: "home", href: "/" },
+  { key: "about", href: "/about" },
+  { key: "services", href: "/services" },
+  { key: "blog", href: "/blog" },
+  { key: "publications", href: "/publications" },
+  { key: "contact", href: "/#contact" },
+] as const
+
+const social = [
+  { name: "Facebook", href: "#" },
+  { name: "Instagram", href: "#" },
+  { name: "Twitter", href: "#" },
+  { name: "LinkedIn", href: "#" },
+]
+
+/** How many services the footer lists before pointing at the full page. */
+const FOOTER_SERVICES = 4
 
 export async function Footer() {
-  const { data: settings } = await sanityFetch({ query: SITE_SETTINGS_QUERY })
+  const [{ data: settings }, { data: services }, t, nav] = await Promise.all([
+    sanityFetch({ query: SITE_SETTINGS_QUERY }),
+    sanityFetch({ query: SERVICES_QUERY }),
+    getTranslations("footer"),
+    getTranslations("nav"),
+  ])
 
   return (
     <footer className="bg-muted py-16 md:py-20">
@@ -59,42 +61,42 @@ export async function Footer() {
               )}
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              Affordable quality healthcare for all your medical needs in Cameroon.
+              {settings?.description || t("tagline")}
             </p>
           </div>
 
           {/* Navigation */}
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Navigation
+              {t("navigation")}
             </span>
             <ul className="mt-4 flex flex-col gap-3">
-              {footerLinks.navigation.map((link) => (
-                <li key={link.name}>
+              {navigation.map((link) => (
+                <li key={link.key}>
                   <Link
                     href={link.href}
                     className="text-sm text-foreground/80 transition-colors hover:text-foreground"
                   >
-                    {link.name}
+                    {nav(link.key)}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Services */}
+          {/* Services, from the CMS so names follow the language and the catalogue */}
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Services
+              {t("services")}
             </span>
             <ul className="mt-4 flex flex-col gap-3">
-              {footerLinks.services.map((link) => (
-                <li key={link.name}>
+              {services.slice(0, FOOTER_SERVICES).map((service) => (
+                <li key={service._id}>
                   <Link
-                    href={link.href}
+                    href={service.slug ? `/services/${service.slug}` : "/services"}
                     className="text-sm text-foreground/80 transition-colors hover:text-foreground"
                   >
-                    {link.name}
+                    {service.title}
                   </Link>
                 </li>
               ))}
@@ -104,10 +106,10 @@ export async function Footer() {
           {/* Social */}
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Connect
+              {t("connect")}
             </span>
             <ul className="mt-4 flex flex-col gap-3">
-              {footerLinks.social.map((link) => (
+              {social.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
@@ -124,15 +126,13 @@ export async function Footer() {
         {/* Bottom */}
         <div className="mt-16 border-t border-border pt-8">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Premier Health Centres. All rights reserved.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("rights", { year: new Date().getFullYear() })}</p>
             <div className="flex gap-6">
               <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">
-                Privacy Policy
+                {t("privacy")}
               </Link>
               <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">
-                Terms of Service
+                {t("terms")}
               </Link>
             </div>
           </div>

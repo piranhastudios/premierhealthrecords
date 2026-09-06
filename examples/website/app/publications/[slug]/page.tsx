@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ExternalLink, FileText } from "lucide-react"
+import { getLocale, getTranslations } from "next-intl/server"
+import { stegaClean } from "next-sanity"
 
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -11,13 +13,17 @@ import { PUBLICATION_QUERY, PUBLICATION_SLUGS_QUERY } from "@/sanity/lib/queries
 
 type Props = { params: Promise<{ slug: string }> }
 
-const typeLabels: Record<string, string> = {
-  research: "Research paper",
-  report: "Clinical report",
-  guideline: "Health guideline",
-  resource: "Patient resource",
-  newsletter: "Newsletter",
-}
+// Translation key for each publication type. Values from Sanity carry stega
+// metadata, so they are cleaned before being used as a lookup key.
+const TYPE_KEYS = {
+  research: "types.research",
+  report: "types.report",
+  guideline: "types.guideline",
+  resource: "types.resource",
+  newsletter: "types.newsletter",
+} as const
+type PublicationType = keyof typeof TYPE_KEYS
+const isPublicationType = (value: string): value is PublicationType => value in TYPE_KEYS
 
 export async function generateStaticParams() {
   const { data } = await sanityFetch({
@@ -44,9 +50,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return null
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -54,10 +60,12 @@ function formatDate(value?: string | null) {
 }
 
 export default async function PublicationPage({ params }: Props) {
-  const { data: publication } = await sanityFetch({
-    query: PUBLICATION_QUERY,
-    params: await params,
-  })
+  const [{ data: publication }, t, common, locale] = await Promise.all([
+    sanityFetch({ query: PUBLICATION_QUERY, params: await params }),
+    getTranslations("publications"),
+    getTranslations("common"),
+    getLocale(),
+  ])
 
   if (!publication) notFound()
 
@@ -73,17 +81,17 @@ export default async function PublicationPage({ params }: Props) {
       <article className="bg-background py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4 md:px-8">
           <Link href="/publications" className="text-sm text-accent hover:underline">
-            ← Back to publications
+            ← {common("backToPublications")}
           </Link>
 
           <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {publication.publicationType && (
               <span className="rounded-full bg-accent/10 px-2 py-0.5 text-accent">
-                {typeLabels[publication.publicationType] ?? publication.publicationType}
+                {isPublicationType(publication.publicationType) ? t(TYPE_KEYS[stegaClean(publication.publicationType)]) : publication.publicationType}
               </span>
             )}
-            {formatDate(publication.publishedAt) && (
-              <span>{formatDate(publication.publishedAt)}</span>
+            {formatDate(publication.publishedAt, locale) && (
+              <span>{formatDate(publication.publishedAt, locale)}</span>
             )}
             {publication.journal && <span>{publication.journal}</span>}
           </div>
@@ -99,7 +107,7 @@ export default async function PublicationPage({ params }: Props) {
           {publication.abstract && (
             <div className="mt-8 rounded-2xl bg-muted p-6">
               <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Abstract
+                {t("abstract")}
               </h2>
               <p className="mt-3 text-base leading-relaxed text-foreground">
                 {publication.abstract}
@@ -116,7 +124,7 @@ export default async function PublicationPage({ params }: Props) {
                 className="inline-flex items-center gap-1.5 font-medium text-accent hover:underline"
               >
                 <FileText className="h-4 w-4" />
-                Download PDF
+                {t("downloadPdf")}
               </a>
             )}
             {publication.externalUrl && (
@@ -127,7 +135,7 @@ export default async function PublicationPage({ params }: Props) {
                 className="inline-flex items-center gap-1.5 font-medium text-accent hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
-                View original
+                {t("viewOriginal")}
               </a>
             )}
             {publication.doi && (

@@ -1,0 +1,174 @@
+{
+  "site": {
+    "metaTitle": "Premier Health Centres | Affordable Quality Healthcare in Cameroon",
+    "metaDescription": "A one-stop, multidisciplinary health centre for your medical needs. Providing affordable quality healthcare in Cameroon."
+  },
+  "preview": {
+    "banner": "Preview: showing unpublished draft content"
+  },
+  "common": {
+    "learnMore": "Learn more",
+    "bookAppointment": "Book an appointment",
+    "viewServices": "View Our Services",
+    "contactUs": "Contact Us",
+    "readMore": "Read more",
+    "backToBlog": "Back to blog",
+    "backToPublications": "Back to publications"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "services": "Services",
+    "blog": "Blog",
+    "publications": "Publications",
+    "contact": "Contact"
+  },
+  "header": {
+    "patientPortal": "Patient Portal",
+    "bookAppointment": "Book Appointment",
+    "language": "Language",
+    "english": "English",
+    "french": "Français",
+    "login": {
+      "title": "Patient Portal Login",
+      "description": "Access your medical records, appointments, and more.",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "forgot": "Forgot password?",
+      "signIn": "Sign In",
+      "noAccount": "Don't have an account?",
+      "register": "Register here"
+    },
+    "booking": {
+      "title": "Book an Appointment",
+      "description": "Fill out the form below and we will contact you to confirm your appointment."
+    }
+  },
+  "servicesPage": {
+    "metaTitle": "Services | Premier Health Centres",
+    "metaDescription": "The medical services offered at Premier Health Centres, from general practice to specialist care.",
+    "eyebrow": "Our Services",
+    "title": "Comprehensive *healthcare* for every need",
+    "intro": "Premier Health Centres offers high-quality healthcare services, delivered by professionals who ensure the highest standards.",
+    "quickNav": "Quick Navigation",
+    "readMoreBelow": "Read more below",
+    "seeAll": "See all {count} services",
+    "exploreEyebrow": "Explore Our Services",
+    "exploreTitle": "Quality care in *every* department",
+    "learnMoreAbout": "Learn more about {title}",
+    "faqTitle": "Frequently Asked Questions",
+    "ctaTitle": "Ready to Book Your Appointment?",
+    "ctaText": "Our team of medical professionals is here to help you with all your healthcare needs.",
+    "call": "Call: {phone}"
+  },
+  "serviceDetail": {
+    "allServices": "All services",
+    "ctaTitle": "Ready to book an appointment?",
+    "ctaText": "Get in touch and our team will confirm a time that works for you."
+  },
+  "aboutPage": {
+    "metaTitle": "About | Premier Health Centres",
+    "metaDescription": "Premier Health Centres brings affordable, quality healthcare to the population, with a one-stop solution for all medical needs.",
+    "eyebrow": "About Us",
+    "title": "About *Premier Health* Centres",
+    "p1": "At Premier Health Centres, we have a clear mission of bringing affordable, quality healthcare to the population, while offering a one-stop solution for all medical needs.",
+    "p2": "We pride ourselves in providing a world-class medical facility in a comfortable and digitally advanced environment.",
+    "frontDeskAlt": "The front desk at Premier Health Centres",
+    "frontOfHouseAlt": "The front of house at Premier Health Centres",
+    "valuesEyebrow": "What We Stand For",
+    "valuesTitle": "Our Core *Values*",
+    "valuesImageAlt": "Our core values",
+    "values": {
+      "quality": {
+        "title": "Quality Healthcare",
+        "description": "Our dedication to patient safety and well-being, sets the benchmark for uncompromising quality in medical services."
+      },
+      "time": {
+        "title": "Time Effectiveness",
+        "description": "We prioritize efficiency without compromising the thoroughness and effectiveness of medical care."
+      },
+      "humanized": {
+        "title": "Humanized Care",
+        "description": "We are committed to a way of life, which identifies the needs and health demands of patients who require professional care."
+      },
+      "international": {
+        "title": "International Standards",
+        "description": "We provide a healthcare experience that meets global expectations for quality, safety, and innovation."
+      }
+    },
+    "teamEyebrow": "The People Behind Your Care",
+    "teamTitle": "Our *Team*",
+    "ctaTitle": "Book An Appointment",
+    "ctaText": "Start your healthcare journey with us. Our team is ready to help."
+  },
+  "contact": {
+    "phone": "Phone",
+    "hours": "Hours",
+    "location": "Location",
+    "email": "Email",
+    "form": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "phone": "Phone",
+      "message": "Message",
+      "submit": "Submit"
+    }
+  },
+  "appointment": {
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone Number",
+    "email": "Email",
+    "service": "Service Required",
+    "selectService": "Select a service",
+    "date": "Preferred Date",
+    "times": "Available Times",
+    "chooseDate": "Choose a date to see available times.",
+    "closed": "We are closed on this day. Please choose another date.",
+    "full": "No times left on this date. Please choose another date.",
+    "timesAria": "Available appointment times",
+    "notes": "Additional Notes",
+    "notesPlaceholder": "Describe your symptoms or reason for visit...",
+    "request": "Request {time} Appointment",
+    "selectDateTime": "Select a Date and Time"
+  },
+  "footer": {
+    "tagline": "Affordable quality healthcare for all your medical needs in Cameroon.",
+    "navigation": "Navigation",
+    "services": "Services",
+    "connect": "Connect",
+    "rights": "© {year} Premier Health Centres. All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  },
+  "blog": {
+    "metaTitle": "Blog | Premier Health Centres",
+    "metaDescription": "Health advice, clinic news and updates from the team at Premier Health Centres.",
+    "eyebrow": "Blog",
+    "title": "Health advice and news from our team",
+    "empty": "No posts published yet. Check back soon.",
+    "by": "By {name}"
+  },
+  "publications": {
+    "metaTitle": "Publications | Premier Health Centres",
+    "metaDescription": "Research papers, clinical reports, health guidelines and patient resources from Premier Health Centres.",
+    "eyebrow": "Publications",
+    "title": "Research, reports and health resources",
+    "empty": "No publications yet. Check back soon.",
+    "abstract": "Abstract",
+    "pdf": "PDF",
+    "downloadPdf": "Download PDF",
+    "viewOriginal": "View original",
+    "types": {
+      "research": "Research paper",
+      "report": "Clinical report",
+      "guideline": "Health guideline",
+      "resource": "Patient resource",
+      "newsletter": "Newsletter"
+    },
+    "readMore": "Read more"
+  }
+}

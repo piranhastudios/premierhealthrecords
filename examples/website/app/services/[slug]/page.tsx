@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { getTranslations } from "next-intl/server"
 
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -37,7 +38,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServicePage({ params }: Props) {
-  const { data: service } = await sanityFetch({ query: SERVICE_QUERY, params: await params })
+  const [{ data: service }, t, common] = await Promise.all([
+    sanityFetch({ query: SERVICE_QUERY, params: await params }),
+    getTranslations("serviceDetail"),
+    getTranslations("common"),
+  ])
 
   if (!service) notFound()
 
@@ -48,7 +53,7 @@ export default async function ServicePage({ params }: Props) {
       <article className="bg-background py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4 md:px-8">
           <Link href="/services" className="text-sm text-accent hover:underline">
-            ← All services
+            ← {t("allServices")}
           </Link>
 
           <h1 className="mt-6 font-serif text-3xl leading-tight tracking-tight text-foreground md:text-4xl lg:text-5xl">
@@ -77,17 +82,13 @@ export default async function ServicePage({ params }: Props) {
           </div>
 
           <div className="mt-12 rounded-2xl bg-muted p-8">
-            <h2 className="font-serif text-xl tracking-tight text-foreground">
-              Ready to book an appointment?
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Get in touch and our team will confirm a time that works for you.
-            </p>
+            <h2 className="font-serif text-xl tracking-tight text-foreground">{t("ctaTitle")}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t("ctaText")}</p>
             <Link
               href="/#contact"
               className="mt-5 inline-block text-sm font-semibold text-accent hover:underline"
             >
-              Contact us
+              {common("contactUs")}
             </Link>
           </div>
         </div>

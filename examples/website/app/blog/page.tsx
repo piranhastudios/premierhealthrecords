@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { getLocale, getTranslations } from "next-intl/server"
 
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -7,15 +8,14 @@ import { SanityImage } from "@/components/sanity-image"
 import { sanityFetch } from "@/sanity/lib/live"
 import { POSTS_QUERY } from "@/sanity/lib/queries"
 
-export const metadata: Metadata = {
-  title: "Blog | Premier Health Centres",
-  description:
-    "Health advice, clinic news and updates from the team at Premier Health Centres.",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("blog")
+  return { title: t("metaTitle"), description: t("metaDescription") }
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return null
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -23,7 +23,11 @@ function formatDate(value?: string | null) {
 }
 
 export default async function BlogPage() {
-  const { data: posts } = await sanityFetch({ query: POSTS_QUERY })
+  const [{ data: posts }, t, locale] = await Promise.all([
+    sanityFetch({ query: POSTS_QUERY }),
+    getTranslations("blog"),
+    getLocale(),
+  ])
 
   return (
     <main className="min-h-screen">
@@ -32,15 +36,15 @@ export default async function BlogPage() {
       <section className="bg-background py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 md:px-8">
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Blog
+            {t("eyebrow")}
           </span>
           <h1 className="mt-4 max-w-2xl font-serif text-3xl leading-tight tracking-tight text-foreground md:text-4xl lg:text-5xl">
-            Health advice and news from our team
+            {t("title")}
           </h1>
 
           {posts.length === 0 ? (
             <p className="mt-10 text-base text-muted-foreground">
-              No posts published yet. Check back soon.
+              {t("empty")}
             </p>
           ) : (
             <div className="mt-12 grid gap-10 md:grid-cols-2 lg:grid-cols-3">
@@ -60,7 +64,7 @@ export default async function BlogPage() {
                     ) : null}
                     <div className="mt-5">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {formatDate(post.publishedAt) && <span>{formatDate(post.publishedAt)}</span>}
+                        {formatDate(post.publishedAt, locale) && <span>{formatDate(post.publishedAt, locale)}</span>}
                         {post.categories?.map((category) => (
                           <span
                             key={category._id}
@@ -79,7 +83,7 @@ export default async function BlogPage() {
                         </p>
                       )}
                       {post.author?.name && (
-                        <p className="mt-4 text-xs text-muted-foreground">By {post.author.name}</p>
+                        <p className="mt-4 text-xs text-muted-foreground">{t("by", { name: post.author.name })}</p>
                       )}
                     </div>
                   </Link>

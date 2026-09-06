@@ -1,0 +1,174 @@
+{
+  "site": {
+    "metaTitle": "Premier Health Centres | Des soins de santé abordables et de qualité au Cameroun",
+    "metaDescription": "Un centre de santé pluridisciplinaire pour tous vos besoins médicaux. Des soins de santé abordables et de qualité au Cameroun."
+  },
+  "preview": {
+    "banner": "Aperçu : contenu non publié affiché"
+  },
+  "common": {
+    "learnMore": "En savoir plus",
+    "bookAppointment": "Prendre rendez-vous",
+    "viewServices": "Voir nos services",
+    "contactUs": "Contactez-nous",
+    "readMore": "Lire la suite",
+    "backToBlog": "Retour au blog",
+    "backToPublications": "Retour aux publications"
+  },
+  "nav": {
+    "home": "Accueil",
+    "about": "À propos",
+    "services": "Services",
+    "blog": "Blog",
+    "publications": "Publications",
+    "contact": "Contact"
+  },
+  "header": {
+    "patientPortal": "Portail patient",
+    "bookAppointment": "Prendre rendez-vous",
+    "language": "Langue",
+    "english": "English",
+    "french": "Français",
+    "login": {
+      "title": "Connexion au portail patient",
+      "description": "Accédez à votre dossier médical, à vos rendez-vous et plus encore.",
+      "email": "E-mail",
+      "emailPlaceholder": "Saisissez votre e-mail",
+      "password": "Mot de passe",
+      "passwordPlaceholder": "Saisissez votre mot de passe",
+      "forgot": "Mot de passe oublié ?",
+      "signIn": "Se connecter",
+      "noAccount": "Vous n'avez pas de compte ?",
+      "register": "Inscrivez-vous ici"
+    },
+    "booking": {
+      "title": "Prendre rendez-vous",
+      "description": "Remplissez le formulaire ci-dessous et nous vous contacterons pour confirmer votre rendez-vous."
+    }
+  },
+  "servicesPage": {
+    "metaTitle": "Services | Premier Health Centres",
+    "metaDescription": "Les services médicaux proposés par Premier Health Centres, de la médecine générale aux soins spécialisés.",
+    "eyebrow": "Nos services",
+    "title": "Des *soins de santé* complets pour chaque besoin",
+    "intro": "Les Premier Health Centres offrent des services de santé de haute qualité, assurés par des professionnels qui garantissent les normes les plus élevées.",
+    "quickNav": "Navigation rapide",
+    "readMoreBelow": "Lire la suite ci-dessous",
+    "seeAll": "Voir les {count} services",
+    "exploreEyebrow": "Découvrez nos services",
+    "exploreTitle": "Des soins de qualité dans *chaque* département",
+    "learnMoreAbout": "En savoir plus sur {title}",
+    "faqTitle": "Questions fréquentes",
+    "ctaTitle": "Prêt à prendre rendez-vous ?",
+    "ctaText": "Notre équipe de professionnels de santé est là pour répondre à tous vos besoins.",
+    "call": "Appelez le {phone}"
+  },
+  "serviceDetail": {
+    "allServices": "Tous les services",
+    "ctaTitle": "Prêt à prendre rendez-vous ?",
+    "ctaText": "Contactez-nous et notre équipe vous confirmera un créneau qui vous convient."
+  },
+  "aboutPage": {
+    "metaTitle": "À propos | Premier Health Centres",
+    "metaDescription": "Premier Health Centres offre des soins de santé abordables et de qualité à la population, avec une solution unique pour tous les besoins médicaux.",
+    "eyebrow": "À propos de nous",
+    "title": "À propos des *Premier Health* Centres",
+    "p1": "Aux Premier Health Centres, nous avons une mission claire : offrir des soins de santé abordables et de qualité à la population, tout en proposant une solution unique pour tous les besoins médicaux.",
+    "p2": "Nous sommes fiers de fournir une installation médicale de classe mondiale dans un environnement confortable et numériquement avancé.",
+    "frontDeskAlt": "L'accueil des Premier Health Centres",
+    "frontOfHouseAlt": "L'entrée des Premier Health Centres",
+    "valuesEyebrow": "Nos engagements",
+    "valuesTitle": "Nos valeurs *fondamentales*",
+    "valuesImageAlt": "Nos valeurs fondamentales",
+    "values": {
+      "quality": {
+        "title": "Soins de qualité",
+        "description": "Notre dévouement à la sécurité et au bien-être des patients établit la référence pour une qualité intransigeante dans les services médicaux."
+      },
+      "time": {
+        "title": "Efficacité temporelle",
+        "description": "Nous privilégions l'efficacité sans compromettre l'exhaustivité et l'efficacité des soins médicaux."
+      },
+      "humanized": {
+        "title": "Soins humanisés",
+        "description": "Nous nous engageons à répondre aux besoins et aux exigences de santé des patients nécessitant des soins professionnels."
+      },
+      "international": {
+        "title": "Normes internationales",
+        "description": "Nous fournissons une expérience de soins de santé répondant aux attentes mondiales en matière de qualité, de sécurité et d'innovation."
+      }
+    },
+    "teamEyebrow": "Les personnes qui prennent soin de vous",
+    "teamTitle": "Notre *équipe*",
+    "ctaTitle": "Prendre rendez-vous",
+    "ctaText": "Commencez votre parcours de santé avec nous. Notre équipe est prête à vous aider."
+  },
+  "contact": {
+    "phone": "Téléphone",
+    "hours": "Horaires",
+    "location": "Adresse",
+    "email": "E-mail",
+    "form": {
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "message": "Message",
+      "submit": "Envoyer"
+    }
+  },
+  "appointment": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phone": "Numéro de téléphone",
+    "email": "E-mail",
+    "service": "Service souhaité",
+    "selectService": "Sélectionnez un service",
+    "date": "Date souhaitée",
+    "times": "Horaires disponibles",
+    "chooseDate": "Choisissez une date pour voir les horaires disponibles.",
+    "closed": "Nous sommes fermés ce jour-là. Veuillez choisir une autre date.",
+    "full": "Plus de créneau disponible à cette date. Veuillez choisir une autre date.",
+    "timesAria": "Horaires de rendez-vous disponibles",
+    "notes": "Informations complémentaires",
+    "notesPlaceholder": "Décrivez vos symptômes ou le motif de votre visite...",
+    "request": "Demander un rendez-vous à {time}",
+    "selectDateTime": "Sélectionnez une date et un horaire"
+  },
+  "footer": {
+    "tagline": "Des soins de santé abordables et de qualité pour tous vos besoins médicaux au Cameroun.",
+    "navigation": "Navigation",
+    "services": "Services",
+    "connect": "Suivez-nous",
+    "rights": "© {year} Premier Health Centres. Tous droits réservés.",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d'utilisation"
+  },
+  "blog": {
+    "metaTitle": "Blog | Premier Health Centres",
+    "metaDescription": "Conseils santé, actualités de la clinique et nouvelles de l'équipe des Premier Health Centres.",
+    "eyebrow": "Blog",
+    "title": "Conseils santé et actualités de notre équipe",
+    "empty": "Aucun article publié pour le moment. Revenez bientôt.",
+    "by": "Par {name}"
+  },
+  "publications": {
+    "metaTitle": "Publications | Premier Health Centres",
+    "metaDescription": "Articles de recherche, rapports cliniques, recommandations de santé et ressources pour les patients des Premier Health Centres.",
+    "eyebrow": "Publications",
+    "title": "Recherche, rapports et ressources santé",
+    "empty": "Aucune publication pour le moment. Revenez bientôt.",
+    "abstract": "Résumé",
+    "pdf": "PDF",
+    "downloadPdf": "Télécharger le PDF",
+    "viewOriginal": "Voir l'original",
+    "types": {
+      "research": "Article de recherche",
+      "report": "Rapport clinique",
+      "guideline": "Recommandation de santé",
+      "resource": "Ressource patient",
+      "newsletter": "Lettre d'information"
+    },
+    "readMore": "Lire la suite"
+  }
+}

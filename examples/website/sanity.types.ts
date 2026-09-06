@@ -19,30 +19,37 @@ export type OpeningHours = {
   _type: "openingHours";
   days?: string;
   hours?: string;
+  days_fr?: string;
+  hours_fr?: string;
 };
 
 export type Faq = {
   _type: "faq";
   question?: string;
   answer?: string;
+  question_fr?: string;
+  answer_fr?: string;
 };
 
 export type CtaLink = {
   _type: "ctaLink";
   label?: string;
   href?: string;
+  label_fr?: string;
 };
 
 export type Announcement = {
   _type: "announcement";
   text?: string;
   link?: string;
+  text_fr?: string;
 };
 
 export type Stat = {
   _type: "stat";
   value?: string;
   label?: string;
+  label_fr?: string;
 };
 
 export type SanityImageAssetReference = {
@@ -63,6 +70,8 @@ export type Seo = {
     crop?: SanityImageCrop;
     _type: "image";
   };
+  title_fr?: string;
+  description_fr?: string;
 };
 
 export type BlockContent = Array<{
@@ -137,6 +146,8 @@ export type Category = {
   title?: string;
   slug?: Slug;
   description?: string;
+  title_fr?: string;
+  description_fr?: string;
 };
 
 export type Slug = {
@@ -202,6 +213,9 @@ export type Publication = {
   } & CategoryReference>;
   body?: BlockContent;
   seo?: Seo;
+  title_fr?: string;
+  abstract_fr?: string;
+  body_fr?: BlockContent;
 };
 
 export type Post = {
@@ -228,6 +242,9 @@ export type Post = {
   publishedAt?: string;
   body?: BlockContent;
   seo?: Seo;
+  title_fr?: string;
+  excerpt_fr?: string;
+  body_fr?: BlockContent;
 };
 
 export type Author = {
@@ -248,6 +265,10 @@ export type Author = {
     _type: "image";
   };
   bio?: BlockContent;
+  teamStatus?: "current" | "former" | "notTeam";
+  orderRank?: number;
+  role_fr?: string;
+  bio_fr?: BlockContent;
 };
 
 export type Service = {
@@ -274,6 +295,9 @@ export type Service = {
   } & Faq>;
   orderRank?: number;
   seo?: Seo;
+  title_fr?: string;
+  summary_fr?: string;
+  body_fr?: BlockContent;
 };
 
 export type SiteSettings = {
@@ -284,6 +308,7 @@ export type SiteSettings = {
   _rev: string;
   title?: string;
   description?: string;
+  description_fr?: string;
   logo?: {
     asset?: SanityImageAssetReference;
     media?: unknown;
@@ -340,11 +365,16 @@ export type HomePage = {
     announcements?: Array<{
       _key: string;
     } & Announcement>;
+    heading_fr?: string;
+    intro_fr?: string;
   };
   servicesSection?: {
     eyebrow?: string;
     heading?: string;
     intro?: string;
+    eyebrow_fr?: string;
+    heading_fr?: string;
+    intro_fr?: string;
   };
   aboutSection?: {
     eyebrow?: string;
@@ -362,15 +392,23 @@ export type HomePage = {
     stats?: Array<{
       _key: string;
     } & Stat>;
+    eyebrow_fr?: string;
+    heading_fr?: string;
+    body_fr?: BlockContent;
   };
   partnersSection?: {
     heading?: string;
     intro?: string;
+    heading_fr?: string;
+    intro_fr?: string;
   };
   contactSection?: {
     eyebrow?: string;
     heading?: string;
     intro?: string;
+    eyebrow_fr?: string;
+    heading_fr?: string;
+    intro_fr?: string;
   };
   seo?: Seo;
 };
@@ -474,9 +512,9 @@ export type Geopoint = {
 
 export type AllSanitySchemaTypes = OpeningHours | Faq | CtaLink | Announcement | Stat | SanityImageAssetReference | Seo | BlockContent | Partner | SanityImageCrop | SanityImageHotspot | Category | Slug | AuthorReference | SanityFileAssetReference | CategoryReference | Publication | Post | Author | Service | SiteSettings | HomePage | SanityImagePaletteSwatch | SanityImagePalette | SanityImageDimensions | SanityImageMetadata | SanityFileAsset | SanityAssetSourceData | SanityImageAsset | Geopoint;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: SITE_SETTINGS_QUERY
-// Query: *[_type == "siteSettings"][0]{    title,    description,    logo{  asset,  hotspot,  crop,  alt},    phone,    email,    address,    openingHours[]{_key, days, hours},    socialLinks[]{_key, platform, url},    navigation[]{_key, label, href},    footerNavigation[]{_key, label, href}  }
+// Query: *[_type == "siteSettings"][0]{    title,    "description": coalesce(select($locale == "fr" => description_fr), description),    logo{  asset,  hotspot,  crop,  alt},    phone,    email,    address,    openingHours[]{      _key,      days,      hours,      "daysLabel": coalesce(select($locale == "fr" => days_fr), days),      "hoursLabel": coalesce(select($locale == "fr" => hours_fr), hours)    },    socialLinks[]{_key, platform, url},    navigation[]{_key, "label": coalesce(select($locale == "fr" => label_fr), label), href},    footerNavigation[]{_key, "label": coalesce(select($locale == "fr" => label_fr), label), href}  }
 export type SITE_SETTINGS_QUERY_RESULT = {
   title: string | null;
   description: string | null;
@@ -493,6 +531,8 @@ export type SITE_SETTINGS_QUERY_RESULT = {
     _key: string;
     days: string | null;
     hours: string | null;
+    daysLabel: string | null;
+    hoursLabel: string | null;
   }> | null;
   socialLinks: Array<{
     _key: string;
@@ -511,9 +551,9 @@ export type SITE_SETTINGS_QUERY_RESULT = {
   }> | null;
 } | null;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: HOME_PAGE_QUERY
-// Query: *[_type == "homePage"][0]{    hero{      heading,      intro,      callToAction{label, href},      backgroundImage{  asset,  hotspot,  crop,  alt},      images[]{_key,   asset,  hotspot,  crop,  alt},      announcements[]{_key, text, link}    },    servicesSection{eyebrow, heading, intro},    aboutSection{      eyebrow,      heading,      body,      image{  asset,  hotspot,  crop,  alt},      featuredStat{value, label},      stats[]{_key, value, label}    },    partnersSection{heading, intro},    contactSection{eyebrow, heading, intro},    seo{title, description, image{  asset,  hotspot,  crop,  alt}}  }
+// Query: *[_type == "homePage"][0]{    hero{      "heading": coalesce(select($locale == "fr" => heading_fr), heading),      "intro": coalesce(select($locale == "fr" => intro_fr), intro),      callToAction{"label": coalesce(select($locale == "fr" => label_fr), label), href},      backgroundImage{  asset,  hotspot,  crop,  alt},      images[]{_key,   asset,  hotspot,  crop,  alt},      announcements[]{_key, "text": coalesce(select($locale == "fr" => text_fr), text), link}    },    servicesSection{      "eyebrow": coalesce(select($locale == "fr" => eyebrow_fr), eyebrow),      "heading": coalesce(select($locale == "fr" => heading_fr), heading),      "intro": coalesce(select($locale == "fr" => intro_fr), intro)    },    aboutSection{      "eyebrow": coalesce(select($locale == "fr" => eyebrow_fr), eyebrow),      "heading": coalesce(select($locale == "fr" => heading_fr), heading),      "body": coalesce(select($locale == "fr" && count(body_fr) > 0 => body_fr), body),      image{  asset,  hotspot,  crop,  alt},      featuredStat{value, "label": coalesce(select($locale == "fr" => label_fr), label)},      stats[]{_key, value, "label": coalesce(select($locale == "fr" => label_fr), label)}    },    partnersSection{      "heading": coalesce(select($locale == "fr" => heading_fr), heading),      "intro": coalesce(select($locale == "fr" => intro_fr), intro)    },    contactSection{      "eyebrow": coalesce(select($locale == "fr" => eyebrow_fr), eyebrow),      "heading": coalesce(select($locale == "fr" => heading_fr), heading),      "intro": coalesce(select($locale == "fr" => intro_fr), intro)    },    seo{  "title": coalesce(select($locale == "fr" => title_fr), title),  "description": coalesce(select($locale == "fr" => description_fr), description),  image{  asset,  hotspot,  crop,  alt}}  }
 export type HOME_PAGE_QUERY_RESULT = {
   hero: {
     heading: string | null;
@@ -587,9 +627,9 @@ export type HOME_PAGE_QUERY_RESULT = {
   } | null;
 } | null;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: SERVICES_QUERY
-// Query: *[_type == "service"] | order(orderRank asc, title asc){    _id,    title,    "slug": slug.current,    summary,    icon,    image{  asset,  hotspot,  crop,  alt}  }
+// Query: *[_type == "service"] | order(orderRank asc, title asc){      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  "summary": coalesce(select($locale == "fr" => summary_fr), summary),  icon,  image{  asset,  hotspot,  crop,  alt}  }
 export type SERVICES_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -604,9 +644,24 @@ export type SERVICES_QUERY_RESULT = Array<{
   } | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
+// Variable: TEAM_QUERY
+// Query: *[_type == "author" && teamStatus == "current"] | order(orderRank asc, name asc){    _id,    name,    "role": coalesce(select($locale == "fr" => role_fr), role),    image{  asset,  hotspot,  crop,  alt}  }
+export type TEAM_QUERY_RESULT = Array<{
+  _id: string;
+  name: string | null;
+  role: string | null;
+  image: {
+    asset: SanityImageAssetReference | null;
+    hotspot: SanityImageHotspot | null;
+    crop: SanityImageCrop | null;
+    alt: string | null;
+  } | null;
+}>;
+
+// Source: ../website/sanity/lib/queries.ts
 // Variable: SERVICES_PAGE_QUERY
-// Query: *[_type == "service"] | order(orderRank asc, title asc){    _id,    title,    "slug": slug.current,    summary,    icon,    image{  asset,  hotspot,  crop,  alt},    body,    faqs[]{_key, question, answer}  }
+// Query: *[_type == "service"] | order(orderRank asc, title asc){      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  "summary": coalesce(select($locale == "fr" => summary_fr), summary),  icon,  image{  asset,  hotspot,  crop,  alt},    "body": coalesce(select($locale == "fr" && count(body_fr) > 0 => body_fr), body),    faqs[]{      _key,      "question": coalesce(select($locale == "fr" => question_fr), question),      "answer": coalesce(select($locale == "fr" => answer_fr), answer)    }  }
 export type SERVICES_PAGE_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -627,9 +682,9 @@ export type SERVICES_PAGE_QUERY_RESULT = Array<{
   }> | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: SERVICE_QUERY
-// Query: *[_type == "service" && slug.current == $slug][0]{    _id,    title,    "slug": slug.current,    summary,    icon,    image{  asset,  hotspot,  crop,  alt},    body,    seo{title, description, image{  asset,  hotspot,  crop,  alt}}  }
+// Query: *[_type == "service" && slug.current == $slug][0]{      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  "summary": coalesce(select($locale == "fr" => summary_fr), summary),  icon,  image{  asset,  hotspot,  crop,  alt},    "body": coalesce(select($locale == "fr" && count(body_fr) > 0 => body_fr), body),    seo{  "title": coalesce(select($locale == "fr" => title_fr), title),  "description": coalesce(select($locale == "fr" => description_fr), description),  image{  asset,  hotspot,  crop,  alt}}  }
 export type SERVICE_QUERY_RESULT = {
   _id: string;
   title: string | null;
@@ -655,7 +710,7 @@ export type SERVICE_QUERY_RESULT = {
   } | null;
 } | null;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: PARTNERS_QUERY
 // Query: *[_type == "partner"] | order(orderRank asc, name asc){    _id,    name,    logo{  asset,  hotspot,  crop,  alt},    website  }
 export type PARTNERS_QUERY_RESULT = Array<{
@@ -670,9 +725,9 @@ export type PARTNERS_QUERY_RESULT = Array<{
   website: string | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: POSTS_QUERY
-// Query: *[_type == "post" && defined(slug.current)] | order(publishedAt desc){      _id,  title,  "slug": slug.current,  excerpt,  publishedAt,  mainImage{  asset,  hotspot,  crop,  alt},  author->{_id, name, "slug": slug.current, role, image{  asset,  hotspot,  crop,  alt}},  categories[]->{_id, title, "slug": slug.current}  }
+// Query: *[_type == "post" && defined(slug.current)] | order(publishedAt desc){      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  "excerpt": coalesce(select($locale == "fr" => excerpt_fr), excerpt),  publishedAt,  mainImage{  asset,  hotspot,  crop,  alt},  author->{_id, name, "slug": slug.current, "role": coalesce(select($locale == "fr" => role_fr), role), image{  asset,  hotspot,  crop,  alt}},  categories[]->{_id, "title": coalesce(select($locale == "fr" => title_fr), title), "slug": slug.current}  }
 export type POSTS_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -704,9 +759,9 @@ export type POSTS_QUERY_RESULT = Array<{
   }> | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: POST_QUERY
-// Query: *[_type == "post" && slug.current == $slug][0]{      _id,  title,  "slug": slug.current,  excerpt,  publishedAt,  mainImage{  asset,  hotspot,  crop,  alt},  author->{_id, name, "slug": slug.current, role, image{  asset,  hotspot,  crop,  alt}},  categories[]->{_id, title, "slug": slug.current},    body,    seo{title, description, image{  asset,  hotspot,  crop,  alt}}  }
+// Query: *[_type == "post" && slug.current == $slug][0]{      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  "excerpt": coalesce(select($locale == "fr" => excerpt_fr), excerpt),  publishedAt,  mainImage{  asset,  hotspot,  crop,  alt},  author->{_id, name, "slug": slug.current, "role": coalesce(select($locale == "fr" => role_fr), role), image{  asset,  hotspot,  crop,  alt}},  categories[]->{_id, "title": coalesce(select($locale == "fr" => title_fr), title), "slug": slug.current},    "body": coalesce(select($locale == "fr" && count(body_fr) > 0 => body_fr), body),    seo{  "title": coalesce(select($locale == "fr" => title_fr), title),  "description": coalesce(select($locale == "fr" => description_fr), description),  image{  asset,  hotspot,  crop,  alt}}  }
 export type POST_QUERY_RESULT = {
   _id: string;
   title: string | null;
@@ -749,16 +804,16 @@ export type POST_QUERY_RESULT = {
   } | null;
 } | null;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: POST_SLUGS_QUERY
 // Query: *[_type == "post" && defined(slug.current)]{"slug": slug.current}
 export type POST_SLUGS_QUERY_RESULT = Array<{
   slug: string | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: PUBLICATIONS_QUERY
-// Query: *[_type == "publication" && defined(slug.current)] | order(publishedAt desc){      _id,  title,  "slug": slug.current,  publicationType,  abstract,  publishedAt,  journal,  doi,  externalUrl,  "fileUrl": file.asset->url,  coverImage{  asset,  hotspot,  crop,  alt},  authors[]->{_id, name, "slug": slug.current, role},  externalAuthors,  categories[]->{_id, title, "slug": slug.current}  }
+// Query: *[_type == "publication" && defined(slug.current)] | order(publishedAt desc){      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  publicationType,  "abstract": coalesce(select($locale == "fr" => abstract_fr), abstract),  publishedAt,  journal,  doi,  externalUrl,  "fileUrl": file.asset->url,  coverImage{  asset,  hotspot,  crop,  alt},  authors[]->{_id, name, "slug": slug.current, "role": coalesce(select($locale == "fr" => role_fr), role)},  externalAuthors,  categories[]->{_id, "title": coalesce(select($locale == "fr" => title_fr), title), "slug": slug.current}  }
 export type PUBLICATIONS_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -790,9 +845,9 @@ export type PUBLICATIONS_QUERY_RESULT = Array<{
   }> | null;
 }>;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: PUBLICATION_QUERY
-// Query: *[_type == "publication" && slug.current == $slug][0]{      _id,  title,  "slug": slug.current,  publicationType,  abstract,  publishedAt,  journal,  doi,  externalUrl,  "fileUrl": file.asset->url,  coverImage{  asset,  hotspot,  crop,  alt},  authors[]->{_id, name, "slug": slug.current, role},  externalAuthors,  categories[]->{_id, title, "slug": slug.current},    body,    seo{title, description, image{  asset,  hotspot,  crop,  alt}}  }
+// Query: *[_type == "publication" && slug.current == $slug][0]{      _id,  "title": coalesce(select($locale == "fr" => title_fr), title),  "slug": slug.current,  publicationType,  "abstract": coalesce(select($locale == "fr" => abstract_fr), abstract),  publishedAt,  journal,  doi,  externalUrl,  "fileUrl": file.asset->url,  coverImage{  asset,  hotspot,  crop,  alt},  authors[]->{_id, name, "slug": slug.current, "role": coalesce(select($locale == "fr" => role_fr), role)},  externalAuthors,  categories[]->{_id, "title": coalesce(select($locale == "fr" => title_fr), title), "slug": slug.current},    "body": coalesce(select($locale == "fr" && count(body_fr) > 0 => body_fr), body),    seo{  "title": coalesce(select($locale == "fr" => title_fr), title),  "description": coalesce(select($locale == "fr" => description_fr), description),  image{  asset,  hotspot,  crop,  alt}}  }
 export type PUBLICATION_QUERY_RESULT = {
   _id: string;
   title: string | null;
@@ -835,7 +890,7 @@ export type PUBLICATION_QUERY_RESULT = {
   } | null;
 } | null;
 
-// Source: ../../premierhealthrecords/examples/website/sanity/lib/queries.ts
+// Source: ../website/sanity/lib/queries.ts
 // Variable: PUBLICATION_SLUGS_QUERY
 // Query: *[_type == "publication" && defined(slug.current)]{"slug": slug.current}
 export type PUBLICATION_SLUGS_QUERY_RESULT = Array<{
@@ -845,17 +900,18 @@ export type PUBLICATION_SLUGS_QUERY_RESULT = Array<{
 // Query TypeMap
 declare global {
   interface SanityQueries {
-    "\n  *[_type == \"siteSettings\"][0]{\n    title,\n    description,\n    logo{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n    phone,\n    email,\n    address,\n    openingHours[]{_key, days, hours},\n    socialLinks[]{_key, platform, url},\n    navigation[]{_key, label, href},\n    footerNavigation[]{_key, label, href}\n  }\n": SITE_SETTINGS_QUERY_RESULT;
-    "\n  *[_type == \"homePage\"][0]{\n    hero{\n      heading,\n      intro,\n      callToAction{label, href},\n      backgroundImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      images[]{_key, \n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      announcements[]{_key, text, link}\n    },\n    servicesSection{eyebrow, heading, intro},\n    aboutSection{\n      eyebrow,\n      heading,\n      body,\n      image{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      featuredStat{value, label},\n      stats[]{_key, value, label}\n    },\n    partnersSection{heading, intro},\n    contactSection{eyebrow, heading, intro},\n    seo{title, description, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}}\n  }\n": HOME_PAGE_QUERY_RESULT;
-    "\n  *[_type == \"service\"] | order(orderRank asc, title asc){\n    _id,\n    title,\n    \"slug\": slug.current,\n    summary,\n    icon,\n    image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n  }\n": SERVICES_QUERY_RESULT;
-    "\n  *[_type == \"service\"] | order(orderRank asc, title asc){\n    _id,\n    title,\n    \"slug\": slug.current,\n    summary,\n    icon,\n    image{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n    body,\n    faqs[]{_key, question, answer}\n  }\n": SERVICES_PAGE_QUERY_RESULT;
-    "\n  *[_type == \"service\" && slug.current == $slug][0]{\n    _id,\n    title,\n    \"slug\": slug.current,\n    summary,\n    icon,\n    image{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n    body,\n    seo{title, description, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}}\n  }\n": SERVICE_QUERY_RESULT;
+    "\n  *[_type == \"siteSettings\"][0]{\n    title,\n    \"description\": coalesce(select($locale == \"fr\" => description_fr), description),\n    logo{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n    phone,\n    email,\n    address,\n    openingHours[]{\n      _key,\n      days,\n      hours,\n      \"daysLabel\": coalesce(select($locale == \"fr\" => days_fr), days),\n      \"hoursLabel\": coalesce(select($locale == \"fr\" => hours_fr), hours)\n    },\n    socialLinks[]{_key, platform, url},\n    navigation[]{_key, \"label\": coalesce(select($locale == \"fr\" => label_fr), label), href},\n    footerNavigation[]{_key, \"label\": coalesce(select($locale == \"fr\" => label_fr), label), href}\n  }\n": SITE_SETTINGS_QUERY_RESULT;
+    "\n  *[_type == \"homePage\"][0]{\n    hero{\n      \"heading\": coalesce(select($locale == \"fr\" => heading_fr), heading),\n      \"intro\": coalesce(select($locale == \"fr\" => intro_fr), intro),\n      callToAction{\"label\": coalesce(select($locale == \"fr\" => label_fr), label), href},\n      backgroundImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      images[]{_key, \n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      announcements[]{_key, \"text\": coalesce(select($locale == \"fr\" => text_fr), text), link}\n    },\n    servicesSection{\n      \"eyebrow\": coalesce(select($locale == \"fr\" => eyebrow_fr), eyebrow),\n      \"heading\": coalesce(select($locale == \"fr\" => heading_fr), heading),\n      \"intro\": coalesce(select($locale == \"fr\" => intro_fr), intro)\n    },\n    aboutSection{\n      \"eyebrow\": coalesce(select($locale == \"fr\" => eyebrow_fr), eyebrow),\n      \"heading\": coalesce(select($locale == \"fr\" => heading_fr), heading),\n      \"body\": coalesce(select($locale == \"fr\" && count(body_fr) > 0 => body_fr), body),\n      image{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n      featuredStat{value, \"label\": coalesce(select($locale == \"fr\" => label_fr), label)},\n      stats[]{_key, value, \"label\": coalesce(select($locale == \"fr\" => label_fr), label)}\n    },\n    partnersSection{\n      \"heading\": coalesce(select($locale == \"fr\" => heading_fr), heading),\n      \"intro\": coalesce(select($locale == \"fr\" => intro_fr), intro)\n    },\n    contactSection{\n      \"eyebrow\": coalesce(select($locale == \"fr\" => eyebrow_fr), eyebrow),\n      \"heading\": coalesce(select($locale == \"fr\" => heading_fr), heading),\n      \"intro\": coalesce(select($locale == \"fr\" => intro_fr), intro)\n    },\n    seo{\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"description\": coalesce(select($locale == \"fr\" => description_fr), description),\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n}\n  }\n": HOME_PAGE_QUERY_RESULT;
+    "\n  *[_type == \"service\"] | order(orderRank asc, title asc){\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  \"summary\": coalesce(select($locale == \"fr\" => summary_fr), summary),\n  icon,\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n\n  }\n": SERVICES_QUERY_RESULT;
+    "\n  *[_type == \"author\" && teamStatus == \"current\"] | order(orderRank asc, name asc){\n    _id,\n    name,\n    \"role\": coalesce(select($locale == \"fr\" => role_fr), role),\n    image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n  }\n": TEAM_QUERY_RESULT;
+    "\n  *[_type == \"service\"] | order(orderRank asc, title asc){\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  \"summary\": coalesce(select($locale == \"fr\" => summary_fr), summary),\n  icon,\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n,\n    \"body\": coalesce(select($locale == \"fr\" && count(body_fr) > 0 => body_fr), body),\n    faqs[]{\n      _key,\n      \"question\": coalesce(select($locale == \"fr\" => question_fr), question),\n      \"answer\": coalesce(select($locale == \"fr\" => answer_fr), answer)\n    }\n  }\n": SERVICES_PAGE_QUERY_RESULT;
+    "\n  *[_type == \"service\" && slug.current == $slug][0]{\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  \"summary\": coalesce(select($locale == \"fr\" => summary_fr), summary),\n  icon,\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n,\n    \"body\": coalesce(select($locale == \"fr\" && count(body_fr) > 0 => body_fr), body),\n    seo{\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"description\": coalesce(select($locale == \"fr\" => description_fr), description),\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n}\n  }\n": SERVICE_QUERY_RESULT;
     "\n  *[_type == \"partner\"] | order(orderRank asc, name asc){\n    _id,\n    name,\n    logo{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n    website\n  }\n": PARTNERS_QUERY_RESULT;
-    "\n  *[_type == \"post\" && defined(slug.current)] | order(publishedAt desc){\n    \n  _id,\n  title,\n  \"slug\": slug.current,\n  excerpt,\n  publishedAt,\n  mainImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  author->{_id, name, \"slug\": slug.current, role, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}},\n  categories[]->{_id, title, \"slug\": slug.current}\n\n  }\n": POSTS_QUERY_RESULT;
-    "\n  *[_type == \"post\" && slug.current == $slug][0]{\n    \n  _id,\n  title,\n  \"slug\": slug.current,\n  excerpt,\n  publishedAt,\n  mainImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  author->{_id, name, \"slug\": slug.current, role, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}},\n  categories[]->{_id, title, \"slug\": slug.current}\n,\n    body,\n    seo{title, description, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}}\n  }\n": POST_QUERY_RESULT;
+    "\n  *[_type == \"post\" && defined(slug.current)] | order(publishedAt desc){\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  \"excerpt\": coalesce(select($locale == \"fr\" => excerpt_fr), excerpt),\n  publishedAt,\n  mainImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  author->{_id, name, \"slug\": slug.current, \"role\": coalesce(select($locale == \"fr\" => role_fr), role), image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}},\n  categories[]->{_id, \"title\": coalesce(select($locale == \"fr\" => title_fr), title), \"slug\": slug.current}\n\n  }\n": POSTS_QUERY_RESULT;
+    "\n  *[_type == \"post\" && slug.current == $slug][0]{\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  \"excerpt\": coalesce(select($locale == \"fr\" => excerpt_fr), excerpt),\n  publishedAt,\n  mainImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  author->{_id, name, \"slug\": slug.current, \"role\": coalesce(select($locale == \"fr\" => role_fr), role), image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}},\n  categories[]->{_id, \"title\": coalesce(select($locale == \"fr\" => title_fr), title), \"slug\": slug.current}\n,\n    \"body\": coalesce(select($locale == \"fr\" && count(body_fr) > 0 => body_fr), body),\n    seo{\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"description\": coalesce(select($locale == \"fr\" => description_fr), description),\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n}\n  }\n": POST_QUERY_RESULT;
     "\n  *[_type == \"post\" && defined(slug.current)]{\"slug\": slug.current}\n": POST_SLUGS_QUERY_RESULT;
-    "\n  *[_type == \"publication\" && defined(slug.current)] | order(publishedAt desc){\n    \n  _id,\n  title,\n  \"slug\": slug.current,\n  publicationType,\n  abstract,\n  publishedAt,\n  journal,\n  doi,\n  externalUrl,\n  \"fileUrl\": file.asset->url,\n  coverImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  authors[]->{_id, name, \"slug\": slug.current, role},\n  externalAuthors,\n  categories[]->{_id, title, \"slug\": slug.current}\n\n  }\n": PUBLICATIONS_QUERY_RESULT;
-    "\n  *[_type == \"publication\" && slug.current == $slug][0]{\n    \n  _id,\n  title,\n  \"slug\": slug.current,\n  publicationType,\n  abstract,\n  publishedAt,\n  journal,\n  doi,\n  externalUrl,\n  \"fileUrl\": file.asset->url,\n  coverImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  authors[]->{_id, name, \"slug\": slug.current, role},\n  externalAuthors,\n  categories[]->{_id, title, \"slug\": slug.current}\n,\n    body,\n    seo{title, description, image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}}\n  }\n": PUBLICATION_QUERY_RESULT;
+    "\n  *[_type == \"publication\" && defined(slug.current)] | order(publishedAt desc){\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  publicationType,\n  \"abstract\": coalesce(select($locale == \"fr\" => abstract_fr), abstract),\n  publishedAt,\n  journal,\n  doi,\n  externalUrl,\n  \"fileUrl\": file.asset->url,\n  coverImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  authors[]->{_id, name, \"slug\": slug.current, \"role\": coalesce(select($locale == \"fr\" => role_fr), role)},\n  externalAuthors,\n  categories[]->{_id, \"title\": coalesce(select($locale == \"fr\" => title_fr), title), \"slug\": slug.current}\n\n  }\n": PUBLICATIONS_QUERY_RESULT;
+    "\n  *[_type == \"publication\" && slug.current == $slug][0]{\n    \n  _id,\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"slug\": slug.current,\n  publicationType,\n  \"abstract\": coalesce(select($locale == \"fr\" => abstract_fr), abstract),\n  publishedAt,\n  journal,\n  doi,\n  externalUrl,\n  \"fileUrl\": file.asset->url,\n  coverImage{\n  asset,\n  hotspot,\n  crop,\n  alt\n},\n  authors[]->{_id, name, \"slug\": slug.current, \"role\": coalesce(select($locale == \"fr\" => role_fr), role)},\n  externalAuthors,\n  categories[]->{_id, \"title\": coalesce(select($locale == \"fr\" => title_fr), title), \"slug\": slug.current}\n,\n    \"body\": coalesce(select($locale == \"fr\" && count(body_fr) > 0 => body_fr), body),\n    seo{\n  \"title\": coalesce(select($locale == \"fr\" => title_fr), title),\n  \"description\": coalesce(select($locale == \"fr\" => description_fr), description),\n  image{\n  asset,\n  hotspot,\n  crop,\n  alt\n}\n}\n  }\n": PUBLICATION_QUERY_RESULT;
     "\n  *[_type == \"publication\" && defined(slug.current)]{\"slug\": slug.current}\n": PUBLICATION_SLUGS_QUERY_RESULT;
   }
 }

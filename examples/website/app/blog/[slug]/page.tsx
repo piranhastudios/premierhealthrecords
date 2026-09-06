@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { getLocale, getTranslations } from "next-intl/server"
 
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -36,9 +37,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return null
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -46,7 +47,12 @@ function formatDate(value?: string | null) {
 }
 
 export default async function PostPage({ params }: Props) {
-  const { data: post } = await sanityFetch({ query: POST_QUERY, params: await params })
+  const [{ data: post }, t, common, locale] = await Promise.all([
+    sanityFetch({ query: POST_QUERY, params: await params }),
+    getTranslations("blog"),
+    getTranslations("common"),
+    getLocale(),
+  ])
 
   if (!post) notFound()
 
@@ -57,11 +63,11 @@ export default async function PostPage({ params }: Props) {
       <article className="bg-background py-16 md:py-24">
         <div className="mx-auto max-w-3xl px-4 md:px-8">
           <Link href="/blog" className="text-sm text-accent hover:underline">
-            ← Back to blog
+            ← {common("backToBlog")}
           </Link>
 
           <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {formatDate(post.publishedAt) && <span>{formatDate(post.publishedAt)}</span>}
+            {formatDate(post.publishedAt, locale) && <span>{formatDate(post.publishedAt, locale)}</span>}
             {post.categories?.map((category) => (
               <span key={category._id} className="rounded-full bg-accent/10 px-2 py-0.5 text-accent">
                 {category.title}
@@ -75,7 +81,7 @@ export default async function PostPage({ params }: Props) {
 
           {post.author?.name && (
             <p className="mt-4 text-sm text-muted-foreground">
-              By {post.author.name}
+              {t("by", { name: post.author.name })}
               {post.author.role ? `, ${post.author.role}` : ""}
             </p>
           )}

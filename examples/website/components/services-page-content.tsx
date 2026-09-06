@@ -4,9 +4,11 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Minus, Plus } from "lucide-react"
+import { useTranslations } from "next-intl"
 import type { ClientReturnStega } from "next-sanity"
 
 import { RichText } from "@/components/portable-text"
+import { highlight } from "@/lib/highlight"
 import { SanityImage } from "@/components/sanity-image"
 import { serviceIcon } from "@/lib/service-icons"
 import type { SERVICES_PAGE_QUERY } from "@/sanity/lib/queries"
@@ -26,9 +28,12 @@ type Props = {
   // this derives that exact shape from the query, so the prop always matches
   // what app/services/page.tsx hands in.
   services: ClientReturnStega<typeof SERVICES_PAGE_QUERY>
+  phone?: string | null
 }
 
-export function ServicesPageContent({ services }: Props) {
+export function ServicesPageContent({ services, phone }: Props) {
+  const t = useTranslations("servicesPage")
+  const common = useTranslations("common")
   const [expandedId, setExpandedId] = useState<string | null>(services[0]?._id ?? null)
   const [openFaq, setOpenFaq] = useState<string | null>(null)
 
@@ -46,15 +51,14 @@ export function ServicesPageContent({ services }: Props) {
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
             <div className="flex flex-col justify-center">
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Our Services
+                {t("eyebrow")}
               </span>
               <h1 className="mt-4 font-serif text-4xl leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl text-balance">
-                Comprehensive <span className="text-accent">healthcare</span> for every need
+                {highlight(t("title"))}
               </h1>
 
               <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
-                Premier Health Centres offers high-quality healthcare services, delivered by
-                professionals who ensure the highest standards.
+                {t("intro")}
               </p>
 
               <div className="mt-8">
@@ -62,7 +66,7 @@ export function ServicesPageContent({ services }: Props) {
                   href="/#contact"
                   className="group inline-flex items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-accent"
                 >
-                  Book an appointment
+                  {common("bookAppointment")}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -71,7 +75,7 @@ export function ServicesPageContent({ services }: Props) {
             {/* Quick navigation */}
             <div className="rounded-2xl border border-border bg-background p-6">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Quick Navigation
+                {t("quickNav")}
               </h3>
               <div className="mt-4 flex flex-col divide-y divide-border">
                 {services.slice(0, QUICK_NAV_COUNT).map((service) => {
@@ -106,7 +110,7 @@ export function ServicesPageContent({ services }: Props) {
                               href={`#${service.slug}`}
                               className="mt-2 inline-block text-sm font-medium text-accent hover:underline"
                             >
-                              Read more below
+                              {t("readMoreBelow")}
                             </a>
                           )}
                         </div>
@@ -120,7 +124,7 @@ export function ServicesPageContent({ services }: Props) {
                   href="#services-list"
                   className="mt-4 inline-block text-sm font-medium text-accent hover:underline"
                 >
-                  See all {services.length} services
+                  {t("seeAll", { count: services.length })}
                 </a>
               )}
             </div>
@@ -133,10 +137,10 @@ export function ServicesPageContent({ services }: Props) {
         <div className="mx-auto max-w-7xl px-4 md:px-8">
           <div className="text-center">
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Explore Our Services
+              {t("exploreEyebrow")}
             </span>
             <h2 className="mt-4 font-serif text-3xl leading-tight tracking-tight text-foreground md:text-4xl lg:text-5xl">
-              Quality care in <span className="text-accent">every</span> department
+              {highlight(t("exploreTitle"))}
             </h2>
           </div>
 
@@ -202,7 +206,7 @@ export function ServicesPageContent({ services }: Props) {
                         href={`/services/${service.slug}`}
                         className="group mt-5 inline-flex items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-accent"
                       >
-                        Learn more about {service.title}
+                        {t("learnMoreAbout", { title: service.title ?? "" })}
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Link>
                     )}
@@ -210,7 +214,7 @@ export function ServicesPageContent({ services }: Props) {
                     {faqs.length > 0 && (
                       <div className="mt-8">
                         <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                          Frequently Asked Questions
+                          {t("faqTitle")}
                         </h4>
                         <div className="mt-4 space-y-2">
                           {faqs.map((faq) => {
@@ -256,25 +260,23 @@ export function ServicesPageContent({ services }: Props) {
       {/* CTA */}
       <section className="bg-foreground py-16 md:py-24">
         <div className="mx-auto max-w-4xl px-4 text-center md:px-8">
-          <h2 className="font-serif text-3xl font-medium text-card md:text-4xl">
-            Ready to Book Your Appointment?
-          </h2>
-          <p className="mt-4 text-card/80">
-            Our team of medical professionals is here to help you with all your healthcare needs.
-          </p>
+          <h2 className="font-serif text-3xl font-medium text-card md:text-4xl">{t("ctaTitle")}</h2>
+          <p className="mt-4 text-card/80">{t("ctaText")}</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/#contact"
               className="inline-flex items-center justify-center rounded-full bg-accent px-8 py-3 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
             >
-              Contact Us
+              {common("contactUs")}
             </Link>
-            <Link
-              href="tel:+237697978170"
-              className="inline-flex items-center justify-center rounded-full border border-card/30 px-8 py-3 text-sm font-semibold text-card transition-colors hover:bg-card/10"
-            >
-              Call: +237 6 97 97 81 70
-            </Link>
+            {phone && (
+              <Link
+                href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+                className="inline-flex items-center justify-center rounded-full border border-card/30 px-8 py-3 text-sm font-semibold text-card transition-colors hover:bg-card/10"
+              >
+                {t("call", { phone })}
+              </Link>
+            )}
           </div>
         </div>
       </section>

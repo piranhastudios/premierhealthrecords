@@ -8,3 +8,5 @@ docker-compose.yml
 node_modules
 # Marketing site: separate pnpm project, deployed on its own, not part of the Medplum build
 examples/website
+# Sanity Studio: separate pnpm project, deployed to sanity.studio, not part of the Medplum build
+examples/studio

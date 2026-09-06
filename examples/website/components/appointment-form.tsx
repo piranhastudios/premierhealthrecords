@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,7 @@ function toDateInputValue(date: Date) {
 }
 
 export function AppointmentForm({ openingHours, services }: Props) {
+  const t = useTranslations("appointment")
   const [date, setDate] = useState("")
   const [time, setTime] = useState("")
 
@@ -56,33 +58,33 @@ export function AppointmentForm({ openingHours, services }: Props) {
     <form className="space-y-4 pt-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="firstName">{t("firstName")}</Label>
           <Input id="firstName" placeholder="John" required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name</Label>
+          <Label htmlFor="lastName">{t("lastName")}</Label>
           <Input id="lastName" placeholder="Doe" required />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone">Phone Number</Label>
+        <Label htmlFor="phone">{t("phone")}</Label>
         <Input id="phone" type="tel" placeholder="+237 6 XX XX XX XX" required />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="appointmentEmail">Email</Label>
+        <Label htmlFor="appointmentEmail">{t("email")}</Label>
         <Input id="appointmentEmail" type="email" placeholder="john@example.com" required />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="service">Service Required</Label>
+        <Label htmlFor="service">{t("service")}</Label>
         <select
           id="service"
           name="service"
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <option value="">Select a service</option>
+          <option value="">{t("selectService")}</option>
           {(services ?? []).map((service) => (
             <option key={service._id} value={service.slug ?? service._id}>
               {service.title}
@@ -92,7 +94,7 @@ export function AppointmentForm({ openingHours, services }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="date">Preferred Date</Label>
+        <Label htmlFor="date">{t("date")}</Label>
         <Input
           id="date"
           name="date"
@@ -105,28 +107,28 @@ export function AppointmentForm({ openingHours, services }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Available Times</Label>
+        <Label>{t("times")}</Label>
 
         {!date && (
-          <p className="text-sm text-muted-foreground">Choose a date to see available times.</p>
+          <p className="text-sm text-muted-foreground">{t("chooseDate")}</p>
         )}
 
         {isClosed && (
           <p className="text-sm text-muted-foreground">
-            We are closed on this day. Please choose another date.
+            {t("closed")}
           </p>
         )}
 
         {isFullyBooked && (
           <p className="text-sm text-muted-foreground">
-            No times left on this date. Please choose another date.
+            {t("full")}
           </p>
         )}
 
         {slots.length > 0 && (
           <div
             role="radiogroup"
-            aria-label="Available appointment times"
+            aria-label={t("timesAria")}
             className="grid max-h-44 grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4"
           >
             {slots.map((slot) => {
@@ -156,12 +158,12 @@ export function AppointmentForm({ openingHours, services }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="message">Additional Notes</Label>
+        <Label htmlFor="message">{t("notes")}</Label>
         <textarea
           id="message"
           name="message"
           rows={3}
-          placeholder="Describe your symptoms or reason for visit..."
+          placeholder={t("notesPlaceholder")}
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
@@ -171,7 +173,7 @@ export function AppointmentForm({ openingHours, services }: Props) {
         disabled={!date || !time}
         className="w-full bg-accent text-accent-foreground hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {time ? `Request ${slotLabel(time)} Appointment` : "Select a Date and Time"}
+        {time ? t("request", { time: slotLabel(time) }) : t("selectDateTime")}
       </Button>
     </form>
   )
