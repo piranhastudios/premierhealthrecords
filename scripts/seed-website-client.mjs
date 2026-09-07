@@ -31,8 +31,15 @@ const PROJECT = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
 
 const POLICY_NAME = 'website-booking policy';
 const CLIENT_NAME = 'Premier Health website';
-// Everything the booking directory needs, read-only.
+// Directory reads (sites, doctors, services) are read-only; booking needs to
+// find/create the Patient, read free Slots ($find) and create the busy Slot +
+// Appointment ($book runs as the caller), then annotate the Appointment.
 const READ_ONLY = ['Location', 'Schedule', 'Practitioner', 'PractitionerRole', 'HealthcareService', 'Organization'];
+const WRITABLE = {
+  Patient: ['read', 'search', 'create'],
+  Slot: ['read', 'search', 'create'],
+  Appointment: ['read', 'search', 'create', 'update'],
+};
 
 async function http(method, path, body, { token, form } = {}) {
   const headers = {};
@@ -78,7 +85,10 @@ console.log(`Provisioning the website client on ${BASE} (project ${PROJECT}) ...
 const desiredPolicy = {
   resourceType: 'AccessPolicy',
   name: POLICY_NAME,
-  resource: READ_ONLY.map((resourceType) => ({ resourceType, readonly: true })),
+  resource: [
+    ...READ_ONLY.map((resourceType) => ({ resourceType, readonly: true })),
+    ...Object.entries(WRITABLE).map(([resourceType, interaction]) => ({ resourceType, interaction })),
+  ],
 };
 const policySearch = await http('GET', `/fhir/R4/AccessPolicy?name=${encodeURIComponent(POLICY_NAME)}`, undefined, { token });
 const existingPolicy = (policySearch.entry ?? []).map((e) => e.resource).find((p) => p.name === POLICY_NAME);
@@ -121,4 +131,3 @@ console.log('\nSet these on Vercel (Project → Settings → Environment Variabl
 console.log(`  MEDPLUM_BASE_URL=${BASE}/`);
 console.log(`  MEDPLUM_CLIENT_ID=${client.id}`);
 console.log(`  MEDPLUM_CLIENT_SECRET=${secret ?? '<unchanged; re-run with --rotate to issue a new one>'}`);
-console.log('  NEXT_PUBLIC_CALDIY_URL=https://book.premierhealthcentrescameroon.com');

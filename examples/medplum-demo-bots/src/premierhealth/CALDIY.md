@@ -1,7 +1,14 @@
-# Cal.diy booking widget — runbook
+# Cal.diy booking widget — runbook (optional, deferred)
 
-Cal.diy (the MIT community edition of Cal.com) is the **public booking widget** on the
-marketing website. **Medplum is the system of record.** Two bots keep them in sync:
+> **Status (2026-09-07): not in use.** The website books directly through Medplum
+> (`examples/website/app/api/booking`, `Schedule/$find` + `Appointment/$book`), which
+> works out of the box and needs none of the setup below. Everything here stays in the
+> repo for when a Cal-style widget is wanted: the compose services live in
+> `docker-compose.caldiy.yml` (an overlay, not part of the default deploy) and the two
+> sync bots are wired but idle until the `CALDIY_*` secrets exist.
+
+Cal.diy (the MIT community edition of Cal.com) would be the **public booking widget** on
+the marketing website. **Medplum is the system of record.** Two bots keep them in sync:
 
 | Direction | Bot | Trigger |
 |---|---|---|

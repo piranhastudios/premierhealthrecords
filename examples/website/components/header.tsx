@@ -40,13 +40,11 @@ interface HeaderProps {
   logo?: SanityImageValue
   /** Sites with their bookable doctors and services (see SiteHeader). */
   bookingSites?: BookingSite[] | null
-  /** Public origin of the Cal.diy booking widget. */
-  calOrigin?: string | null
   /** Clinic phone, offered when online booking is unavailable. */
   phone?: string | null
 }
 
-export function Header({ variant = "transparent", logo, bookingSites, calOrigin, phone }: HeaderProps) {
+export function Header({ variant = "transparent", logo, bookingSites, phone }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [appointmentOpen, setAppointmentOpen] = useState(false)
@@ -170,14 +168,12 @@ export function Header({ variant = "transparent", logo, bookingSites, calOrigin,
                 {t("bookAppointment")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle className="font-serif text-2xl">{t("booking.title")}</DialogTitle>
                 <DialogDescription>{t("booking.description")}</DialogDescription>
               </DialogHeader>
-              {appointmentOpen && (
-                <BookingDialog sites={bookingSites ?? []} calOrigin={calOrigin} phone={phone} />
-              )}
+              {appointmentOpen && <BookingDialog sites={bookingSites ?? []} phone={phone} />}
             </DialogContent>
           </Dialog>
 

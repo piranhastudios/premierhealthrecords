@@ -34,12 +34,6 @@ export async function SiteHeader({ variant }: { variant?: "transparent" | "solid
   }))
 
   return (
-    <Header
-      variant={variant}
-      logo={settings?.logo}
-      bookingSites={bookingSites}
-      calOrigin={process.env.NEXT_PUBLIC_CALDIY_URL}
-      phone={settings?.phone}
-    />
+    <Header variant={variant} logo={settings?.logo} bookingSites={bookingSites} phone={settings?.phone} />
   )
 }
