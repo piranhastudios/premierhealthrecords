@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { ArrowLeft, CheckCircle2, ClipboardList, Clock, MapPin, Stethoscope, UserRound } from "lucide-react"
+import { ArrowLeft, CheckCircle2, ClipboardList, Clock, CreditCard, MapPin, Smartphone, Stethoscope, UserRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,17 @@ type Props = {
 
 type Slot = { start: string; end: string }
 type Booked = { start: string; end: string }
+type BookingResponse = {
+  appointmentId: string
+  start: string
+  end: string
+  requiresPayment: boolean
+  invoiceId?: string
+  amount?: number
+  currency?: string
+}
+/** How long the server holds an unpaid booking; mirrors HOLD_MINUTES in lib/medplum.ts. */
+const HOLD_MINUTES = 15
 
 const CLINIC_TIMEZONE = "Africa/Douala"
 // Every step shares this wrapper so the dialog does not jump in height as the
@@ -45,6 +56,7 @@ export function BookingDialog({ sites, phone }: Props) {
   const [practitionerId, setPractitionerId] = useState<string | undefined>()
   const [serviceId, setServiceId] = useState<string | undefined>()
   const [slot, setSlot] = useState<Slot | undefined>()
+  const [pending, setPending] = useState<BookingResponse | undefined>()
   const [booked, setBooked] = useState<Booked | undefined>()
 
   const site = useMemo(() => sites.find((s) => s.id === siteId), [sites, siteId])
@@ -99,6 +111,7 @@ export function BookingDialog({ sites, phone }: Props) {
       setServiceId(undefined)
     }
     setSlot(undefined)
+    setPending(undefined)
   }
 
   const dateTime = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
@@ -206,7 +219,15 @@ export function BookingDialog({ sites, phone }: Props) {
         <ul className="grid gap-2 sm:grid-cols-2">
           {services.map((service) => (
             <li key={service.id}>
-              <ChoiceButton onClick={() => setServiceId(service.id)} title={service.name} />
+              <ChoiceButton
+                onClick={() => setServiceId(service.id)}
+                title={service.name}
+                subtitle={
+                  service.price
+                    ? formatAmount(service.price.value, service.price.currency, locale)
+                    : t("freeService")
+                }
+              />
             </li>
           ))}
         </ul>
@@ -232,14 +253,182 @@ export function BookingDialog({ sites, phone }: Props) {
   return (
     <div className={STEP}>
       <Crumbs items={[...crumbs, dateTime.format(new Date(slot.start))]} onBack={() => reset("time")} backLabel={t("back")} />
-      <DetailsForm
-        scheduleId={practitioner.scheduleId}
-        serviceId={serviceId}
-        slot={slot}
-        locale={locale}
-        onBooked={setBooked}
-        onTaken={() => setSlot(undefined)}
-      />
+      {pending?.requiresPayment && pending.invoiceId ? (
+        <PaymentStep booking={pending} locale={locale} onPaid={(b) => setBooked(b)} />
+      ) : (
+        <DetailsForm
+          scheduleId={practitioner.scheduleId}
+          serviceId={serviceId}
+          slot={slot}
+          locale={locale}
+          onBooked={(result) => {
+            if (result.requiresPayment && result.invoiceId) {
+              setPending(result)
+            } else {
+              setBooked({ start: result.start, end: result.end })
+            }
+          }}
+          onTaken={() => setSlot(undefined)}
+        />
+      )}
+    </div>
+  )
+}
+
+function formatAmount(amount: number, currency: string, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: currency === "XAF" ? 0 : 2,
+    }).format(amount)
+  } catch {
+    return `${amount.toLocaleString()} ${currency}`
+  }
+}
+
+/**
+ * Take the booking fee. The appointment is already held as `pending`; paying is what
+ * confirms it. Card sends the patient to a hosted checkout and they come back to
+ * /booking/complete; mobile money prompts their phone and we poll for the result.
+ */
+function PaymentStep({
+  booking,
+  locale,
+  onPaid,
+}: {
+  booking: BookingResponse
+  locale: string
+  onPaid: (booked: Booked) => void
+}) {
+  const t = useTranslations("booking")
+  const [method, setMethod] = useState<"card" | "momo" | undefined>()
+  const [phase, setPhase] = useState<"choose" | "starting" | "waiting">("choose")
+  const [error, setError] = useState<string | undefined>()
+  const amount = formatAmount(booking.amount ?? 0, booking.currency ?? "XAF", locale)
+
+  // Poll while the patient approves the prompt on their phone.
+  useEffect(() => {
+    if (phase !== "waiting" || !booking.invoiceId) {
+      return
+    }
+    let active = true
+    let tries = 0
+    const timer = setInterval(async () => {
+      tries += 1
+      try {
+        const res = await fetch(`/api/booking/status?invoice=${encodeURIComponent(booking.invoiceId as string)}`)
+        const json = (await res.json()) as { paid?: boolean }
+        if (json.paid && active) {
+          clearInterval(timer)
+          onPaid({ start: booking.start, end: booking.end })
+          return
+        }
+      } catch {
+        // keep polling; a transient failure is not an answer
+      }
+      if (tries >= 40 && active) {
+        clearInterval(timer)
+        setPhase("choose")
+        setError(t("payPending"))
+      }
+    }, 3000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [phase, booking, onPaid, t])
+
+  async function start(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    setPhase("starting")
+    setError(undefined)
+    try {
+      const res = await fetch("/api/booking/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: booking.invoiceId,
+          method,
+          phone: form.get("phone"),
+          correspondent: form.get("correspondent"),
+        }),
+      })
+      if (!res.ok) {
+        setPhase("choose")
+        setError(t("payFailedStart"))
+        return
+      }
+      const json = (await res.json()) as { checkoutUrl?: string }
+      if (json.checkoutUrl) {
+        window.location.assign(json.checkoutUrl)
+        return
+      }
+      setPhase("waiting")
+    } catch {
+      setPhase("choose")
+      setError(t("payFailedStart"))
+    }
+  }
+
+  if (phase === "waiting") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <Smartphone className="h-10 w-10 animate-pulse text-accent" />
+        <p className="text-sm font-medium text-foreground">{t("payWaiting")}</p>
+        <p className="text-xs text-muted-foreground">{amount}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <StepTitle icon={<CreditCard className="h-4 w-4" />}>{t("payTitle")}</StepTitle>
+      <div className="rounded-xl border border-border bg-accent/5 p-4">
+        <p className="text-xs text-muted-foreground">{t("payAmount")}</p>
+        <p className="text-2xl font-semibold text-foreground">{amount}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("payHeld", { minutes: HOLD_MINUTES })}</p>
+      </div>
+
+      {!method ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">{t("payMethod")}</p>
+          <ChoiceButton onClick={() => setMethod("momo")} title={t("payMomo")} subtitle={t("payMomoHint")} />
+          <ChoiceButton onClick={() => setMethod("card")} title={t("payCard")} subtitle={t("payCardHint")} />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      ) : (
+        <form onSubmit={start} className="space-y-4">
+          {method === "momo" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="payPhone">{t("payPhone")}</Label>
+                <Input id="payPhone" name="phone" type="tel" placeholder="+237 6 XX XX XX XX" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="correspondent">{t("payProvider")}</Label>
+                <select
+                  id="correspondent"
+                  name="correspondent"
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="MTN_MOMO_CMR">MTN Mobile Money</option>
+                  <option value="ORANGE_CMR">Orange Money</option>
+                </select>
+              </div>
+            </>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" disabled={phase === "starting"} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+            {phase === "starting" ? t("payStarting") : t("payNow", { amount })}
+          </Button>
+          <button type="button" onClick={() => { setMethod(undefined); setError(undefined) }} className="w-full text-sm text-accent hover:underline">
+            {t("payChangeMethod")}
+          </button>
+        </form>
+      )}
     </div>
   )
 }
@@ -354,7 +543,7 @@ function DetailsForm({
   serviceId: string
   slot: Slot
   locale: string
-  onBooked: (booked: Booked) => void
+  onBooked: (result: BookingResponse) => void
   onTaken: () => void
 }) {
   const t = useTranslations("booking")
@@ -392,7 +581,7 @@ function DetailsForm({
         setError(res.status === 400 ? t("checkDetails") : t("failed"))
         return
       }
-      const json = (await res.json()) as Booked
+      const json = (await res.json()) as BookingResponse
       onBooked(json)
     } catch {
       setError(t("failed"))

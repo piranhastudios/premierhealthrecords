@@ -34,11 +34,26 @@ const CLIENT_NAME = 'Premier Health website';
 // Directory reads (sites, doctors, services) are read-only; booking needs to
 // find/create the Patient, read free Slots ($find) and create the busy Slot +
 // Appointment ($book runs as the caller), then annotate the Appointment.
-const READ_ONLY = ['Location', 'Schedule', 'Practitioner', 'PractitionerRole', 'HealthcareService', 'Organization'];
+const READ_ONLY = [
+  'Location',
+  'Schedule',
+  'Practitioner',
+  'PractitionerRole',
+  'HealthcareService',
+  'Organization',
+  // What each service costs, so the site can ask for payment before confirming.
+  'ChargeItemDefinition',
+];
 const WRITABLE = {
   Patient: ['read', 'search', 'create'],
-  Slot: ['read', 'search', 'create'],
+  Slot: ['read', 'search', 'create', 'update'],
   Appointment: ['read', 'search', 'create', 'update'],
+  // Raise the booking fee and let the patient pay it. $pay / $checkout run as the
+  // caller and write the PaymentReconciliation; the provider callbacks (which are
+  // separate, unauthenticated and signature-checked) are what actually mark an
+  // invoice paid. This client can never mark one paid itself.
+  Invoice: ['read', 'search', 'create', 'update'],
+  PaymentReconciliation: ['read', 'search', 'create'],
 };
 
 async function http(method, path, body, { token, form } = {}) {

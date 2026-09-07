@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { BookingError, bookAppointment, bookingEnabled, type BookingRequest } from "@/lib/medplum"
+import { callerKey, rateLimit } from "@/lib/rate-limit"
 
 const ID_RE = /^[A-Za-z0-9\-.]{1,64}$/
 const NAME_RE = /^[\p{L}\p{M}'’ .-]{1,80}$/u
@@ -13,6 +14,14 @@ type Body = Partial<BookingRequest> & { website?: string }
 export async function POST(request: Request) {
   if (!bookingEnabled) {
     return NextResponse.json({ error: "Online booking is not configured" }, { status: 503 })
+  }
+  // Public endpoint that creates patients and now raises invoices, so cap it.
+  const limit = rateLimit(callerKey(request, "book"), 10, 300)
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many booking attempts" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    )
   }
   let body: Body
   try {

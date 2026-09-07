@@ -17,6 +17,12 @@ const CLIENT_ID = process.env.MEDPLUM_CLIENT_ID
 const CLIENT_SECRET = process.env.MEDPLUM_CLIENT_SECRET
 
 const SERVICE_TYPE_REFERENCE_URL = "https://medplum.com/fhir/service-type-reference"
+/** HealthcareService extension pointing at the ChargeItemDefinition that prices it. */
+const PRICE_EXT = "https://premierhealth.cm/fhir/StructureDefinition/service-price"
+/** Ties a booking fee invoice back to the appointment it is holding. */
+const INVOICE_APPOINTMENT_SYSTEM = "https://premierhealth.cm/fhir/sid/booking-appointment"
+/** How long an unpaid booking holds its slot before the time is released. */
+export const HOLD_MINUTES = 15
 const APPOINTMENT_SOURCE_SYSTEM = "https://premierhealth.cm/fhir/CodeSystem/appointment-source"
 const PATIENT_SOURCE_SYSTEM = "https://premierhealth.cm/fhir/CodeSystem/patient-source"
 const CACHE_TTL_MS = 5 * 60 * 1000
@@ -42,6 +48,8 @@ export type BookingPractitioner = {
 export type BookingService = {
   id: string
   name: string
+  /** What this service costs to book. Absent means free — no payment is asked for. */
+  price?: { value: number; currency: string }
 }
 
 export type SiteDirectory = {
@@ -64,7 +72,16 @@ export type BookingRequest = {
   locale?: string
 }
 
-export type BookingResult = { appointmentId: string; start: string; end: string }
+export type BookingResult = {
+  appointmentId: string
+  start: string
+  end: string
+  /** True when the service has a price and the booking is held until it is paid. */
+  requiresPayment: boolean
+  invoiceId?: string
+  amount?: number
+  currency?: string
+}
 
 export class BookingError extends Error {
   constructor(
@@ -86,6 +103,9 @@ type FhirResource = {
   serviceType?: { extension?: { url?: string; valueReference?: { reference?: string } }[] }[]
   type?: { text?: string; coding?: { display?: string }[] }[]
   qualification?: { code?: { text?: string; coding?: { display?: string }[] } }[]
+  url?: unknown
+  extension?: { url?: string; valueCanonical?: string }[]
+  propertyGroup?: { priceComponent?: { type?: string; amount?: { value?: number; currency?: string } }[] }[]
   start?: string
   end?: string
   [key: string]: unknown
@@ -163,6 +183,18 @@ function humanName(resource: FhirResource): string {
   return name.text ?? [name.prefix?.join(" "), name.given?.join(" "), name.family].filter(Boolean).join(" ")
 }
 
+/** The base price on a ChargeItemDefinition, if an amount has been set. */
+function basePriceOf(definition: FhirResource): { value: number; currency: string } | undefined {
+  for (const group of definition.propertyGroup ?? []) {
+    for (const component of group.priceComponent ?? []) {
+      if (component.type === "base" && typeof component.amount?.value === "number") {
+        return { value: component.amount.value, currency: component.amount.currency ?? "XAF" }
+      }
+    }
+  }
+  return undefined
+}
+
 /** The clinician's specialty, stamped on Practitioner.qualification by the site seed. */
 function specialtyOf(practitioner: FhirResource | undefined): string | undefined {
   const q = practitioner?.qualification?.[0]?.code
@@ -237,12 +269,41 @@ export async function getSiteDirectory(fhirLocationId: string): Promise<SiteDire
     }
     practitioners.sort((a, b) => a.name.localeCompare(b.name))
 
+    // Prices live on ChargeItemDefinitions the services point at. One search for
+    // the lot, then match by canonical url.
+    const priceUrls = Array.from(
+      new Set(
+        serviceResources
+          .map((s) => s.extension?.find((e) => e.url === PRICE_EXT)?.valueCanonical)
+          .filter((url): url is string => Boolean(url))
+      )
+    )
+    const priceByUrl = new Map<string, { value: number; currency: string }>()
+    if (priceUrls.length > 0) {
+      const definitions = await search(
+        "ChargeItemDefinition",
+        `url=${priceUrls.map(encodeURIComponent).join(",")}&_count=100`,
+        DIRECTORY_REVALIDATE
+      ).catch(() => [])
+      for (const definition of definitions) {
+        const price = basePriceOf(definition)
+        const url = typeof definition.url === "string" ? definition.url : undefined
+        if (url && price) {
+          priceByUrl.set(url, price)
+        }
+      }
+    }
+
     const services: BookingService[] = serviceResources
       .filter((s) => s.id)
-      .map((s) => ({
-        id: s.id as string,
-        name: (typeof s.name === "string" && s.name) || s.type?.[0]?.text || s.type?.[0]?.coding?.[0]?.display || "Service",
-      }))
+      .map((s) => {
+        const priceUrl = s.extension?.find((e) => e.url === PRICE_EXT)?.valueCanonical
+        return {
+          id: s.id as string,
+          name: (typeof s.name === "string" && s.name) || s.type?.[0]?.text || s.type?.[0]?.coding?.[0]?.display || "Service",
+          ...(priceUrl && priceByUrl.has(priceUrl) ? { price: priceByUrl.get(priceUrl) } : {}),
+        }
+      })
 
     const value = { fhirLocationId, practitioners, services }
     directoryCache.set(fhirLocationId, { value, expiresAt: Date.now() + CACHE_TTL_MS })
@@ -319,12 +380,17 @@ export async function bookAppointment(req: BookingRequest): Promise<BookingResul
   if (Number.isNaN(wanted.getTime())) {
     throw new BookingError("Invalid start time", 400)
   }
+  // Free any expired unpaid holds on this diary first, so an abandoned payment
+  // does not keep a time off the calendar.
+  await releaseExpiredHolds(req.scheduleId).catch((error) => console.error("Hold sweep failed:", error))
+
   const slots = await findSlots(req.scheduleId, req.serviceId, new Date(wanted.getTime() - 60_000))
   const slot = slots.find((s) => s.start && new Date(s.start).getTime() === wanted.getTime())
   if (!slot) {
     throw new BookingError("That time is no longer available", 409)
   }
 
+  const price = await getServicePrice(req.serviceId)
   const patient = await findOrCreatePatient(req)
   const bundle = await fhir<Bundle>("POST", "Appointment/$book", {
     resourceType: "Parameters",
@@ -338,13 +404,183 @@ export async function bookAppointment(req: BookingRequest): Promise<BookingResul
     throw new BookingError("Booking did not return an appointment", 502)
   }
 
-  // Record where it came from and what the patient told us.
+  // Record where it came from and what the patient told us. A booking that has to
+  // be paid for is held as `pending` until the money arrives; the busy slot keeps
+  // the time reserved meanwhile.
   const notes = req.notes?.trim().slice(0, 1000)
+  const requiresPayment = Boolean(price && price.value > 0)
   await fhir("PUT", `Appointment/${appointment.id}`, {
     ...appointment,
+    ...(requiresPayment ? { status: "pending" } : {}),
     ...(notes ? { comment: notes } : {}),
     meta: { ...((appointment.meta as object) ?? {}), tag: [{ system: APPOINTMENT_SOURCE_SYSTEM, code: "website" }] },
   }).catch((error) => console.error("Could not annotate website booking:", error))
 
-  return { appointmentId: appointment.id, start: appointment.start as string, end: appointment.end as string }
+  const result: BookingResult = {
+    appointmentId: appointment.id,
+    start: appointment.start as string,
+    end: appointment.end as string,
+    requiresPayment,
+  }
+  if (!requiresPayment || !price) {
+    return result
+  }
+
+  const invoice = await fhir("POST", "Invoice", {
+    resourceType: "Invoice",
+    status: "issued",
+    identifier: [{ system: INVOICE_APPOINTMENT_SYSTEM, value: appointment.id }],
+    subject: { reference: `Patient/${patient.id}` },
+    date: new Date().toISOString(),
+    totalNet: { value: price.value, currency: price.currency },
+    totalGross: { value: price.value, currency: price.currency },
+    lineItem: [
+      {
+        sequence: 1,
+        chargeItemCodeableConcept: { text: price.serviceName },
+        priceComponent: [{ type: "base", amount: { value: price.value, currency: price.currency } }],
+      },
+    ],
+  })
+  return { ...result, invoiceId: invoice.id, amount: price.value, currency: price.currency }
+}
+
+/** The price of a service, or undefined when it is free to book. */
+async function getServicePrice(
+  serviceId: string
+): Promise<{ value: number; currency: string; serviceName: string } | undefined> {
+  const service = await fhir("GET", `HealthcareService/${serviceId}`).catch(() => undefined)
+  const priceUrl = service?.extension?.find((e) => e.url === PRICE_EXT)?.valueCanonical
+  if (!priceUrl) {
+    return undefined
+  }
+  const [definition] = await search("ChargeItemDefinition", `url=${encodeURIComponent(priceUrl)}&_count=1`)
+  const price = definition ? basePriceOf(definition) : undefined
+  if (!price) {
+    return undefined
+  }
+  const serviceName =
+    (typeof service?.name === "string" && service.name) || service?.type?.[0]?.text || "Appointment"
+  return { ...price, serviceName }
+}
+
+/**
+ * Start a payment for a booking fee. Card returns a Stripe Checkout URL to send the
+ * patient to; mobile money pushes a prompt to their phone and is then polled.
+ */
+export async function startPayment(input: {
+  invoiceId: string
+  method: "card" | "momo"
+  phone?: string
+  correspondent?: string
+  successUrl?: string
+  cancelUrl?: string
+}): Promise<{ checkoutUrl?: string; depositId?: string }> {
+  if (input.method === "card") {
+    if (!input.successUrl || !input.cancelUrl) {
+      throw new BookingError("Missing return URLs", 400)
+    }
+    const out = await fhir<{ parameter?: { name: string; valueString?: string; valueUrl?: string }[] }>(
+      "POST",
+      `Invoice/${input.invoiceId}/$checkout`,
+      {
+        resourceType: "Parameters",
+        parameter: [
+          { name: "method", valueString: "card" },
+          { name: "successUrl", valueUrl: input.successUrl },
+          { name: "cancelUrl", valueUrl: input.cancelUrl },
+        ],
+      }
+    )
+    const checkoutUrl = out.parameter?.find((p) => p.name === "checkoutUrl")
+    const url = checkoutUrl?.valueUrl ?? checkoutUrl?.valueString
+    if (!url) {
+      throw new BookingError("Payment provider did not return a checkout link", 502)
+    }
+    return { checkoutUrl: url }
+  }
+
+  if (!input.phone || !input.correspondent) {
+    throw new BookingError("Missing phone number or provider", 400)
+  }
+  const out = await fhir<{ parameter?: { name: string; valueString?: string }[] }>(
+    "POST",
+    `Invoice/${input.invoiceId}/$pay`,
+    {
+      resourceType: "Parameters",
+      parameter: [
+        { name: "payerPhone", valueString: normalizePhone(input.phone).replace(/\D/g, "") },
+        { name: "correspondent", valueString: input.correspondent },
+      ],
+    }
+  )
+  return { depositId: out.parameter?.find((p) => p.name === "depositId")?.valueString }
+}
+
+export type PaymentStatus = { paid: boolean; appointmentStatus?: string; start?: string }
+
+/**
+ * Whether a booking fee has been paid. Only the payment provider's own callback can
+ * mark an invoice balanced, so this reads that outcome; when it is paid the held
+ * appointment is confirmed.
+ */
+export async function getPaymentStatus(invoiceId: string): Promise<PaymentStatus> {
+  const invoice = await fhir("GET", `Invoice/${invoiceId}`)
+  const appointmentId = invoice.identifier?.find((i) => i.system === INVOICE_APPOINTMENT_SYSTEM)?.value
+  const paid = invoice.status === "balanced"
+  if (!appointmentId) {
+    return { paid }
+  }
+  const appointment = await fhir("GET", `Appointment/${appointmentId}`).catch(() => undefined)
+  if (paid && appointment && appointment.status === "pending") {
+    const confirmed = await fhir("PUT", `Appointment/${appointmentId}`, { ...appointment, status: "booked" }).catch(
+      (error) => {
+        console.error("Could not confirm a paid booking:", error)
+        return appointment
+      }
+    )
+    return { paid, appointmentStatus: confirmed.status, start: confirmed.start }
+  }
+  return { paid, appointmentStatus: appointment?.status, start: appointment?.start }
+}
+
+/**
+ * Cancel unpaid holds older than HOLD_MINUTES on a diary and free their slots, so an
+ * abandoned payment does not keep a time off the calendar. Best-effort and cheap: it
+ * runs on the way into a booking rather than needing a scheduled job.
+ */
+export async function releaseExpiredHolds(scheduleId: string): Promise<number> {
+  const cutoff = new Date(Date.now() - HOLD_MINUTES * 60_000).toISOString()
+  const stale = await search("Appointment", `status=pending&date=ge${new Date().toISOString()}&_count=50`)
+  let released = 0
+  for (const appointment of stale) {
+    if (!appointment.id || (appointment.meta as { lastUpdated?: string } | undefined)?.lastUpdated === undefined) {
+      continue
+    }
+    if (((appointment.meta as { lastUpdated?: string }).lastUpdated as string) > cutoff) {
+      continue
+    }
+    const slotRefs = ((appointment as { slot?: { reference?: string }[] }).slot ?? [])
+      .map((r) => r.reference)
+      .filter((r): r is string => Boolean(r))
+    // Only touch holds on the diary being booked.
+    const onThisSchedule = await Promise.all(
+      slotRefs.map(async (ref) => {
+        const slot = await fhir("GET", ref).catch(() => undefined)
+        return (slot?.schedule as { reference?: string } | undefined)?.reference === `Schedule/${scheduleId}`
+          ? { ref, slot }
+          : undefined
+      })
+    )
+    const mine = onThisSchedule.filter((x): x is { ref: string; slot: FhirResource } => Boolean(x))
+    if (mine.length === 0) {
+      continue
+    }
+    await fhir("PUT", `Appointment/${appointment.id}`, { ...appointment, status: "cancelled" }).catch(() => undefined)
+    for (const { ref, slot } of mine) {
+      await fhir("PUT", ref, { ...slot, status: "free" }).catch(() => undefined)
+    }
+    released++
+  }
+  return released
 }
