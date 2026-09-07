@@ -1,0 +1,9 @@
+[
+  {
+    "_comment": "One entry per Medplum Schedule (practitioner × site). `schedule` is the Schedule's https://premierhealth.cm/fhir/sid/schedule identifier printed by seed-cameroon-sites.mjs (<practitionerId>-<siteSlug>). Copy this file to caldiy-links.json (git-ignored) and fill it from Cal.diy: event type id (Event Types → open → id in the URL), the booking link path <username>/<event-slug>, and the Cal.diy user id (Settings → Admin → Users).",
+    "schedule": "00000000-0000-0000-0000-000000000000-douala-grand-mall",
+    "eventTypeId": 1,
+    "calLink": "dr-example/douala-grand-mall",
+    "calUserId": 2
+  }
+]

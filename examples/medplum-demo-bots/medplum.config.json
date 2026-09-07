@@ -215,6 +215,30 @@
       "id": "",
       "source": "src/premierhealth/campaign-unsubscribe.ts",
       "dist": "dist/premierhealth/campaign-unsubscribe.js"
+    },
+    {
+      "name": "premierhealth-appointment-notify",
+      "id": "",
+      "source": "src/premierhealth/appointment-notify.ts",
+      "dist": "dist/premierhealth/appointment-notify.js"
+    },
+    {
+      "name": "premierhealth-appointment-reminders",
+      "id": "",
+      "source": "src/premierhealth/appointment-reminders.ts",
+      "dist": "dist/premierhealth/appointment-reminders.js"
+    },
+    {
+      "name": "premierhealth-caldiy-webhook",
+      "id": "",
+      "source": "src/premierhealth/caldiy-webhook.ts",
+      "dist": "dist/premierhealth/caldiy-webhook.js"
+    },
+    {
+      "name": "premierhealth-caldiy-mirror",
+      "id": "",
+      "source": "src/premierhealth/caldiy-mirror.ts",
+      "dist": "dist/premierhealth/caldiy-mirror.js"
     }
   ]
 }
