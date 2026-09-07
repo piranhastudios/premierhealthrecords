@@ -5,6 +5,7 @@ import {category} from './documents/category'
 import {ctaLink} from './objects/ctaLink'
 import {faq} from './objects/faq'
 import {homePage} from './singletons/homePage'
+import {location} from './documents/location'
 import {openingHours} from './objects/openingHours'
 import {partner} from './documents/partner'
 import {post} from './documents/post'
@@ -20,6 +21,7 @@ export const schemaTypes = [
   siteSettings,
   // Documents
   service,
+  location,
   post,
   publication,
   author,
