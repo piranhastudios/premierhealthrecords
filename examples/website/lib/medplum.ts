@@ -19,6 +19,8 @@ const CLIENT_SECRET = process.env.MEDPLUM_CLIENT_SECRET
 const SERVICE_TYPE_REFERENCE_URL = "https://medplum.com/fhir/service-type-reference"
 /** HealthcareService extension pointing at the ChargeItemDefinition that prices it. */
 const PRICE_EXT = "https://premierhealth.cm/fhir/StructureDefinition/service-price"
+/** Stable per-site business identifier, seeded as the site slug (e.g. "douala-grand-mall"). */
+const SITE_IDENTIFIER_SYSTEM = "https://premierhealth.cm/fhir/sid/site"
 /** Ties a booking fee invoice back to the appointment it is holding. */
 const INVOICE_APPOINTMENT_SYSTEM = "https://premierhealth.cm/fhir/sid/booking-appointment"
 /** How long an unpaid booking holds its slot before the time is released. */
@@ -33,7 +35,31 @@ export const BOOKING_WINDOW_DAYS = 14
 // Don't offer slots starting in the next 30 minutes.
 const MIN_NOTICE_MS = 30 * 60_000
 
-export const bookingEnabled = Boolean(BASE_URL && CLIENT_ID && CLIENT_SECRET)
+/**
+ * Master switch for online booking, independent of whether credentials exist.
+ *
+ * Opt-in on purpose: booking now raises invoices and takes payment, so it must never
+ * turn itself on because a credential happened to be present. Unset means off.
+ * Set BOOKING_ENABLED=true per environment in Vercel.
+ *
+ * When off the site behaves as though no clinician is bookable: the dialog shows the
+ * "call us" fallback with the clinic phone number, and the booking API routes return
+ * 503, so it cannot be driven directly either.
+ */
+const bookingFlagOn = /^(1|true|on|yes)$/i.test(process.env.BOOKING_ENABLED ?? "")
+
+export const bookingEnabled = bookingFlagOn && Boolean(BASE_URL && CLIENT_ID && CLIENT_SECRET)
+
+/** Why booking is off, for the server log — a silent switch is hard to debug. */
+export function bookingDisabledReason(): string | undefined {
+  if (!bookingFlagOn) {
+    return "BOOKING_ENABLED is not set to true"
+  }
+  if (!BASE_URL || !CLIENT_ID || !CLIENT_SECRET) {
+    return "MEDPLUM_BASE_URL / MEDPLUM_CLIENT_ID / MEDPLUM_CLIENT_SECRET are not all set"
+  }
+  return undefined
+}
 
 export type BookingPractitioner = {
   id: string
@@ -224,16 +250,41 @@ export function normalizePhone(value: string): string {
  * Doctors and services bookable at one site, joined from the FHIR Schedules
  * (practitioner × site) and HealthcareServices of that Location.
  */
-export async function getSiteDirectory(fhirLocationId: string): Promise<SiteDirectory> {
-  const empty: SiteDirectory = { fhirLocationId, practitioners: [], services: [] }
+/**
+ * Resolve a site to its Location id in whichever Medplum project this environment
+ * points at. Sites are matched on their slug, not a raw id, so one CMS document
+ * works against both the live project and the dev one.
+ */
+async function resolveLocationId(site: string): Promise<string | undefined> {
+  const [bySlug] = await search(
+    "Location",
+    `identifier=${encodeURIComponent(`${SITE_IDENTIFIER_SYSTEM}|${site}`)}&_count=1`,
+    DIRECTORY_REVALIDATE
+  ).catch(() => [])
+  if (bySlug?.id) {
+    return bySlug.id
+  }
+  // Fall back to treating the value as a raw Location id, for a site recorded
+  // before slugs were seeded.
+  const direct = await fhir("GET", `Location/${site}`, undefined, DIRECTORY_REVALIDATE).catch(() => undefined)
+  return direct?.id
+}
+
+export async function getSiteDirectory(site: string): Promise<SiteDirectory> {
+  const empty: SiteDirectory = { fhirLocationId: site, practitioners: [], services: [] }
   if (!bookingEnabled) {
     return empty
   }
-  const cached = directoryCache.get(fhirLocationId)
+  const cached = directoryCache.get(site)
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value
   }
   try {
+    const fhirLocationId = await resolveLocationId(site)
+    if (!fhirLocationId) {
+      console.error(`No Location matches site "${site}" in this project`)
+      return empty
+    }
     const [scheduleEntries, serviceResources] = await Promise.all([
       search("Schedule", `actor=Location/${fhirLocationId}&active=true&_count=100&_include=Schedule:actor`, DIRECTORY_REVALIDATE),
       search("HealthcareService", `location=Location/${fhirLocationId}&active=true&_count=100&_sort=name`, DIRECTORY_REVALIDATE),
@@ -306,18 +357,19 @@ export async function getSiteDirectory(fhirLocationId: string): Promise<SiteDire
       })
 
     const value = { fhirLocationId, practitioners, services }
-    directoryCache.set(fhirLocationId, { value, expiresAt: Date.now() + CACHE_TTL_MS })
+    directoryCache.set(site, { value, expiresAt: Date.now() + CACHE_TTL_MS })
     return value
   } catch (error) {
-    console.error(`Booking directory unavailable for Location/${fhirLocationId}:`, error)
+    console.error(`Booking directory unavailable for site "${site}":`, error)
     return empty
   }
 }
 
-export async function getBookingDirectory(fhirLocationIds: string[]): Promise<Record<string, SiteDirectory>> {
-  const unique = Array.from(new Set(fhirLocationIds.filter(Boolean)))
-  const directories = await Promise.all(unique.map((id) => getSiteDirectory(id)))
-  return Object.fromEntries(directories.map((d) => [d.fhirLocationId, d]))
+/** Directories for several sites, keyed by the site key that was passed in. */
+export async function getBookingDirectory(sites: string[]): Promise<Record<string, SiteDirectory>> {
+  const unique = Array.from(new Set(sites.filter(Boolean)))
+  const directories = await Promise.all(unique.map(async (site) => [site, await getSiteDirectory(site)] as const))
+  return Object.fromEntries(directories)
 }
 
 /** Raw free Slot resources from Schedule/$find for the booking window. */

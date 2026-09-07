@@ -43,7 +43,8 @@
     },
     "booking": {
       "title": "Book an Appointment",
-      "description": "Tell us what you need, choose your doctor, and pick a time that suits you."
+      "description": "Tell us what you need, choose your doctor, and pick a time that suits you.",
+      "descriptionOffline": "We are not taking online bookings just yet."
     }
   },
   "servicesPage": {
@@ -138,7 +139,7 @@
     "checkDetails": "Please check your name and phone number.",
     "failed": "We could not complete the booking. Please try again or call us.",
     "back": "Back",
-    "unavailable": "Online booking is not available for this centre yet. Call us and we will find you a time.",
+    "unavailable": "Call us and we will find you a time.",
     "call": "Call {phone}",
     "successTitle": "You're booked",
     "successBody": "We have your appointment. A confirmation is on its way by WhatsApp or email, with a reminder the day before.",

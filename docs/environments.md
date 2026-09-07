@@ -41,11 +41,34 @@ gated by Coolify's own toggle, so a push to `main` only rebuilds when that is en
 not part of the default deploy. See
 `examples/medplum-demo-bots/src/premierhealth/CALDIY.md`.
 
-There is currently **one** Medplum server. The dev website therefore has no backend of its
-own: leave `MEDPLUM_CLIENT_ID` / `MEDPLUM_CLIENT_SECRET` unset on Preview and the booking
-dialog degrades to "call us" instead of writing test bookings into live patient data. When a
-dev backend is wanted, add a second Medplum **Project** on the same server (free — it is one
-more project, not one more server) and point the Preview variables at a client created there.
+One Medplum server, two projects on it — a second project costs nothing:
+
+| Project | Id | Used by |
+|---|---|---|
+| `Douala` | `161452d9-43b7-5c29-aa7b-c85680fa45c6` | Production, and the provider/admin apps |
+| `Douala (dev)` | `c4c16ab3-e93d-47b3-a106-2030dcf79f1a` | Vercel Preview only |
+
+Each has its own website ClientApplication, so test bookings on the dev site never reach
+live patient data. The dev project was seeded with the same site, services, prices and
+clinicians (`seed-cameroon-sites.mjs --project <id>`).
+
+### Turning online booking on and off
+
+`BOOKING_ENABLED` is the master switch and is **opt-in**: anything but `true`/`1`/`on`/`yes`
+(including unset) turns booking off, whatever credentials are present. Booking raises
+invoices and takes payment, so it must never enable itself by accident.
+
+| Environment | `BOOKING_ENABLED` |
+|---|---|
+| Production | `false` — the dialog shows the clinic phone number instead |
+| Preview | `true` — books against `Douala (dev)` |
+
+When off, the booking dialog offers the phone number from `siteSettings`, and
+`/api/booking*` returns 503 so it cannot be driven directly either. The server log says why
+booking is off on each render.
+
+Sites are matched to FHIR by **slug** (`Location.identifier` = `.../sid/site|<slug>`), not by
+a raw id, so the single Sanity `location` document resolves correctly in both projects.
 
 ## Content (Sanity)
 

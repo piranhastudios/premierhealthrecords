@@ -43,7 +43,8 @@
     },
     "booking": {
       "title": "Prendre rendez-vous",
-      "description": "Dites-nous ce dont vous avez besoin, choisissez votre médecin et l'horaire qui vous convient."
+      "description": "Dites-nous ce dont vous avez besoin, choisissez votre médecin et l'horaire qui vous convient.",
+      "descriptionOffline": "Nous ne prenons pas encore les rendez-vous en ligne."
     }
   },
   "servicesPage": {
@@ -138,7 +139,7 @@
     "checkDetails": "Veuillez vérifier votre nom et votre numéro de téléphone.",
     "failed": "La réservation n'a pas pu aboutir. Réessayez ou appelez-nous.",
     "back": "Retour",
-    "unavailable": "La prise de rendez-vous en ligne n'est pas encore disponible pour ce centre. Appelez-nous et nous vous trouverons un créneau.",
+    "unavailable": "Appelez-nous et nous vous trouverons un créneau.",
     "call": "Appeler le {phone}",
     "successTitle": "Rendez-vous confirmé",
     "successBody": "Votre rendez-vous est enregistré. Une confirmation arrive par WhatsApp ou e-mail, avec un rappel la veille.",

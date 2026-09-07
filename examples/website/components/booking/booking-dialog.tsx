@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { BookingPractitioner, BookingService } from "@/lib/medplum"
+import { telHref } from "@/lib/phone-link"
 
 export type BookingSite = {
   id: string
@@ -642,7 +643,7 @@ function Unavailable({ phone }: { phone?: string | null }) {
       <p className="text-sm text-muted-foreground">{t("unavailable")}</p>
       {phone && (
         <Button asChild className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90">
-          <a href={`tel:${phone.replace(/\s+/g, "")}`}>{t("call", { phone })}</a>
+          <a href={telHref(phone)}>{t("call", { phone })}</a>
         </Button>
       )}
     </div>

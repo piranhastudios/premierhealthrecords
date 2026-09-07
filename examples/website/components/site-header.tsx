@@ -1,6 +1,6 @@
 import { Header } from "@/components/header"
 import type { BookingSite } from "@/components/booking/booking-dialog"
-import { getBookingDirectory } from "@/lib/medplum"
+import { bookingDisabledReason, getBookingDirectory } from "@/lib/medplum"
 import { sanityFetch } from "@/sanity/lib/live"
 import { LOCATIONS_QUERY, SITE_SETTINGS_QUERY } from "@/sanity/lib/queries"
 
@@ -8,6 +8,7 @@ type LocationRow = {
   _id: string
   name?: string | null
   address?: string | null
+  slug?: string | null
   fhirLocationId?: string | null
 }
 
@@ -22,15 +23,22 @@ export async function SiteHeader({ variant }: { variant?: "transparent" | "solid
     sanityFetch({ query: LOCATIONS_QUERY }),
   ])
 
-  const rows = ((locations ?? []) as LocationRow[]).filter((row) => row.fhirLocationId)
-  const directory = await getBookingDirectory(rows.map((row) => row.fhirLocationId as string))
+  const disabled = bookingDisabledReason()
+  if (disabled) {
+    console.log(`[booking] online booking is off: ${disabled}`)
+  }
+  // Match on the slug so the same CMS document resolves in whichever Medplum
+  // project this environment points at; the recorded id is only a fallback.
+  const rows = ((locations ?? []) as LocationRow[]).filter((row) => row.slug || row.fhirLocationId)
+  const keyOf = (row: LocationRow) => (row.slug ?? row.fhirLocationId) as string
+  const directory = await getBookingDirectory(rows.map(keyOf))
   const bookingSites: BookingSite[] = rows.map((row) => ({
     id: row._id,
     name: row.name ?? "Premier Health Centre",
     address: row.address,
-    fhirLocationId: row.fhirLocationId as string,
-    practitioners: directory[row.fhirLocationId as string]?.practitioners ?? [],
-    services: directory[row.fhirLocationId as string]?.services ?? [],
+    fhirLocationId: directory[keyOf(row)]?.fhirLocationId ?? (row.fhirLocationId as string),
+    practitioners: directory[keyOf(row)]?.practitioners ?? [],
+    services: directory[keyOf(row)]?.services ?? [],
   }))
 
   return (

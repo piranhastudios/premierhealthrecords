@@ -45,6 +45,9 @@ interface HeaderProps {
 }
 
 export function Header({ variant = "transparent", logo, bookingSites, phone }: HeaderProps) {
+  // With online booking off (or nobody bookable) the dialog just offers the phone
+  // number, so the description must not promise choosing a doctor and a time.
+  const canBookOnline = (bookingSites ?? []).some((site) => site.practitioners.length > 0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [appointmentOpen, setAppointmentOpen] = useState(false)
@@ -171,7 +174,7 @@ export function Header({ variant = "transparent", logo, bookingSites, phone }: H
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle className="font-serif text-2xl">{t("booking.title")}</DialogTitle>
-                <DialogDescription>{t("booking.description")}</DialogDescription>
+                <DialogDescription>{canBookOnline ? t("booking.description") : t("booking.descriptionOffline")}</DialogDescription>
               </DialogHeader>
               {appointmentOpen && <BookingDialog sites={bookingSites ?? []} phone={phone} />}
             </DialogContent>
