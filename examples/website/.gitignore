@@ -14,3 +14,9 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+
+# Vercel CLI (project link + pulled env). `.env.example` stays tracked.
+.vercel
+.env
+.env.local
+.env*.local
