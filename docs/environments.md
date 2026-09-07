@@ -52,3 +52,27 @@ more project, not one more server) and point the Preview variables at a client c
 One project (`ciwnv4el`), one dataset (`production`), shared by both environments. Drafts are
 not visible on the live site unless `SANITY_SHOW_DRAFTS=true`, which is set on Preview only.
 Publishing in the Studio therefore affects both environments at once.
+
+## Database durability
+
+The Medplum database lives in the Docker named volume
+`lb8d6788oexaznj9u39kmky8_medplum-postgres-data`. It is **not** recreated by a
+deploy: the volume was created 2026-05-02 and has survived every redeploy since.
+A deploy restarts the containers (about a minute of downtime, Postgres included)
+but leaves the volume alone.
+
+What would actually lose the data:
+- `docker compose down -v`, or Coolify's "delete volumes" option when stopping the
+  resource. Never use either on this stack.
+- Renaming the volume in `docker-compose.full-stack.yml`. Docker would create a new
+  empty one and the old data would still be on disk but unused.
+- Disk failure.
+
+**Backups.** `scripts/medplum-backup.sh` is installed at
+`/usr/local/bin/medplum-backup.sh` and runs nightly at 01:30 UTC via root's crontab,
+writing a verified `pg_dump` to `/data/backups/medplum/` and keeping 14 days.
+Coolify's own scheduled-backup feature does not cover this database, because
+Postgres is a service inside the compose stack rather than a Coolify-managed
+database resource — which is why the cron exists. Restore instructions are in the
+script header. Backups are on the same disk as the database, so copy them off-box
+before this holds real patient data.
