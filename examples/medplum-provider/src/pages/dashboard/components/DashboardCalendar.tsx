@@ -7,6 +7,7 @@ import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Calendar } from '../../../components/Calendar';
+import { siteSearchParams } from '../../../hooks/useSiteFilter';
 import type { Range } from '../../../types/scheduling';
 import { showErrorNotification } from '../../../utils/notifications';
 import { DashboardPanel } from './DashboardPanel';
@@ -32,10 +33,12 @@ function patientRefOf(appointment: Appointment): string | undefined {
 export interface DashboardCalendarProps {
   /** Bump to refetch the visible range (live Appointment events). */
   refreshKey?: number;
+  /** `Location/<id>` to narrow to one site; undefined for all sites. */
+  siteRef?: string;
 }
 
 export function DashboardCalendar(props: DashboardCalendarProps = {}): JSX.Element {
-  const { refreshKey = 0 } = props;
+  const { refreshKey = 0, siteRef } = props;
   const medplum = useMedplum();
   const navigate = useNavigate();
   const [range, setRange] = useState<Range | undefined>(undefined);
@@ -49,6 +52,7 @@ export function DashboardCalendar(props: DashboardCalendarProps = {}): JSX.Eleme
     medplum
       .searchResources('Appointment', [
         ['_count', '1000'],
+        ...siteSearchParams(siteRef),
         ['date', `ge${range.start.toISOString()}`],
         ['date', `le${range.end.toISOString()}`],
       ])
@@ -57,7 +61,7 @@ export function DashboardCalendar(props: DashboardCalendarProps = {}): JSX.Eleme
     return () => {
       active = false;
     };
-  }, [medplum, range, refreshKey]);
+  }, [medplum, range, refreshKey, siteRef]);
 
   const handleSelectAppointment = useCallback(
     async (appointment: Appointment): Promise<void> => {

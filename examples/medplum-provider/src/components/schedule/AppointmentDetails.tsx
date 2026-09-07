@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Group, Stack, Text } from '@mantine/core';
+import { Badge, Button, Group, Stack, Text } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, formatHumanName, formatPeriod, isReference } from '@medplum/core';
-import type { Appointment, Coding, Patient, PlanDefinition, Practitioner } from '@medplum/fhirtypes';
+import type { Appointment, Coding, Location, Patient, PlanDefinition, Practitioner } from '@medplum/fhirtypes';
 import { CodingInput, Form, MedplumLink, ResourceAvatar, ResourceInput, useMedplum } from '@medplum/react';
 import { useResource } from '@medplum/react-hooks';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
@@ -83,15 +83,49 @@ export function AppointmentDetails(props: {
   const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
   // Fallback practitioner for appointments that carry none (e.g. manually created).
   const [selectedPractitioner, setSelectedPractitioner] = useState<Practitioner | undefined>();
+  const [cancelling, setCancelling] = useState(false);
 
-  // Extract references to a Patient and a Practitioner from `Appointment.participants`; we expect
-  // one of each.
+  // Extract references to a Patient, a Practitioner and the site (Location) from
+  // `Appointment.participants`; we expect at most one of each.
   const participants = props.appointment.participant.map((p) => p.actor);
   const patientRef = participants.find((r) => isReference<Patient>(r, 'Patient'));
   const practitionerRef = participants.find((r) => isReference<Practitioner>(r, 'Practitioner'));
+  const locationRef = participants.find((r) => isReference<Location>(r, 'Location'));
 
   const patient = useResource(patientRef);
+  const location = useResource(locationRef);
   const navigate = useNavigate();
+
+  const isCancelled = props.appointment.status === 'cancelled';
+
+  // Cancelling frees the busy Slot(s) the booking created so $find offers the
+  // time again. Bots (notifications, Cal.diy mirror) react to the status change.
+  const handleCancel = useCallback(async () => {
+    if (!window.confirm('Cancel this appointment? The time will become available again.')) {
+      return;
+    }
+    setCancelling(true);
+    try {
+      const updated = await medplum.updateResource<Appointment>({ ...props.appointment, status: 'cancelled' });
+      await Promise.all(
+        (props.appointment.slot ?? []).map(async (slotRef) => {
+          if (!slotRef.reference) {
+            return;
+          }
+          const slot = await medplum.readReference(slotRef);
+          await medplum.updateResource({ ...slot, status: 'free' });
+        })
+      );
+      medplum.invalidateSearches('Appointment');
+      medplum.invalidateSearches('Slot');
+      showNotification({ title: 'Appointment cancelled', message: 'The slot is free again.' });
+      props.onUpdate?.(updated);
+    } catch (err) {
+      showErrorNotification(err);
+    } finally {
+      setCancelling(false);
+    }
+  }, [medplum, props]);
 
   const handleSubmit = useCallback(async () => {
     if (!patient) {
@@ -145,7 +179,26 @@ export function AppointmentDetails(props: {
 
   return (
     <Stack gap="md">
-      <Text size="lg">{formatPeriod({ start: props.appointment.start, end: props.appointment.end })}</Text>
+      <Group justify="space-between" align="flex-start">
+        <div>
+          <Text size="lg">{formatPeriod({ start: props.appointment.start, end: props.appointment.end })}</Text>
+          {locationRef && (
+            <Text size="sm" c="dimmed">
+              {location?.name ?? locationRef.display ?? 'Site'}
+            </Text>
+          )}
+          {isCancelled && (
+            <Badge color="red" variant="light" mt={4}>
+              Cancelled
+            </Badge>
+          )}
+        </div>
+        {!isCancelled && (
+          <Button variant="subtle" color="red" size="xs" loading={cancelling} onClick={handleCancel}>
+            Cancel appointment
+          </Button>
+        )}
+      </Group>
 
       {!patientRef && <UpdateAppointmentForm appointment={props.appointment} onUpdate={props.onUpdate} />}
 

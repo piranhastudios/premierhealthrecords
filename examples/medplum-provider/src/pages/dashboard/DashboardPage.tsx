@@ -26,7 +26,9 @@ import {
   useCount,
   useTodayAppointments,
 } from '../../hooks/useDashboardMetrics';
+import { useSiteFilter } from '../../hooks/useSiteFilter';
 import { roleLabel, useUserRole } from '../../hooks/useUserRole';
+import { SitePicker } from '../../components/SitePicker';
 import { AiInsightsStub } from './components/AiInsightsStub';
 import { AppointmentsDonut } from './components/AppointmentsDonut';
 import { DashboardCalendar } from './components/DashboardCalendar';
@@ -87,8 +89,12 @@ export function DashboardPage(): JSX.Element {
   const showClinical = role === 'nurse' || role === 'clinician' || role === 'admin';
   const isFrontOrAdmin = role === 'front-desk' || role === 'admin';
 
+  // Current site filter (Location). Narrows appointment data and counts.
+  const { siteRef } = useSiteFilter();
+  const siteQuery = siteRef ? `&location=${siteRef}` : '';
+
   // Shared appointment data (used by the donut and the station queue).
-  const today = useTodayAppointments();
+  const today = useTodayAppointments(true, siteRef);
   const refreshToday = today.refresh;
 
   // Live feeds. WebSocket subscriptions push changes as they happen: any
@@ -113,7 +119,7 @@ export function DashboardPage(): JSX.Element {
   // KPI counts — all hooks run unconditionally; `enabled` gates the network call.
   // Front desk doesn't show the all-time patient total, so skip that query for them.
   const patients = useCount('Patient', '', role !== 'front-desk');
-  const apptToday = useCount('Appointment', `date=ge${todayStart}&date=le${todayEnd}`, true, apptRefresh);
+  const apptToday = useCount('Appointment', `date=ge${todayStart}&date=le${todayEnd}${siteQuery}`, true, apptRefresh);
   const myTasks = useCount(
     'Task',
     profileRef ? `owner=${profileRef}&status=${OPEN_TASK_STATUSES}` : '',
@@ -125,7 +131,7 @@ export function DashboardPage(): JSX.Element {
   const outstandingInvoices = useCount('Invoice', 'status=issued', can.manageBilling);
   const checkInQueue = useCount(
     'Appointment',
-    `status=arrived,booked&date=ge${todayStart}&date=le${todayEnd}`,
+    `status=arrived,booked&date=ge${todayStart}&date=le${todayEnd}${siteQuery}`,
     can.schedule,
     apptRefresh
   );
@@ -254,7 +260,7 @@ export function DashboardPage(): JSX.Element {
           span: { base: 12, lg: 4 },
           node: <AppointmentsDonut appointments={today.appointments} loading={today.loading} bodyHeight={460} />,
         },
-        { span: { base: 12, lg: 8 }, node: <DashboardCalendar refreshKey={apptRefresh} /> },
+        { span: { base: 12, lg: 8 }, node: <DashboardCalendar refreshKey={apptRefresh} siteRef={siteRef} /> },
       ]
     : [
         {
@@ -263,7 +269,7 @@ export function DashboardPage(): JSX.Element {
         },
         { span: { base: 12, lg: 7 }, node: <PatientsBarChart /> },
         { span: { base: 12, lg: 5 }, node: <TasksList ownerRef={profileRef} /> },
-        { span: { base: 12, lg: 7 }, node: <DashboardCalendar refreshKey={apptRefresh} /> },
+        { span: { base: 12, lg: 7 }, node: <DashboardCalendar refreshKey={apptRefresh} siteRef={siteRef} /> },
         ...(showAi ? [{ span: 12, node: <AiInsightsStub /> }] : []),
       ];
 
@@ -298,6 +304,7 @@ export function DashboardPage(): JSX.Element {
             <Text className={classes.heroDate} size="sm">
               {dateLabel}
             </Text>
+            <SitePicker w={220} />
             <Tooltip label="Scan patient QR">
               <ActionIcon
                 variant="white"
