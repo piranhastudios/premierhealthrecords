@@ -17,8 +17,25 @@ confirmations, reminders and cancellations all come from Medplum
 ## 1. Deploy (Coolify)
 
 Services live in `docker-compose.full-stack.yml`: `cal-postgres`, `caldiy` (web, port
-3000, image `calcom/cal.diy:v6.2.0`), `caldiy-api` (API v2, port 5555, built from the
-same tag, internal only).
+3000, **built from the `calcom/cal.diy` git tag v6.2.0** — the Docker Hub repo
+`calcom/cal.diy` has no published tags; the build needs ~6 GB RAM and 15–30 min),
+`caldiy-api` (API v2, port 5555, built from the same tag, internal only).
+
+Quick local trial without the long build (what the 2026-09-07 UAT used):
+
+```
+docker network create caldiy
+docker run -d --name cal-pg --network caldiy -e POSTGRES_USER=calcom -e POSTGRES_PASSWORD=calcom -e POSTGRES_DB=calcom postgres:16
+docker run -d --name caldiy --network caldiy -p 3002:3000 --add-host=host.docker.internal:host-gateway \
+  -e DATABASE_URL=postgresql://calcom:calcom@cal-pg:5432/calcom -e DATABASE_DIRECT_URL=postgresql://calcom:calcom@cal-pg:5432/calcom \
+  -e NEXT_PUBLIC_WEBAPP_URL=http://localhost:3002 -e NEXTAUTH_URL=http://localhost:3002 \
+  -e NEXTAUTH_SECRET=<random> -e CALENDSO_ENCRYPTION_KEY=<24+ chars> -e NEXT_PUBLIC_LICENSE_CONSENT=agree \
+  -e CALCOM_TELEMETRY_DISABLED=1 -e TZ=Africa/Douala calcom/cal.com:v6.2.0-arm   # amd64: drop -arm
+```
+
+(`calcom/cal.com` is the AGPL image; booking pages and webhooks behave the same.) From the
+container, Medplum on the host is `http://host.docker.internal:8103`, so the webhook
+subscriber URL becomes `http://host.docker.internal:8103/webhook/<membership-id>`.
 
 Set these in the Coolify env store **before** the compose change deploys:
 
