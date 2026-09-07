@@ -194,6 +194,108 @@ services:
       # UUID hard-coded (Coolify v4.0.0 does not expand ${COOLIFY_RESOURCE_UUID} in labels).
       - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-medplum-provider.loadbalancer.server.port=80
 
+  # ---------------------------------------------------------------------------
+  # Cal.diy — public booking widget for the marketing website
+  # (examples/medplum-demo-bots/src/premierhealth/CALDIY.md is the runbook).
+  #
+  # Medplum stays the system of record: the caldiy-webhook bot turns Cal.diy
+  # bookings into FHIR Appointments and the caldiy-mirror bot pushes portal /
+  # provider bookings back into Cal.diy through API v2 (the `caldiy-api` service,
+  # reached only inside the compose network). Cal.diy has NO SMTP configured on
+  # purpose: every patient message goes through Medplum's WhatsApp/email dispatcher.
+  #
+  # Own Postgres so Cal.diy can be removed without touching Medplum data. All
+  # secrets come from the Coolify env store (set them BEFORE this file deploys):
+  #   CALDIY_DB_PASSWORD, CALDIY_NEXTAUTH_SECRET (openssl rand -base64 32),
+  #   CALDIY_ENCRYPTION_KEY (openssl rand -base64 24), CALDIY_JWT_SECRET,
+  #   CALDIY_PUBLIC_URL (default https://book.premierhealthcentrescameroon.com).
+  # ---------------------------------------------------------------------------
+  cal-postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=calcom
+      - POSTGRES_PASSWORD=${CALDIY_DB_PASSWORD:-calcom}
+      - POSTGRES_DB=calcom
+    volumes:
+      - caldiy-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U calcom -d calcom']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  caldiy:
+    # Pinned: Cal.diy is community-maintained; upgrade deliberately.
+    image: calcom/cal.diy:v6.2.0
+    restart: unless-stopped
+    depends_on:
+      cal-postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
+      DATABASE_DIRECT_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
+      # The image was built with a placeholder NEXT_PUBLIC_WEBAPP_URL that its
+      # start script rewrites from this value at boot (calcom/docker convention).
+      # If the booking page renders with localhost links, the image lacks that
+      # script: build from source with the URL as a build arg instead.
+      NEXT_PUBLIC_WEBAPP_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
+      NEXTAUTH_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
+      NEXTAUTH_SECRET: '${CALDIY_NEXTAUTH_SECRET:?set CALDIY_NEXTAUTH_SECRET}'
+      CALENDSO_ENCRYPTION_KEY: '${CALDIY_ENCRYPTION_KEY:?set CALDIY_ENCRYPTION_KEY}'
+      # Flip to 1 once the admin and practitioner users exist (see CALDIY.md).
+      NEXT_PUBLIC_DISABLE_SIGNUP: '${CALDIY_DISABLE_SIGNUP:-0}'
+      NEXT_PUBLIC_LICENSE_CONSENT: 'agree'
+      NEXT_PUBLIC_TELEMETRY_KEY: ''
+      TZ: 'Africa/Douala'
+      # Behind Coolify's TLS-terminating proxy.
+      NODE_TLS_REJECT_UNAUTHORIZED: '0'
+      # No EMAIL_SERVER_* on purpose — Medplum sends every patient message.
+    ports:
+      - '3002:3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/auth/login']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    labels:
+      # UUID hard-coded like the other services (Coolify v4.0.0 does not expand
+      # ${COOLIFY_RESOURCE_UUID}); map the router for book.* to this port.
+      - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-caldiy.loadbalancer.server.port=3000
+
+  caldiy-api:
+    # Cal.diy API v2 (NestJS) is not part of the web image; build it from the
+    # same tag. Only the Medplum bots talk to it (http://caldiy-api:5555), so it
+    # is not exposed through Traefik.
+    build:
+      context: 'https://github.com/calcom/cal.diy.git#v6.2.0'
+      dockerfile: apps/api/v2/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      cal-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: 'production'
+      API_PORT: 5555
+      DATABASE_READ_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
+      DATABASE_WRITE_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
+      NEXTAUTH_SECRET: '${CALDIY_NEXTAUTH_SECRET:?set CALDIY_NEXTAUTH_SECRET}'
+      CALENDSO_ENCRYPTION_KEY: '${CALDIY_ENCRYPTION_KEY:?set CALDIY_ENCRYPTION_KEY}'
+      JWT_SECRET: '${CALDIY_JWT_SECRET:?set CALDIY_JWT_SECRET}'
+      REDIS_URL: 'redis://:medplum@redis:6379/2'
+      WEB_APP_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
+      API_URL: 'http://caldiy-api'
+      API_KEY_PREFIX: 'cal_'
+      LOG_LEVEL: '1'
+      TZ: 'Africa/Douala'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5555/health || curl -fs http://127.0.0.1:5555/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # One-shot: load Premier Health reference data (terminology, insurers, care
   # templates) once the server is healthy. Idempotent — re-runs safely on each
   # deploy. Override the admin login with SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD.
@@ -218,3 +320,4 @@ services:
 
 volumes:
   medplum-postgres-data:
+  caldiy-postgres-data:
