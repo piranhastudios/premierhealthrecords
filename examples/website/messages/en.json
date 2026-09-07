@@ -43,7 +43,7 @@
     },
     "booking": {
       "title": "Book an Appointment",
-      "description": "Choose your centre, the service you need and a doctor, then pick a time that suits you."
+      "description": "Tell us what you need, choose your doctor, and pick a time that suits you."
     }
   },
   "servicesPage": {
@@ -119,7 +119,7 @@
   },
   "booking": {
     "pickSite": "Choose a centre",
-    "pickService": "What do you need?",
+    "pickService": "Type of appointment",
     "pickDoctor": "Choose a doctor",
     "pickTime": "Choose a time",
     "loading": "Loading available times…",
@@ -141,7 +141,10 @@
     "unavailable": "Online booking is not available for this centre yet. Call us and we will find you a time.",
     "call": "Call {phone}",
     "successTitle": "You're booked",
-    "successBody": "We have your appointment. A confirmation is on its way by WhatsApp or email, with a reminder the day before."
+    "successBody": "We have your appointment. A confirmation is on its way by WhatsApp or email, with a reminder the day before.",
+    "pickSpecialty": "What do you need?",
+    "otherSpecialty": "General care",
+    "doctorCount": "{count, plural, one {# doctor} other {# doctors}}"
   },
   "footer": {
     "tagline": "Affordable quality healthcare for all your medical needs in Cameroon.",

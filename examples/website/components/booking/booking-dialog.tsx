@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { ArrowLeft, CheckCircle2, Clock, MapPin, Stethoscope, UserRound } from "lucide-react"
+import { ArrowLeft, CheckCircle2, ClipboardList, Clock, MapPin, Stethoscope, UserRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,45 +41,62 @@ export function BookingDialog({ sites, phone }: Props) {
   const t = useTranslations("booking")
   const locale = useLocale()
   const [siteId, setSiteId] = useState<string | undefined>(sites.length === 1 ? sites[0].id : undefined)
-  const [serviceId, setServiceId] = useState<string | undefined>()
+  const [specialty, setSpecialty] = useState<string | undefined>()
   const [practitionerId, setPractitionerId] = useState<string | undefined>()
+  const [serviceId, setServiceId] = useState<string | undefined>()
   const [slot, setSlot] = useState<Slot | undefined>()
   const [booked, setBooked] = useState<Booked | undefined>()
 
   const site = useMemo(() => sites.find((s) => s.id === siteId), [sites, siteId])
-  const services = useMemo(
-    () => (site?.services ?? []).filter((service) => site?.practitioners.some((p) => p.serviceIds.includes(service.id))),
+
+  // Patients choose a specialty first ("Consultant Cardiologist"), then the
+  // clinician, then the kind of appointment. Clinicians with no specialty
+  // recorded share one unnamed bucket, which auto-skips.
+  const specialties = useMemo(
+    () => Array.from(new Set((site?.practitioners ?? []).map((p) => p.specialty ?? ""))).sort(),
     [site],
   )
   const doctors = useMemo(
-    () => (site?.practitioners ?? []).filter((p) => !serviceId || p.serviceIds.includes(serviceId)),
-    [site, serviceId],
+    () => (site?.practitioners ?? []).filter((p) => specialty === undefined || (p.specialty ?? "") === specialty),
+    [site, specialty],
   )
   const practitioner = doctors.find((p) => p.id === practitionerId)
+  const services = useMemo(
+    () => (site?.services ?? []).filter((s) => practitioner?.serviceIds.includes(s.id)),
+    [site, practitioner],
+  )
   const serviceName = services.find((s) => s.id === serviceId)?.name
 
-  // Auto-advance single-option steps.
+  // Auto-advance any step that has only one option.
   useEffect(() => {
-    if (site && services.length === 1 && !serviceId) {
-      setServiceId(services[0].id)
+    if (site && specialties.length === 1 && specialty === undefined) {
+      setSpecialty(specialties[0])
     }
-  }, [site, services, serviceId])
+  }, [site, specialties, specialty])
   useEffect(() => {
-    if (site && serviceId && doctors.length === 1 && !practitionerId) {
+    if (specialty !== undefined && doctors.length === 1 && !practitionerId) {
       setPractitionerId(doctors[0].id)
     }
-  }, [site, serviceId, doctors, practitionerId])
+  }, [specialty, doctors, practitionerId])
+  useEffect(() => {
+    if (practitioner && services.length === 1 && !serviceId) {
+      setServiceId(services[0].id)
+    }
+  }, [practitioner, services, serviceId])
 
-  function reset(level: "site" | "service" | "doctor" | "time") {
+  function reset(level: "site" | "specialty" | "doctor" | "service" | "time") {
     setBooked(undefined)
     if (level === "site") {
       setSiteId(sites.length === 1 ? sites[0].id : undefined)
     }
-    if (level === "site" || level === "service") {
-      setServiceId(undefined)
+    if (level === "site" || level === "specialty") {
+      setSpecialty(undefined)
+    }
+    if (level === "site" || level === "specialty" || level === "doctor") {
+      setPractitionerId(undefined)
     }
     if (level !== "time") {
-      setPractitionerId(undefined)
+      setServiceId(undefined)
     }
     setSlot(undefined)
   }
@@ -132,12 +149,60 @@ export function BookingDialog({ sites, phone }: Props) {
     )
   }
 
-  // Step 2: service
+  const backToSite = sites.length > 1 ? () => reset("site") : undefined
+
+  // Step 2: specialty
+  if (specialty === undefined) {
+    return (
+      <div className={STEP}>
+        <Crumbs items={[site.name]} onBack={backToSite} backLabel={t("back")} />
+        <StepTitle icon={<Stethoscope className="h-4 w-4" />}>{t("pickSpecialty")}</StepTitle>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {specialties.map((value) => {
+            const count = (site.practitioners ?? []).filter((p) => (p.specialty ?? "") === value).length
+            return (
+              <li key={value || "other"}>
+                <ChoiceButton
+                  onClick={() => setSpecialty(value)}
+                  title={value || t("otherSpecialty")}
+                  subtitle={t("doctorCount", { count })}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    )
+  }
+
+  const specialtyLabel = specialty || t("otherSpecialty")
+  const backToSpecialty = specialties.length > 1 ? () => reset("specialty") : backToSite
+
+  // Step 3: clinician
+  if (!practitioner) {
+    return (
+      <div className={STEP}>
+        <Crumbs items={[site.name, specialtyLabel]} onBack={backToSpecialty} backLabel={t("back")} />
+        <StepTitle icon={<UserRound className="h-4 w-4" />}>{t("pickDoctor")}</StepTitle>
+        <ul className="grid gap-2">
+          {doctors.map((doctor) => (
+            <li key={doctor.id}>
+              <ChoiceButton onClick={() => setPractitionerId(doctor.id)} title={doctor.name} subtitle={doctor.specialty} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  const backToDoctor = doctors.length > 1 ? () => reset("doctor") : backToSpecialty
+
+  // Step 4: appointment type
   if (!serviceId) {
     return (
       <div className={STEP}>
-        <Crumbs items={[site.name]} onBack={sites.length > 1 ? () => reset("site") : undefined} backLabel={t("back")} />
-        <StepTitle icon={<Stethoscope className="h-4 w-4" />}>{t("pickService")}</StepTitle>
+        <Crumbs items={[site.name, specialtyLabel, practitioner.name]} onBack={backToDoctor} backLabel={t("back")} />
+        <StepTitle icon={<ClipboardList className="h-4 w-4" />}>{t("pickService")}</StepTitle>
         <ul className="grid gap-2 sm:grid-cols-2">
           {services.map((service) => (
             <li key={service.id}>
@@ -149,38 +214,21 @@ export function BookingDialog({ sites, phone }: Props) {
     )
   }
 
-  // Step 3: doctor
-  if (!practitioner) {
-    return (
-      <div className={STEP}>
-        <Crumbs items={[site.name, serviceName]} onBack={() => reset("service")} backLabel={t("back")} />
-        <StepTitle icon={<UserRound className="h-4 w-4" />}>{t("pickDoctor")}</StepTitle>
-        <ul className="grid gap-2">
-          {doctors.map((doctor) => (
-            <li key={doctor.id}>
-              <ChoiceButton onClick={() => setPractitionerId(doctor.id)} title={doctor.name} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    )
-  }
+  const crumbs = [site.name, practitioner.name, serviceName]
+  const backToService = services.length > 1 ? () => reset("service") : backToDoctor
 
-  const crumbs = [site.name, serviceName, practitioner.name]
-  const backFromDoctor = () => reset(doctors.length > 1 ? "doctor" : services.length > 1 ? "service" : "site")
-
-  // Step 4: time
+  // Step 5: time
   if (!slot) {
     return (
       <div className={STEP}>
-        <Crumbs items={crumbs} onBack={backFromDoctor} backLabel={t("back")} />
+        <Crumbs items={crumbs} onBack={backToService} backLabel={t("back")} />
         <StepTitle icon={<Clock className="h-4 w-4" />}>{t("pickTime")}</StepTitle>
         <TimePicker scheduleId={practitioner.scheduleId} serviceId={serviceId} locale={locale} onPick={setSlot} phone={phone} />
       </div>
     )
   }
 
-  // Step 5: details
+  // Step 6: details
   return (
     <div className={STEP}>
       <Crumbs items={[...crumbs, dateTime.format(new Date(slot.start))]} onBack={() => reset("time")} backLabel={t("back")} />

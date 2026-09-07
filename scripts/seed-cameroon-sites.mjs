@@ -106,11 +106,15 @@ const ALIGNMENT_MINUTES = 15;
 // Pass --skip-schedules to seed the sites and services only.
 const GENERAL = ['general-consultation', 'follow-up', 'telehealth'];
 const CLINICIANS = [
-  { slug: 'adeline-affong', prefix: 'Dr', given: ['Adeline'], family: 'Affong', role: 'Clinical Director', services: GENERAL },
-  { slug: 'paul-andang', prefix: 'Dr', given: ['Paul'], family: 'Andang', role: 'General Physician', services: GENERAL },
-  { slug: 'morike-mokube', prefix: 'Dr', given: ['Morike'], family: 'Mokube', role: 'Consultant Cardiologist', services: [...GENERAL, 'ecg'] },
-  { slug: 'aloysius-mbako', prefix: 'Dr', given: ['Aloysius'], family: 'Mbako', role: 'Consultant Orthopaedics', services: GENERAL },
-  { slug: 'dyanda-stephanie', prefix: 'Ms', given: ['Dyanda'], family: 'Stephanie', role: 'Endocrinologist', services: GENERAL },
+  // `specialty` is patient-facing: it is the FIRST thing someone picks when booking,
+  // so it must be the field of medicine ("Cardiology"), not the job title.
+  // `role` is the job title, stored separately on PractitionerRole.code.
+  { slug: 'theodore-ngatchu', prefix: 'Prof', given: ['Theodore'], family: 'Ngatchu', specialty: 'General practice', role: 'Managing Director', services: GENERAL },
+  { slug: 'adeline-affong', prefix: 'Dr', given: ['Adeline'], family: 'Afong', specialty: 'General practice', role: 'Clinical Director', services: GENERAL },
+  { slug: 'paul-andang', prefix: 'Dr', given: ['Paul'], family: 'Andang', specialty: 'General practice', role: 'General Physician', services: GENERAL },
+  { slug: 'morike-mokube', prefix: 'Dr', given: ['Morike'], family: 'Mokube', specialty: 'Cardiology', role: 'Consultant Cardiologist', services: [...GENERAL, 'ecg'] },
+  { slug: 'aloysius-mbako', prefix: 'Dr', given: ['Aloysius'], family: 'Mbako', specialty: 'Orthopaedics', role: 'Consultant Orthopaedics', services: GENERAL },
+  { slug: 'dyanda-stephanie', prefix: 'Ms', given: ['Dyanda'], family: 'Stephanie', specialty: 'Endocrinology', role: 'Endocrinologist', services: GENERAL },
 ].map((c) => ({ ...c, sites: c.sites ?? ['douala-grand-mall'] }));
 
 // ---------------------------------------------------------------------------
@@ -290,7 +294,7 @@ if (!SKIP_SCHEDULES) {
       active: true,
       identifier: withIdentifier(existing, SID.practitioner, c.slug),
       name: [{ prefix: [c.prefix], given: c.given, family: c.family }],
-      qualification: [{ code: { text: c.role } }],
+      qualification: [{ code: { text: c.specialty } }],
       // Required by Schedule/$find and $book unless the service carries a timezone.
       extension: [
         ...((existing?.extension ?? []).filter((e) => e.url !== TIMEZONE_EXT)),
@@ -300,7 +304,7 @@ if (!SKIP_SCHEDULES) {
     const practitioner = existing
       ? await fhir.update({ ...desired, id: existing.id })
       : await fhir.create(desired);
-    console.log(`  ${existing ? '=' : '+'} ${displayName(practitioner)} (${c.role})`);
+    console.log(`  ${existing ? '=' : '+'} ${displayName(practitioner)} — ${c.specialty} (${c.role})`);
     clinicians.push({ ...c, practitioner });
   }
 }
@@ -334,7 +338,8 @@ for (const { practitioner, ...c } of clinicians) {
       practitioner: { reference: `Practitioner/${practitioner.id}`, display: displayName(practitioner) },
       organization: ref(organization),
       location: [ref(location)],
-      specialty: [{ text: c.role }],
+      specialty: [{ text: c.specialty }],
+      code: [{ text: c.role }],
       healthcareService: services.map(ref),
     });
 

@@ -43,7 +43,7 @@
     },
     "booking": {
       "title": "Prendre rendez-vous",
-      "description": "Choisissez votre centre, le service souhaité et un médecin, puis l'horaire qui vous convient."
+      "description": "Dites-nous ce dont vous avez besoin, choisissez votre médecin et l'horaire qui vous convient."
     }
   },
   "servicesPage": {
@@ -119,7 +119,7 @@
   },
   "booking": {
     "pickSite": "Choisissez un centre",
-    "pickService": "De quoi avez-vous besoin ?",
+    "pickService": "Type de rendez-vous",
     "pickDoctor": "Choisissez un médecin",
     "pickTime": "Choisissez un horaire",
     "loading": "Chargement des horaires disponibles…",
@@ -141,7 +141,10 @@
     "unavailable": "La prise de rendez-vous en ligne n'est pas encore disponible pour ce centre. Appelez-nous et nous vous trouverons un créneau.",
     "call": "Appeler le {phone}",
     "successTitle": "Rendez-vous confirmé",
-    "successBody": "Votre rendez-vous est enregistré. Une confirmation arrive par WhatsApp ou e-mail, avec un rappel la veille."
+    "successBody": "Votre rendez-vous est enregistré. Une confirmation arrive par WhatsApp ou e-mail, avec un rappel la veille.",
+    "pickSpecialty": "De quoi avez-vous besoin ?",
+    "otherSpecialty": "Soins généraux",
+    "doctorCount": "{count, plural, one {# médecin} other {# médecins}}"
   },
   "footer": {
     "tagline": "Des soins de santé abordables et de qualité pour tous vos besoins médicaux au Cameroun.",

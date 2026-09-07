@@ -32,6 +32,8 @@ export const bookingEnabled = Boolean(BASE_URL && CLIENT_ID && CLIENT_SECRET)
 export type BookingPractitioner = {
   id: string
   name: string
+  /** Shown to patients and used as the first booking step, e.g. "Consultant Cardiologist". */
+  specialty?: string
   /** The (doctor × site) Schedule that availability and booking run against. */
   scheduleId: string
   serviceIds: string[]
@@ -83,6 +85,7 @@ type FhirResource = {
   actor?: { reference?: string; display?: string }[]
   serviceType?: { extension?: { url?: string; valueReference?: { reference?: string } }[] }[]
   type?: { text?: string; coding?: { display?: string }[] }[]
+  qualification?: { code?: { text?: string; coding?: { display?: string }[] } }[]
   start?: string
   end?: string
   [key: string]: unknown
@@ -160,6 +163,12 @@ function humanName(resource: FhirResource): string {
   return name.text ?? [name.prefix?.join(" "), name.given?.join(" "), name.family].filter(Boolean).join(" ")
 }
 
+/** The clinician's specialty, stamped on Practitioner.qualification by the site seed. */
+function specialtyOf(practitioner: FhirResource | undefined): string | undefined {
+  const q = practitioner?.qualification?.[0]?.code
+  return q?.text ?? q?.coding?.[0]?.display ?? undefined
+}
+
 function serviceIdsOf(schedule: FhirResource): string[] {
   return (schedule.serviceType ?? [])
     .map((concept) => concept.extension?.find((e) => e.url === SERVICE_TYPE_REFERENCE_URL)?.valueReference?.reference)
@@ -221,6 +230,7 @@ export async function getSiteDirectory(fhirLocationId: string): Promise<SiteDire
       practitioners.push({
         id: practitionerId,
         name: (practitioner && humanName(practitioner)) || practitionerRef?.display || "Doctor",
+        specialty: specialtyOf(practitioner),
         scheduleId: schedule.id,
         serviceIds,
       })
