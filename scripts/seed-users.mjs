@@ -18,7 +18,7 @@
 //
 // Usage:
 //   node scripts/seed-users.mjs [--base http://localhost:8103] \
-//     [--email admin@example.com] [--password medplum_admin]
+//     [--email admin@example.com] [--password medplum_admin] [--project <id>]
 
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -41,8 +41,10 @@ const BASE = (args.base ?? process.env.MEDPLUM_BASE_URL ?? 'http://localhost:810
 const EMAIL = args.email ?? 'admin@example.com';
 const PASSWORD = args.password ?? 'medplum_admin';
 
-// Fixed id of the default "FHIR R4" project (server seed: packages/server/src/constants.ts).
-const R4_PROJECT_ID = '161452d9-43b7-5c29-aa7b-c85680fa45c6';
+// Fixed id of the default clinic data project, named "Douala" on live (server seed:
+// packages/server/src/constants.ts). Override with --project to seed the same staff
+// logins and policies into another project, e.g. the dev project.
+const R4_PROJECT_ID = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
 const STAFF_PASSWORD = 'medplum_user';
 
 // DEV-ONLY QR signing key. The Patient/$issue-qr and $verify-qr operations HMAC over this

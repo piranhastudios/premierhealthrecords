@@ -52,6 +52,31 @@ Each has its own website ClientApplication, so test bookings on the dev site nev
 live patient data. The dev project was seeded with the same site, services, prices and
 clinicians (`seed-cameroon-sites.mjs --project <id>`).
 
+### Working in the dev project
+
+There is no separate dev deployment of the provider or admin app, and none is needed: the
+same apps serve both projects. Log in as usual and the sign-in page offers a project
+chooser — pick `Douala (dev)` and every screen is then scoped to dev data. Choosing
+`Douala` puts you back on live, so check which one you picked before creating anything.
+
+Both projects carry the same staff logins and the same access policies, so a permissions
+change can be rehearsed on dev before it touches live:
+
+    node scripts/seed-users.mjs --base https://app.premierhealthcentres.com/api \
+      --project c4c16ab3-e93d-47b3-a106-2030dcf79f1a
+
+A dev deployment of the apps themselves would only be worth building to test **code**
+changes to the provider or admin app against a running server. That means a second Coolify
+stack from `develop` with its own Postgres, which costs server memory and disk. The website
+is the only part of the system whose code has a free per-branch deployment.
+
+**Gotcha when renaming a project.** The name shown in the sign-in chooser is
+`ProjectMembership.project.display`, a copy taken when the membership was created, not the
+`Project.name`. Renaming a project leaves every membership showing the old name. Worse, the
+project-admin access policy marks `ProjectMembership.project` read-only
+(`packages/server/src/fhir/accesspolicy.ts`), so a project admin's write of the corrected
+display is silently discarded and returns 200. Rewrite the memberships as a **super admin**.
+
 ### Turning online booking on and off
 
 `BOOKING_ENABLED` is the master switch and is **opt-in**: anything but `true`/`1`/`on`/`yes`
