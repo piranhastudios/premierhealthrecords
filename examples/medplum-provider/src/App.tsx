@@ -7,6 +7,7 @@ import {
   IconBook2,
   IconCalendarEvent,
   IconClipboardCheck,
+  IconCurrencyDollar,
   IconLayoutDashboard,
   IconMail,
   IconPill,
@@ -54,6 +55,7 @@ import { ResourceDetailPage } from './pages/resource/ResourceDetailPage';
 import { ResourceEditPage } from './pages/resource/ResourceEditPage';
 import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
+import { FeesPage } from './pages/fees/FeesPage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { ScheduleSettingsPage } from './pages/schedule/ScheduleSettingsPage';
 import { SearchPage } from './pages/SearchPage';
@@ -152,6 +154,7 @@ export function App(): JSX.Element | null {
                     },
                   },
                   { icon: <IconPrinter />, label: 'Faxes', href: '/Fax/Communication' },
+                  { icon: <IconCurrencyDollar />, label: 'Fees', href: '/Fees' },
                 ],
               },
               {
@@ -250,6 +253,7 @@ export function App(): JSX.Element | null {
               <Route path="/Fax/Communication/:faxId" element={<FaxPage />} />
               {/* /onboarding retired: registration is the profile-driven /Patient/new. */}
               <Route path="/onboarding" element={<Navigate to="/Patient/new" replace />} />
+              <Route path="/Fees" element={<FeesPage />} />
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id" element={<SchedulePage />} />
               <Route path="/Calendar/Schedule/:id/settings" element={<ScheduleSettingsPage />} />
