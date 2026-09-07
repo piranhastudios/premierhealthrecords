@@ -7,6 +7,7 @@ import { Document, useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckoutPanel } from '../../components/billing/CheckoutPanel';
+import { InsurancePanel } from '../../components/billing/InsurancePanel';
 import { usePatient } from '../../hooks/usePatient';
 
 const INVOICE_STATUS_COLOR: Record<string, string> = {
@@ -71,6 +72,7 @@ export function PaymentsTab(): JSX.Element {
 
         <Grid.Col span={{ base: 12, md: 5 }}>
           <Stack gap="lg">
+            <InsurancePanel patient={patient} />
             <Card withBorder padding="lg" radius="md">
               <Stack gap="xs">
                 <Title order={5}>Account balance</Title>
