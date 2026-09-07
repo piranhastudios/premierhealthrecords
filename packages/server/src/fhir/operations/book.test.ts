@@ -8,6 +8,7 @@ import type {
   CodeableConcept,
   Extension,
   HealthcareService,
+  Location,
   Patient,
   Practitioner,
   Resource,
@@ -119,11 +120,15 @@ describe('Appointment/$book', () => {
     return extension;
   }
 
-  async function makeSchedule(opts: { actor: Practitioner; extension?: Extension[] }): Promise<WithId<Schedule>> {
+  async function makeSchedule(opts: {
+    actor: Practitioner;
+    locations?: Location[];
+    extension?: Extension[];
+  }): Promise<WithId<Schedule>> {
     return systemRepo.createResource<Schedule>({
       resourceType: 'Schedule',
       meta: { project: project.project.id },
-      actor: [createReference(opts.actor)],
+      actor: [createReference(opts.actor), ...(opts.locations ?? []).map((location) => createReference(location))],
       serviceType: toCodeableReferenceLike(officeVisitService),
       extension: opts.extension ?? [makeSchedulingExtension({ service: officeVisitService })],
     });
@@ -173,6 +178,75 @@ describe('Appointment/$book', () => {
         ],
       });
     expect(response.status).toEqual(201);
+  });
+
+  test('books a multi-site schedule (Practitioner + Location) and records the site as a participant', async () => {
+    const site = await systemRepo.createResource<Location>({
+      resourceType: 'Location',
+      name: 'Douala Grand Mall',
+      meta: { project: project.project.id },
+    });
+    const schedule = await makeSchedule({ actor: practitioner1, locations: [site] });
+    const response = await request
+      .post('/fhir/R4/Appointment/$book')
+      .set('Authorization', `Bearer ${project.accessToken}`)
+      .send({
+        resourceType: 'Parameters',
+        parameter: [
+          {
+            name: 'slot',
+            resource: {
+              resourceType: 'Slot',
+              schedule: createReference(schedule),
+              serviceType: toCodeableReferenceLike(officeVisitService),
+              start: '2026-01-15T14:00:00Z',
+              end: '2026-01-15T15:00:00Z',
+              status: 'free',
+            } satisfies Slot,
+          },
+          { name: 'patient-reference', valueReference: createReference(patient) },
+        ],
+      });
+    expect(response.body).not.toHaveProperty('issue');
+    expect(response.status).toEqual(201);
+    const entries = ((response.body as Bundle).entry ?? []).map((entry) => entry.resource).filter(isDefined);
+    const appointment = entries.find(isAppointment) as Appointment;
+    expect(appointment.participant).toEqual([
+      { actor: createReference(practitioner1), status: 'tentative' },
+      { actor: createReference(site), status: 'accepted' },
+      { actor: createReference(patient), status: 'accepted' },
+    ]);
+  });
+
+  test('rejects a schedule with two non-Location actors', async () => {
+    const schedule = await systemRepo.createResource<Schedule>({
+      resourceType: 'Schedule',
+      meta: { project: project.project.id },
+      actor: [createReference(practitioner1), createReference(practitioner2)],
+      serviceType: toCodeableReferenceLike(officeVisitService),
+      extension: [makeSchedulingExtension({ service: officeVisitService })],
+    });
+    const response = await request
+      .post('/fhir/R4/Appointment/$book')
+      .set('Authorization', `Bearer ${project.accessToken}`)
+      .send({
+        resourceType: 'Parameters',
+        parameter: [
+          {
+            name: 'slot',
+            resource: {
+              resourceType: 'Slot',
+              schedule: createReference(schedule),
+              serviceType: toCodeableReferenceLike(officeVisitService),
+              start: '2026-01-15T14:00:00Z',
+              end: '2026-01-15T15:00:00Z',
+              status: 'free',
+            } satisfies Slot,
+          },
+        ],
+      });
+    expect(response.status).toEqual(400);
+    expect(response.body.issue?.[0]?.details?.text).toBe('Schedule must have at most one non-Location actor');
   });
 
   test('When referencing a nonexistent schedule', async () => {

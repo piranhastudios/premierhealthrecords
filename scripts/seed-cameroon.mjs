@@ -19,6 +19,9 @@ const seeds = [
   'seed-cameroon-insurers.mjs',
   'seed-cameroon-care-templates.mjs',
   'seed-profiles.mjs',
+  // Sites, per-site services and practitioner schedules (needs the Practitioners
+  // that seed-users.mjs invites; harmless if none exist yet).
+  'seed-cameroon-sites.mjs',
 ];
 
 for (const seed of seeds) {

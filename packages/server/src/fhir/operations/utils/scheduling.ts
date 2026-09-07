@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { EMPTY, getExtensionValue, isDefined } from '@medplum/core';
-import type { CodeableConcept, Resource, Slot } from '@medplum/fhirtypes';
+import { badRequest, EMPTY, getExtensionValue, isDefined, OperationOutcomeError } from '@medplum/core';
+import type { CodeableConcept, Reference, Resource, Schedule, Slot } from '@medplum/fhirtypes';
 import { Temporal } from 'temporal-polyfill';
 import type { Interval } from '../../../util/date';
 import { areIntervalsOverlapping, clamp } from '../../../util/date';
@@ -55,6 +55,49 @@ function hasMatchingServiceType(slot: Slot, concepts: readonly CodeableConcept[]
 }
 
 export const TimezoneExtensionURI = 'http://hl7.org/fhir/StructureDefinition/timezone';
+
+/**
+ * Resolve the "primary" actor of a Schedule, i.e. the one whose timezone governs
+ * availability.
+ *
+ * A Schedule may list one primary actor (typically a Practitioner) plus any number
+ * of Location actors describing the site(s) the primary actor works at. This is how
+ * multi-site clinics model "Dr. X at site Y": one Schedule per (Practitioner, Location)
+ * pair. A Schedule whose only actor is a Location is still supported.
+ *
+ * @param schedule - The Schedule to examine
+ * @returns The Reference of the primary actor
+ * @throws OperationOutcomeError (400) when the actor list is ambiguous
+ */
+export function getPrimaryActor(schedule: Schedule): Reference {
+  const actors = schedule.actor ?? EMPTY;
+  const nonLocation = actors.filter((actor) => !actor.reference?.startsWith('Location/'));
+  if (nonLocation.length > 1) {
+    throw new OperationOutcomeError(
+      badRequest('Schedule must have at most one non-Location actor', 'Schedule.actor')
+    );
+  }
+  if (nonLocation.length === 1) {
+    return nonLocation[0];
+  }
+  if (actors.length === 1) {
+    return actors[0];
+  }
+  throw new OperationOutcomeError(
+    badRequest('Schedule with multiple Location actors must also have a primary actor', 'Schedule.actor')
+  );
+}
+
+/**
+ * Whether a Schedule actor reference points at a Location (a site) rather than a
+ * person or device.
+ *
+ * @param actor - A Schedule actor reference
+ * @returns true if the reference is to a Location
+ */
+export function isLocationActor(actor: Reference): boolean {
+  return actor.reference?.startsWith('Location/') ?? false;
+}
 
 /**
  * Given a Resource, try to identify a relevant time zone from its extensions.
