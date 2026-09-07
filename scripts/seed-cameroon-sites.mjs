@@ -49,6 +49,7 @@ const SID = {
   organization: `${PH}/sid/organization`,
   site: `${PH}/sid/site`,
   healthcareService: `${PH}/sid/healthcare-service`,
+  practitioner: `${PH}/sid/practitioner`,
   practitionerRole: `${PH}/sid/practitioner-role`,
   schedule: `${PH}/sid/schedule`,
 };
@@ -89,17 +90,28 @@ const SERVICE_LINES = [
 ];
 const ALIGNMENT_MINUTES = 15;
 
-// Which practitioners work at which sites, keyed by the practitioner's email
-// (the same email seed-users.mjs invites them with). `'*'` is a DEV convenience
-// meaning "every practitioner in the project" — in production list the real
-// clinicians explicitly, or non-clinical staff (front desk, admin) end up with
-// bookable diaries on the website. Values are SITES slugs.
+// The clinicians patients can book, and what each of them offers. This list is the
+// source of truth: each entry is upserted as a Practitioner (identifier
+// `.../sid/practitioner`) and given a PractitionerRole + Schedule per site. Nobody
+// else gets a bookable diary, so front-desk and management accounts never show up
+// as doctors on the website.
 //
-// Pass --skip-schedules to seed the sites and services only, which is what you
-// want on a new environment before the clinician list is confirmed.
-const PRACTITIONER_SITES = {
-  '*': ['douala-grand-mall'],
-};
+// These are records, not logins. Invite a clinician in the admin app (or via
+// scripts/seed-users.mjs) when they need to sign in; matching is by identifier, so
+// an invite later attaches to the same person.
+//
+// `services` are SERVICE_LINES codes. A service nobody offers simply does not
+// appear on the website until someone is given it.
+//
+// Pass --skip-schedules to seed the sites and services only.
+const GENERAL = ['general-consultation', 'follow-up', 'telehealth'];
+const CLINICIANS = [
+  { slug: 'adeline-affong', prefix: 'Dr', given: ['Adeline'], family: 'Affong', role: 'Clinical Director', services: GENERAL },
+  { slug: 'paul-andang', prefix: 'Dr', given: ['Paul'], family: 'Andang', role: 'General Physician', services: GENERAL },
+  { slug: 'morike-mokube', prefix: 'Dr', given: ['Morike'], family: 'Mokube', role: 'Consultant Cardiologist', services: [...GENERAL, 'ecg'] },
+  { slug: 'aloysius-mbako', prefix: 'Dr', given: ['Aloysius'], family: 'Mbako', role: 'Consultant Orthopaedics', services: GENERAL },
+  { slug: 'dyanda-stephanie', prefix: 'Ms', given: ['Dyanda'], family: 'Stephanie', role: 'Endocrinologist', services: GENERAL },
+].map((c) => ({ ...c, sites: c.sites ?? ['douala-grand-mall'] }));
 
 // ---------------------------------------------------------------------------
 // HTTP + auth (same shape as the other seeds)
@@ -253,22 +265,45 @@ for (const site of SITES) {
 // 4. Practitioners: timezone + PractitionerRole per site
 // 5. Schedule per (practitioner × site)
 // ---------------------------------------------------------------------------
-// Invited staff Practitioners have no `active` flag, so filter client-side.
-const practitioners = SKIP_SCHEDULES
-  ? []
-  : (await fhir.search('Practitioner', { _count: '200' })).filter((p) => p.active !== false);
 if (SKIP_SCHEDULES) {
   console.log('--skip-schedules: sites and services only, no practitioner diaries created.');
-} else if (practitioners.length === 0) {
-  console.log('No Practitioners found — run scripts/seed-users.mjs first. Skipping schedules.');
 }
 
-const emailOf = (p) => (p.telecom ?? []).find((t) => t.system === 'email')?.value?.toLowerCase();
 const displayName = (p) => {
   const n = p.name?.[0];
   return n?.text ?? [n?.prefix?.join(' '), n?.given?.join(' '), n?.family].filter(Boolean).join(' ') ?? p.id;
 };
-const sitesFor = (p) => PRACTITIONER_SITES[emailOf(p) ?? ''] ?? PRACTITIONER_SITES['*'] ?? [];
+
+// Upsert each clinician. An existing record (e.g. one created by an invite) is
+// matched on the identifier and keeps its id, telecom and login.
+const clinicians = [];
+if (!SKIP_SCHEDULES) {
+  console.log('Clinicians');
+  for (const c of CLINICIANS) {
+    const [existing] = await fhir.search('Practitioner', {
+      identifier: `${SID.practitioner}|${c.slug}`,
+      _count: '1',
+    });
+    const desired = {
+      ...(existing ?? {}),
+      resourceType: 'Practitioner',
+      active: true,
+      identifier: withIdentifier(existing, SID.practitioner, c.slug),
+      name: [{ prefix: [c.prefix], given: c.given, family: c.family }],
+      qualification: [{ code: { text: c.role } }],
+      // Required by Schedule/$find and $book unless the service carries a timezone.
+      extension: [
+        ...((existing?.extension ?? []).filter((e) => e.url !== TIMEZONE_EXT)),
+        { url: TIMEZONE_EXT, valueCode: TIMEZONE },
+      ],
+    };
+    const practitioner = existing
+      ? await fhir.update({ ...desired, id: existing.id })
+      : await fhir.create(desired);
+    console.log(`  ${existing ? '=' : '+'} ${displayName(practitioner)} (${c.role})`);
+    clinicians.push({ ...c, practitioner });
+  }
+}
 
 /** Build the CodeableReference-like serviceType entries (see packages/server/src/util/servicetype.ts). */
 const toServiceType = (service) =>
@@ -283,23 +318,15 @@ const serviceTypeRef = (concept) =>
   (concept.extension ?? []).find((e) => e.url === SERVICE_TYPE_REFERENCE_EXT)?.valueReference?.reference;
 
 const summary = [];
-for (const practitioner of practitioners) {
-  const siteSlugs = sitesFor(practitioner).filter((slug) => locationsBySlug[slug]);
+for (const { practitioner, ...c } of clinicians) {
+  const siteSlugs = c.sites.filter((slug) => locationsBySlug[slug]);
   if (siteSlugs.length === 0) continue;
-  console.log(`Practitioner ${displayName(practitioner)} → ${siteSlugs.join(', ')}`);
-
-  // Timezone extension (required by $find/$book unless the service carries one; set both).
-  if (!(practitioner.extension ?? []).some((e) => e.url === TIMEZONE_EXT)) {
-    await fhir.update({
-      ...practitioner,
-      extension: [...(practitioner.extension ?? []), { url: TIMEZONE_EXT, valueCode: TIMEZONE }],
-    });
-    console.log(`  = Practitioner timezone set to ${TIMEZONE}`);
-  }
+  console.log(`Diaries for ${displayName(practitioner)} → ${siteSlugs.join(', ')}`);
 
   for (const slug of siteSlugs) {
     const location = locationsBySlug[slug];
-    const services = servicesBySite[slug];
+    // Only the services this clinician offers.
+    const services = servicesBySite[slug].filter((s) => c.services.includes(s.type[0].coding[0].code));
 
     await upsertManaged(SID.practitionerRole, `${practitioner.id}-${slug}`, {
       resourceType: 'PractitionerRole',
@@ -307,6 +334,7 @@ for (const practitioner of practitioners) {
       practitioner: { reference: `Practitioner/${practitioner.id}`, display: displayName(practitioner) },
       organization: ref(organization),
       location: [ref(location)],
+      specialty: [{ text: c.role }],
       healthcareService: services.map(ref),
     });
 
