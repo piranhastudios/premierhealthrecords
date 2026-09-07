@@ -37,6 +37,8 @@ const EMAIL = args.email ?? 'admin@example.com';
 const PASSWORD = args.password ?? 'medplum_admin';
 // FHIR R4 data project (fixed id, see packages/server/src/constants.ts).
 const PROJECT = args.project ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6';
+// Sites and services only: no PractitionerRoles, no Schedules, no timezone stamps.
+const SKIP_SCHEDULES = process.argv.includes('--skip-schedules');
 
 // ---------------------------------------------------------------------------
 // Reference data. Add a site = add one entry to SITES.
@@ -88,8 +90,13 @@ const SERVICE_LINES = [
 const ALIGNMENT_MINUTES = 15;
 
 // Which practitioners work at which sites, keyed by the practitioner's email
-// (the same email seed-users.mjs invites them with). `'*'` = every practitioner
-// in the project. Values are SITES slugs.
+// (the same email seed-users.mjs invites them with). `'*'` is a DEV convenience
+// meaning "every practitioner in the project" — in production list the real
+// clinicians explicitly, or non-clinical staff (front desk, admin) end up with
+// bookable diaries on the website. Values are SITES slugs.
+//
+// Pass --skip-schedules to seed the sites and services only, which is what you
+// want on a new environment before the clinician list is confirmed.
 const PRACTITIONER_SITES = {
   '*': ['douala-grand-mall'],
 };
@@ -247,8 +254,12 @@ for (const site of SITES) {
 // 5. Schedule per (practitioner × site)
 // ---------------------------------------------------------------------------
 // Invited staff Practitioners have no `active` flag, so filter client-side.
-const practitioners = (await fhir.search('Practitioner', { _count: '200' })).filter((p) => p.active !== false);
-if (practitioners.length === 0) {
+const practitioners = SKIP_SCHEDULES
+  ? []
+  : (await fhir.search('Practitioner', { _count: '200' })).filter((p) => p.active !== false);
+if (SKIP_SCHEDULES) {
+  console.log('--skip-schedules: sites and services only, no practitioner diaries created.');
+} else if (practitioners.length === 0) {
   console.log('No Practitioners found — run scripts/seed-users.mjs first. Skipping schedules.');
 }
 
