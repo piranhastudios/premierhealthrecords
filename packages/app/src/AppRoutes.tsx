@@ -7,6 +7,7 @@ import { ClientsPage } from './admin/ClientsPage';
 import { CreateBotPage } from './admin/CreateBotPage';
 import { CreateClientPage } from './admin/CreateClientPage';
 import { DatabaseToolsPage } from './admin/DatabaseToolsPage';
+import { FeesPage } from './admin/FeesPage';
 import { InvitePage } from './admin/InvitePage';
 import { MemberDetailsPage } from './admin/MemberDetailsPage';
 import { ProjectAdminConfigPage } from './admin/ProjectAdminConfigPage';
@@ -107,6 +108,7 @@ export function AppRoutes(): JSX.Element {
           <Route path="project" element={<ProjectDetailsPage />} />
           <Route path="secrets" element={<SecretsPage />} />
           <Route path="sites" element={<SitesPage />} />
+          <Route path="fees" element={<FeesPage />} />
           <Route path="quickbooks" element={<QuickBooksPage />} />
           <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="campaigns/:campaignId" element={<CampaignBuilderPage />} />

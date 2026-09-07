@@ -80,14 +80,23 @@ const SITES = [
 
 // Service lines offered at every site. `duration` is the default appointment length
 // used by $find/$book; `alignment` is the slot grid (minutes).
+// `price` is the ChargeItemDefinition id holding what this service costs. Where a
+// clinical price already exists (care-templates seed) it is reused so there is one
+// number per service rather than two; the rest get their own definition, created
+// WITHOUT an amount. A service with no amount is free to book — the website skips
+// payment for it — so set the real prices on the provider app's Fees page.
 const SERVICE_LINES = [
-  { code: 'general-consultation', display: 'General consultation', displayFr: 'Consultation générale', duration: 30 },
-  { code: 'follow-up', display: 'Follow-up visit', displayFr: 'Visite de suivi', duration: 15 },
-  { code: 'pediatrics', display: 'Paediatrics', displayFr: 'Pédiatrie', duration: 30 },
-  { code: 'ecg', display: 'ECG & cardiology', displayFr: 'ECG et cardiologie', duration: 30 },
-  { code: 'laboratory', display: 'Laboratory', displayFr: 'Laboratoire', duration: 15 },
-  { code: 'telehealth', display: 'Video consultation', displayFr: 'Consultation vidéo', duration: 30 },
+  { code: 'general-consultation', display: 'General consultation', displayFr: 'Consultation générale', duration: 30, price: 'consultation-general' },
+  { code: 'follow-up', display: 'Follow-up visit', displayFr: 'Visite de suivi', duration: 15, price: 'service-follow-up' },
+  { code: 'pediatrics', display: 'Paediatrics', displayFr: 'Pédiatrie', duration: 30, price: 'service-pediatrics' },
+  { code: 'ecg', display: 'ECG & cardiology', displayFr: 'ECG et cardiologie', duration: 30, price: 'service-ecg' },
+  { code: 'laboratory', display: 'Laboratory', displayFr: 'Laboratoire', duration: 15, price: 'service-laboratory' },
+  { code: 'telehealth', display: 'Video consultation', displayFr: 'Consultation vidéo', duration: 30, price: 'service-telehealth' },
 ];
+// Where a service's price lives, and how the website finds it: HealthcareService
+// carries this extension pointing at the ChargeItemDefinition's canonical url.
+const PRICE_EXT = 'https://premierhealth.cm/fhir/StructureDefinition/service-price';
+const priceUrl = (id) => `https://premierhealth.cm/fhir/ChargeItemDefinition/${id}`;
 const ALIGNMENT_MINUTES = 15;
 
 // The clinicians patients can book, and what each of them offers. This list is the
@@ -241,6 +250,21 @@ for (const site of SITES) {
 
   servicesBySite[site.slug] = [];
   for (const line of SERVICE_LINES) {
+    // A price definition per service. Never overwrite an amount an admin has set:
+    // only create it when missing, so re-running the seed does not reset prices.
+    const url = priceUrl(line.price);
+    const [existingPrice] = await fhir.search('ChargeItemDefinition', { url, _count: '1' });
+    if (!existingPrice) {
+      await fhir.create({
+        resourceType: 'ChargeItemDefinition',
+        url,
+        status: 'active',
+        title: line.display,
+        description: 'Charged when this service is booked. Set the amount on the Fees page.',
+      });
+      console.log(`  + price ${line.price} (no amount yet)`);
+    }
+
     const service = await upsertManaged(SID.healthcareService, `${site.slug}-${line.code}`, {
       resourceType: 'HealthcareService',
       active: true,
@@ -251,6 +275,7 @@ for (const site of SITES) {
       type: [{ coding: [{ system: SERVICE_LINE_SYSTEM, code: line.code, display: line.display }], text: line.display }],
       availableTime: availableTime(site),
       extension: [
+        { url: PRICE_EXT, valueCanonical: priceUrl(line.price) },
         {
           url: SCHEDULING_PARAMETERS_EXT,
           extension: [

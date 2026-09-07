@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { Outlet } from 'react-router';
 import { getProjectId } from '../utils';
 
-const ADMIN_TABS = ['Details', 'Users', 'Clients', 'Bots', 'Secrets', 'Sites', 'QuickBooks', 'Campaigns', 'Templates'];
+const ADMIN_TABS = ['Details', 'Users', 'Clients', 'Bots', 'Secrets', 'Sites', 'Fees', 'QuickBooks', 'Campaigns', 'Templates'];
 /** Marketing operators are not project admins — they only get the campaign tools. */
 const MARKETING_TABS = ['Campaigns', 'Templates'];
 
