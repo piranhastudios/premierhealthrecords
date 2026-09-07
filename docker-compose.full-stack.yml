@@ -226,8 +226,23 @@ services:
       retries: 5
 
   caldiy:
-    # Pinned: Cal.diy is community-maintained; upgrade deliberately.
-    image: calcom/cal.diy:v6.2.0
+    # No image is published for Cal.diy (the calcom/cal.diy Docker repo has no
+    # tags), so the MIT web app is built from the pinned git tag. The build needs
+    # ~6 GB RAM (MAX_OLD_SPACE_SIZE) and 15–30 min; start.sh rewrites the
+    # NEXT_PUBLIC_WEBAPP_URL placeholder at boot, so the URL is a runtime env.
+    # Fallback for a quick trial: `image: calcom/cal.com:v6.2.0` (AGPL image,
+    # functionally identical for booking pages + webhooks).
+    build:
+      context: 'https://github.com/calcom/cal.diy.git#v6.2.0'
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_WEBAPP_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
+        NEXT_PUBLIC_LICENSE_CONSENT: 'agree'
+        CALCOM_TELEMETRY_DISABLED: '1'
+        DATABASE_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
+        NEXTAUTH_SECRET: '${CALDIY_NEXTAUTH_SECRET:?set CALDIY_NEXTAUTH_SECRET}'
+        CALENDSO_ENCRYPTION_KEY: '${CALDIY_ENCRYPTION_KEY:?set CALDIY_ENCRYPTION_KEY}'
+        MAX_OLD_SPACE_SIZE: '6144'
     restart: unless-stopped
     depends_on:
       cal-postgres:
@@ -235,10 +250,6 @@ services:
     environment:
       DATABASE_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
       DATABASE_DIRECT_URL: 'postgresql://calcom:${CALDIY_DB_PASSWORD:-calcom}@cal-postgres:5432/calcom'
-      # The image was built with a placeholder NEXT_PUBLIC_WEBAPP_URL that its
-      # start script rewrites from this value at boot (calcom/docker convention).
-      # If the booking page renders with localhost links, the image lacks that
-      # script: build from source with the URL as a build arg instead.
       NEXT_PUBLIC_WEBAPP_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
       NEXTAUTH_URL: '${CALDIY_PUBLIC_URL:-https://book.premierhealthcentrescameroon.com}'
       NEXTAUTH_SECRET: '${CALDIY_NEXTAUTH_SECRET:?set CALDIY_NEXTAUTH_SECRET}'

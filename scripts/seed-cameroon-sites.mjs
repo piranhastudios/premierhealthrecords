@@ -246,7 +246,8 @@ for (const site of SITES) {
 // 4. Practitioners: timezone + PractitionerRole per site
 // 5. Schedule per (practitioner × site)
 // ---------------------------------------------------------------------------
-const practitioners = await fhir.search('Practitioner', { _count: '200', active: 'true' });
+// Invited staff Practitioners have no `active` flag, so filter client-side.
+const practitioners = (await fhir.search('Practitioner', { _count: '200' })).filter((p) => p.active !== false);
 if (practitioners.length === 0) {
   console.log('No Practitioners found — run scripts/seed-users.mjs first. Skipping schedules.');
 }

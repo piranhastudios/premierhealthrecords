@@ -13,6 +13,8 @@
  */
 
 import type { BotEvent } from '@medplum/core';
+// Explicit import: the vmcontext bot sandbox exposes no `Buffer` global.
+import { Buffer } from 'node:buffer';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // Constant-time string comparison that tolerates length differences.
