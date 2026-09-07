@@ -20,6 +20,7 @@ const SERVICE_TYPE_REFERENCE_URL = "https://medplum.com/fhir/service-type-refere
 const APPOINTMENT_SOURCE_SYSTEM = "https://premierhealth.cm/fhir/CodeSystem/appointment-source"
 const PATIENT_SOURCE_SYSTEM = "https://premierhealth.cm/fhir/CodeSystem/patient-source"
 const CACHE_TTL_MS = 5 * 60 * 1000
+const DIRECTORY_REVALIDATE = 300
 const DEFAULT_COUNTRY_CODE = "237"
 // Server maximum for $find is 31 days; the dialog shows two weeks.
 export const BOOKING_WINDOW_DAYS = 14
@@ -92,7 +93,12 @@ type Bundle = { resourceType?: string; entry?: { resource?: FhirResource }[]; is
 let tokenCache: { value: string; expiresAt: number } | undefined
 const directoryCache = new Map<string, { value: SiteDirectory; expiresAt: number }>()
 
-async function getToken(): Promise<string> {
+/**
+ * `revalidate` keeps directory reads cacheable so rendering a page that shows the
+ * header does not opt the whole route out of static rendering; the booking routes
+ * pass 0 (always fresh).
+ */
+async function getToken(revalidate: number): Promise<string> {
   if (tokenCache && tokenCache.expiresAt > Date.now() + 30_000) {
     return tokenCache.value
   }
@@ -104,7 +110,7 @@ async function getToken(): Promise<string> {
       client_id: CLIENT_ID as string,
       client_secret: CLIENT_SECRET as string,
     }),
-    cache: "no-store",
+    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
   })
   if (!response.ok) {
     throw new Error(`Medplum token request failed: ${response.status}`)
@@ -114,8 +120,13 @@ async function getToken(): Promise<string> {
   return json.access_token
 }
 
-async function fhir<T = FhirResource>(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<T> {
-  const token = await getToken()
+async function fhir<T = FhirResource>(
+  method: "GET" | "POST" | "PUT",
+  path: string,
+  body?: unknown,
+  revalidate = 0,
+): Promise<T> {
+  const token = await getToken(revalidate)
   const response = await fetch(`${BASE_URL}fhir/R4/${path}`, {
     method,
     headers: {
@@ -124,7 +135,7 @@ async function fhir<T = FhirResource>(method: "GET" | "POST" | "PUT", path: stri
       ...(body !== undefined ? { "Content-Type": "application/fhir+json" } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    cache: "no-store",
+    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
   })
   const text = await response.text()
   const json = text ? (JSON.parse(text) as T & Bundle) : ({} as T & Bundle)
@@ -135,8 +146,8 @@ async function fhir<T = FhirResource>(method: "GET" | "POST" | "PUT", path: stri
   return json
 }
 
-async function search(resourceType: string, query: string): Promise<FhirResource[]> {
-  const bundle = await fhir<Bundle>("GET", `${resourceType}?${query}`)
+async function search(resourceType: string, query: string, revalidate = 0): Promise<FhirResource[]> {
+  const bundle = await fhir<Bundle>("GET", `${resourceType}?${query}`, undefined, revalidate)
   return (bundle.entry ?? []).map((e) => e.resource).filter((r): r is FhirResource => Boolean(r))
 }
 
@@ -183,8 +194,8 @@ export async function getSiteDirectory(fhirLocationId: string): Promise<SiteDire
   }
   try {
     const [scheduleEntries, serviceResources] = await Promise.all([
-      search("Schedule", `actor=Location/${fhirLocationId}&active=true&_count=100&_include=Schedule:actor`),
-      search("HealthcareService", `location=Location/${fhirLocationId}&active=true&_count=100&_sort=name`),
+      search("Schedule", `actor=Location/${fhirLocationId}&active=true&_count=100&_include=Schedule:actor`, DIRECTORY_REVALIDATE),
+      search("HealthcareService", `location=Location/${fhirLocationId}&active=true&_count=100&_sort=name`, DIRECTORY_REVALIDATE),
     ])
     const practitionersById = new Map<string, FhirResource>()
     for (const resource of scheduleEntries) {

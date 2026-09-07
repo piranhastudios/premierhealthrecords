@@ -28,6 +28,9 @@ type Slot = { start: string; end: string }
 type Booked = { start: string; end: string }
 
 const CLINIC_TIMEZONE = "Africa/Douala"
+// Every step shares this wrapper so the dialog does not jump in height as the
+// visitor moves from choosing a service to picking a time and filling details.
+const STEP = "flex min-h-[19rem] min-w-0 flex-col gap-3 pt-1"
 
 /**
  * Site → service → doctor → time → details. Steps with a single choice are
@@ -92,7 +95,7 @@ export function BookingDialog({ sites, phone }: Props) {
 
   if (booked) {
     return (
-      <div className="flex flex-col items-center gap-3 py-8 text-center">
+      <div className="flex min-h-[19rem] flex-col items-center justify-center gap-3 py-8 text-center">
         <CheckCircle2 className="h-12 w-12 text-accent" />
         <h3 className="font-serif text-2xl">{t("successTitle")}</h3>
         <p className="text-base font-medium text-foreground">{dateTime.format(new Date(booked.start))}</p>
@@ -107,7 +110,7 @@ export function BookingDialog({ sites, phone }: Props) {
       return <Unavailable phone={phone} />
     }
     return (
-      <div className="space-y-3 pt-2">
+      <div className={STEP}>
         <StepTitle icon={<MapPin className="h-4 w-4" />}>{t("pickSite")}</StepTitle>
         <ul className="grid gap-2">
           {sites.map((candidate) => (
@@ -122,7 +125,7 @@ export function BookingDialog({ sites, phone }: Props) {
 
   if (site.practitioners.length === 0) {
     return (
-      <div className="space-y-4 pt-2">
+      <div className={STEP}>
         {sites.length > 1 && <BackLink onClick={() => reset("site")} label={t("back")} />}
         <Unavailable phone={phone} />
       </div>
@@ -132,7 +135,7 @@ export function BookingDialog({ sites, phone }: Props) {
   // Step 2: service
   if (!serviceId) {
     return (
-      <div className="space-y-3 pt-2">
+      <div className={STEP}>
         <Crumbs items={[site.name]} onBack={sites.length > 1 ? () => reset("site") : undefined} backLabel={t("back")} />
         <StepTitle icon={<Stethoscope className="h-4 w-4" />}>{t("pickService")}</StepTitle>
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -149,7 +152,7 @@ export function BookingDialog({ sites, phone }: Props) {
   // Step 3: doctor
   if (!practitioner) {
     return (
-      <div className="space-y-3 pt-2">
+      <div className={STEP}>
         <Crumbs items={[site.name, serviceName]} onBack={() => reset("service")} backLabel={t("back")} />
         <StepTitle icon={<UserRound className="h-4 w-4" />}>{t("pickDoctor")}</StepTitle>
         <ul className="grid gap-2">
@@ -169,7 +172,7 @@ export function BookingDialog({ sites, phone }: Props) {
   // Step 4: time
   if (!slot) {
     return (
-      <div className="space-y-3 pt-2">
+      <div className={STEP}>
         <Crumbs items={crumbs} onBack={backFromDoctor} backLabel={t("back")} />
         <StepTitle icon={<Clock className="h-4 w-4" />}>{t("pickTime")}</StepTitle>
         <TimePicker scheduleId={practitioner.scheduleId} serviceId={serviceId} locale={locale} onPick={setSlot} phone={phone} />
@@ -179,7 +182,7 @@ export function BookingDialog({ sites, phone }: Props) {
 
   // Step 5: details
   return (
-    <div className="space-y-3 pt-2">
+    <div className={STEP}>
       <Crumbs items={[...crumbs, dateTime.format(new Date(slot.start))]} onBack={() => reset("time")} backLabel={t("back")} />
       <DetailsForm
         scheduleId={practitioner.scheduleId}
@@ -258,7 +261,7 @@ function TimePicker({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="flex gap-2 overflow-x-auto pb-1">
         {days.map((key) => (
           <button
