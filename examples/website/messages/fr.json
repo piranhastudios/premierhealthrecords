@@ -43,7 +43,7 @@
     },
     "booking": {
       "title": "Prendre rendez-vous",
-      "description": "Remplissez le formulaire ci-dessous et nous vous contacterons pour confirmer votre rendez-vous."
+      "description": "Choisissez votre centre, le service souhaité et un médecin, puis l'horaire qui vous convient."
     }
   },
   "servicesPage": {
@@ -117,23 +117,31 @@
       "submit": "Envoyer"
     }
   },
-  "appointment": {
+  "booking": {
+    "pickSite": "Choisissez un centre",
+    "pickService": "De quoi avez-vous besoin ?",
+    "pickDoctor": "Choisissez un médecin",
+    "pickTime": "Choisissez un horaire",
+    "loading": "Chargement des horaires disponibles…",
+    "noTimes": "Aucun horaire disponible dans les deux prochaines semaines. Appelez-nous et nous vous en trouverons un.",
+    "yourDetails": "Vos coordonnées",
     "firstName": "Prénom",
     "lastName": "Nom",
     "phone": "Numéro de téléphone",
-    "email": "E-mail",
-    "service": "Service souhaité",
-    "selectService": "Sélectionnez un service",
-    "date": "Date souhaitée",
-    "times": "Horaires disponibles",
-    "chooseDate": "Choisissez une date pour voir les horaires disponibles.",
-    "closed": "Nous sommes fermés ce jour-là. Veuillez choisir une autre date.",
-    "full": "Plus de créneau disponible à cette date. Veuillez choisir une autre date.",
-    "timesAria": "Horaires de rendez-vous disponibles",
-    "notes": "Informations complémentaires",
-    "notesPlaceholder": "Décrivez vos symptômes ou le motif de votre visite...",
-    "request": "Demander un rendez-vous à {time}",
-    "selectDateTime": "Sélectionnez une date et un horaire"
+    "email": "E-mail (facultatif)",
+    "notes": "Motif de la visite (facultatif)",
+    "notesPlaceholder": "Décrivez vos symptômes ou votre besoin…",
+    "consent": "Votre numéro et votre e-mail servent uniquement à confirmer ce rendez-vous et à vous le rappeler.",
+    "confirm": "Confirmer le rendez-vous",
+    "booking": "Réservation…",
+    "taken": "Cet horaire vient d'être pris. Veuillez en choisir un autre.",
+    "checkDetails": "Veuillez vérifier votre nom et votre numéro de téléphone.",
+    "failed": "La réservation n'a pas pu aboutir. Réessayez ou appelez-nous.",
+    "back": "Retour",
+    "unavailable": "La prise de rendez-vous en ligne n'est pas encore disponible pour ce centre. Appelez-nous et nous vous trouverons un créneau.",
+    "call": "Appeler le {phone}",
+    "successTitle": "Rendez-vous confirmé",
+    "successBody": "Votre rendez-vous est enregistré. Une confirmation arrive par WhatsApp ou e-mail, avec un rappel la veille."
   },
   "footer": {
     "tagline": "Des soins de santé abordables et de qualité pour tous vos besoins médicaux au Cameroun.",

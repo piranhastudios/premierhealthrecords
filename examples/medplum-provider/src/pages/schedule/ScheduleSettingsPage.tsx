@@ -12,6 +12,7 @@ import { Fragment, useState } from 'react';
 import { useParams } from 'react-router';
 import { AlphaBanner } from '../../components/AlphaBanner';
 import { DocsLink } from '../../components/DocsLink';
+import { getScheduleLocation } from '../../utils/encounter';
 import { showErrorNotification, showSuccessNotification } from '../../utils/notifications';
 import { hasSchedulingParameters } from '../../utils/scheduling';
 import { isCodeableReferenceLikeTo, ServiceTypeReferenceURI, toCodeableReferenceLike } from '../../utils/servicetype';
@@ -23,9 +24,13 @@ const MAX_PAGE_SIZE = 1000;
 
 export function ScheduleSettings(props: { schedule: Schedule }): JSX.Element | null {
   const medplum = useMedplum();
+  // Multi-site schedules list their site as a Location actor; only offer the
+  // services provided at that site.
+  const siteRef = getScheduleLocation(props.schedule)?.reference;
   const [services, servicesLoading] = useSearchResources('HealthcareService', {
     _sort: 'name',
     _count: MAX_PAGE_SIZE.toString(),
+    ...(siteRef ? { location: siteRef } : {}),
   });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,7 +96,8 @@ export function ScheduleSettings(props: { schedule: Schedule }): JSX.Element | n
       <Stack gap="0">
         <Title order={3}>Appointment Types</Title>
         <Text fs="italic" c="dimmed">
-          Choose what appointment types can be scheduled on this calendar. Learn more about{' '}
+          Choose what appointment types can be scheduled on this calendar
+          {siteRef ? ' (services offered at this site)' : ''}. Learn more about{' '}
           <DocsLink path="scheduling">configuring Scheduling</DocsLink>.
         </Text>
       </Stack>

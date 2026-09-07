@@ -18,8 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { SanityImage, type SanityImageValue } from "@/components/sanity-image"
-import { AppointmentForm, type AppointmentServiceOption } from "@/components/appointment-form"
-import type { OpeningHoursEntry } from "@/lib/opening-hours"
+import { BookingDialog, type BookingSite } from "@/components/booking/booking-dialog"
 
 /**
  * The patient portal is not live yet, so its entry points stay hidden.
@@ -39,11 +38,13 @@ const navigation = [
 interface HeaderProps {
   variant?: "transparent" | "solid"
   logo?: SanityImageValue
-  openingHours?: (OpeningHoursEntry | null)[] | null
-  services?: AppointmentServiceOption[] | null
+  /** Sites with their bookable doctors and services (see SiteHeader). */
+  bookingSites?: BookingSite[] | null
+  /** Clinic phone, offered when online booking is unavailable. */
+  phone?: string | null
 }
 
-export function Header({ variant = "transparent", logo, openingHours, services }: HeaderProps) {
+export function Header({ variant = "transparent", logo, bookingSites, phone }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [appointmentOpen, setAppointmentOpen] = useState(false)
@@ -167,12 +168,12 @@ export function Header({ variant = "transparent", logo, openingHours, services }
                 {t("bookAppointment")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle className="font-serif text-2xl">{t("booking.title")}</DialogTitle>
                 <DialogDescription>{t("booking.description")}</DialogDescription>
               </DialogHeader>
-              <AppointmentForm openingHours={openingHours} services={services} />
+              {appointmentOpen && <BookingDialog sites={bookingSites ?? []} phone={phone} />}
             </DialogContent>
           </Dialog>
 

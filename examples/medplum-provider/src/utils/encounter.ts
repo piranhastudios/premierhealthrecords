@@ -9,6 +9,7 @@ import type {
   CodeableConcept,
   Coding,
   Encounter,
+  Location,
   Patient,
   PlanDefinition,
   Practitioner,
@@ -58,6 +59,18 @@ export const APPOINTMENT_TYPES: Record<
   },
 };
 
+/**
+ * The site (FHIR Location) a Schedule belongs to, if any. Multi-site schedules
+ * list the practitioner plus one Location actor.
+ * @param schedule - The Schedule to examine.
+ * @returns The Location reference, or undefined for a site-less schedule.
+ */
+export function getScheduleLocation(schedule: Schedule | undefined): Reference<Location> | undefined {
+  return schedule?.actor?.find((actor) => actor.reference?.startsWith('Location/')) as
+    | Reference<Location>
+    | undefined;
+}
+
 export async function createAppointment(
   medplum: MedplumClient,
   start: Date,
@@ -65,9 +78,13 @@ export async function createAppointment(
   patient: Patient,
   practitioner: Practitioner | Reference<Practitioner>,
   schedule?: Schedule,
-  appointmentType?: CodeableConcept
+  appointmentType?: CodeableConcept,
+  location?: Reference<Location>
 ): Promise<Appointment> {
   const practitionerRef = isResource(practitioner) ? createReference(practitioner) : practitioner;
+  // Default the site from the schedule so every appointment created from a
+  // multi-site diary carries its Location participant.
+  const locationRef = location ?? getScheduleLocation(schedule);
 
   const appointment = await medplum.createResource({
     resourceType: 'Appointment',
@@ -84,6 +101,7 @@ export async function createAppointment(
         actor: practitionerRef,
         status: 'accepted',
       },
+      ...(locationRef ? [{ actor: locationRef, status: 'accepted' as const }] : []),
     ],
   });
 

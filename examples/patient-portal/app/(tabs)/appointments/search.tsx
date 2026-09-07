@@ -1,4 +1,4 @@
-import type { Practitioner, PractitionerRole, Resource } from '@medplum/fhirtypes';
+import type { Location, Practitioner, PractitionerRole, Resource } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react-hooks';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,11 +14,21 @@ interface DoctorResult {
 export default function DoctorSearch(): JSX.Element {
   const medplum = useMedplum();
   const router = useRouter();
-  const params = useLocalSearchParams<{ specialty?: string }>();
+  const params = useLocalSearchParams<{ specialty?: string; site?: string }>();
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState<string | undefined>(params.specialty);
+  // Sites (FHIR Location). Undefined = every site.
+  const [sites, setSites] = useState<Location[]>([]);
+  const [siteId, setSiteId] = useState<string | undefined>(params.site);
   const [results, setResults] = useState<DoctorResult[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    medplum
+      .searchResources('Location', 'status=active&_sort=name&_count=50')
+      .then((found) => setSites(found))
+      .catch(() => setSites([]));
+  }, [medplum]);
 
   const search = useCallback(async () => {
     setLoading(true);
@@ -26,6 +36,10 @@ export default function DoctorSearch(): JSX.Element {
       const parts: string[] = ['_include=PractitionerRole:practitioner', '_count=25'];
       if (specialty) {
         parts.push(`specialty:text=${encodeURIComponent(specialty)}`);
+      }
+      if (siteId) {
+        // PractitionerRole.location is one role per (doctor × site), seeded server-side.
+        parts.push(`location=Location/${siteId}`);
       }
       const bundle = await medplum.search('PractitionerRole', parts.join('&'));
       // _include brings Practitioner resources alongside the PractitionerRoles, but
@@ -41,8 +55,9 @@ export default function DoctorSearch(): JSX.Element {
         specialty: roles.find((r) => r.practitioner?.reference === `Practitioner/${p.id}`)?.specialty?.[0]?.text,
       }));
 
-      // Fallback to a plain practitioner search when no roles are configured.
-      if (docs.length === 0) {
+      // Fallback to a plain practitioner search when no roles are configured
+      // (only when not filtering by site: a site with no roles has no doctors).
+      if (docs.length === 0 && !siteId) {
         const plain = await medplum.searchResources('Practitioner', query ? `name=${encodeURIComponent(query)}&_count=25` : '_count=25');
         docs = plain.map((p) => ({ practitioner: p }));
       }
@@ -54,7 +69,7 @@ export default function DoctorSearch(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [medplum, specialty, query]);
+  }, [medplum, specialty, query, siteId]);
 
   useEffect(() => {
     void search();
@@ -74,6 +89,28 @@ export default function DoctorSearch(): JSX.Element {
         />
       </View>
 
+      {sites.length > 1 ? (
+        <View className="flex-row flex-wrap items-center gap-2">
+          <Pressable
+            onPress={() => setSiteId(undefined)}
+            className={`px-3 py-1.5 rounded-pill ${siteId ? 'bg-surface-card' : 'bg-phc-orange/15'}`}
+          >
+            <Text className={`text-sm font-semibold ${siteId ? 'text-ink-secondary' : 'text-phc-orange'}`}>All sites</Text>
+          </Pressable>
+          {sites.map((site) => (
+            <Pressable
+              key={site.id}
+              onPress={() => setSiteId(site.id)}
+              className={`px-3 py-1.5 rounded-pill ${siteId === site.id ? 'bg-phc-orange/15' : 'bg-surface-card'}`}
+            >
+              <Text className={`text-sm font-semibold ${siteId === site.id ? 'text-phc-orange' : 'text-ink-secondary'}`}>
+                {site.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {specialty ? (
         <View className="flex-row items-center gap-2">
           <Text className="text-ink-secondary text-sm">Specialty:</Text>
@@ -89,7 +126,12 @@ export default function DoctorSearch(): JSX.Element {
         <EmptyState title="No doctors found" hint="Try a different name or specialty." />
       ) : (
         results.map((d) => (
-          <Card key={d.practitioner.id} onPress={() => router.push(`/(tabs)/appointments/doctor/${d.practitioner.id}`)}>
+          <Card
+            key={d.practitioner.id}
+            onPress={() =>
+              router.push(`/(tabs)/appointments/doctor/${d.practitioner.id}${siteId ? `?site=${siteId}` : ''}`)
+            }
+          >
             <View className="flex-row items-center">
               <Avatar initials={patientInitials(d.practitioner as never)} size={48} />
               <View className="ml-3 flex-1">

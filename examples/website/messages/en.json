@@ -43,7 +43,7 @@
     },
     "booking": {
       "title": "Book an Appointment",
-      "description": "Fill out the form below and we will contact you to confirm your appointment."
+      "description": "Choose your centre, the service you need and a doctor, then pick a time that suits you."
     }
   },
   "servicesPage": {
@@ -117,23 +117,31 @@
       "submit": "Submit"
     }
   },
-  "appointment": {
-    "firstName": "First Name",
-    "lastName": "Last Name",
-    "phone": "Phone Number",
-    "email": "Email",
-    "service": "Service Required",
-    "selectService": "Select a service",
-    "date": "Preferred Date",
-    "times": "Available Times",
-    "chooseDate": "Choose a date to see available times.",
-    "closed": "We are closed on this day. Please choose another date.",
-    "full": "No times left on this date. Please choose another date.",
-    "timesAria": "Available appointment times",
-    "notes": "Additional Notes",
-    "notesPlaceholder": "Describe your symptoms or reason for visit...",
-    "request": "Request {time} Appointment",
-    "selectDateTime": "Select a Date and Time"
+  "booking": {
+    "pickSite": "Choose a centre",
+    "pickService": "What do you need?",
+    "pickDoctor": "Choose a doctor",
+    "pickTime": "Choose a time",
+    "loading": "Loading available times…",
+    "noTimes": "No times available in the next two weeks. Call us and we will find you one.",
+    "yourDetails": "Your details",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone number",
+    "email": "Email (optional)",
+    "notes": "Reason for visit (optional)",
+    "notesPlaceholder": "Describe your symptoms or what you need…",
+    "consent": "We use your phone number and email only to confirm and remind you about this appointment.",
+    "confirm": "Confirm appointment",
+    "booking": "Booking…",
+    "taken": "That time was just taken. Please pick another.",
+    "checkDetails": "Please check your name and phone number.",
+    "failed": "We could not complete the booking. Please try again or call us.",
+    "back": "Back",
+    "unavailable": "Online booking is not available for this centre yet. Call us and we will find you a time.",
+    "call": "Call {phone}",
+    "successTitle": "You're booked",
+    "successBody": "We have your appointment. A confirmation is on its way by WhatsApp or email, with a reminder the day before."
   },
   "footer": {
     "tagline": "Affordable quality healthcare for all your medical needs in Cameroon.",

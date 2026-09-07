@@ -4,7 +4,7 @@ import { ActionIcon, Box, Drawer, Group, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import type { WithId } from '@medplum/core';
 import { EMPTY, getReferenceString, isReference } from '@medplum/core';
-import type { Appointment, Practitioner, Reference, Schedule, Slot } from '@medplum/fhirtypes';
+import type { Appointment, Location, Practitioner, Reference, Schedule, Slot } from '@medplum/fhirtypes';
 import { ReferenceInput, useMedplum } from '@medplum/react';
 import { IconSettings } from '@tabler/icons-react';
 import type { JSX } from 'react';
@@ -14,10 +14,14 @@ import { useNavigate, useParams } from 'react-router';
 import { Calendar } from '../../components/Calendar';
 import { AppointmentDetails } from '../../components/schedule/AppointmentDetails';
 import { CreateVisit } from '../../components/schedule/CreateVisit';
+import { SitePicker } from '../../components/SitePicker';
+import { siteSearchParams, useSiteFilter } from '../../hooks/useSiteFilter';
 import { canWriteResource } from '../../hooks/useUserRole';
 import type { Range } from '../../types/scheduling';
+import { getScheduleLocation } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { hasSchedulingParameters } from '../../utils/scheduling';
+import { toCodeableReferenceLike } from '../../utils/servicetype';
 import { mergeOverlappingSlots } from '../../utils/slots';
 import { FindPane } from './FindPane';
 import classes from './SchedulePage.module.css';
@@ -44,6 +48,12 @@ export function SchedulePage(): JSX.Element | null {
 
   const [appointmentSlot, setAppointmentSlot] = useState<Range>();
   const [appointmentDetails, setAppointmentDetails] = useState<Appointment | undefined>(undefined);
+
+  // Current site (Location). Narrows the clinic-wide view and decides which
+  // per-site Schedule a practitioner pick opens or creates.
+  const { siteRef, sites, site: selectedSite } = useSiteFilter();
+  const scheduleSite = getScheduleLocation(schedule);
+  const scheduleSiteName = sites.find((candidate) => `Location/${candidate.id}` === scheduleSite?.reference)?.name;
 
   // Load the schedule directly from the URL param; no id = clinic-wide view.
   useEffect(() => {
@@ -81,7 +91,8 @@ export function SchedulePage(): JSX.Element | null {
   // Find appointments visible in the current range: the selected practitioner's
   // when a schedule is loaded, or the whole clinic's when there is no id.
   useEffect(() => {
-    const actorRef = schedule?.actor?.[0]?.reference;
+    // The practitioner is the primary actor; Location actors are the site.
+    const actorRef = schedule?.actor?.find((actor) => !actor.reference?.startsWith('Location/'))?.reference;
     if (!range || (id && !actorRef)) {
       return () => {};
     }
@@ -91,6 +102,9 @@ export function SchedulePage(): JSX.Element | null {
       .searchResources('Appointment', [
         ['_count', '1000'],
         ...(actorRef ? [['actor', actorRef] as [string, string]] : []),
+        // Clinic-wide view: honour the site filter. A loaded schedule already
+        // implies its site.
+        ...(schedule ? [] : siteSearchParams(siteRef)),
         ['date', `ge${range.start.toISOString()}`],
         ['date', `le${range.end.toISOString()}`],
       ])
@@ -100,7 +114,7 @@ export function SchedulePage(): JSX.Element | null {
     return () => {
       active = false;
     };
-  }, [medplum, id, schedule, range]);
+  }, [medplum, id, schedule, range, siteRef]);
 
   const practitioner = schedule?.actor.find((actor) => isReference<Practitioner>(actor, 'Practitioner'));
 
@@ -196,42 +210,77 @@ export function SchedulePage(): JSX.Element | null {
         navigate('/Calendar/Schedule')?.catch(console.error);
         return;
       }
+      // The site a schedule belongs to: the selected one, or the clinic's only
+      // site. With several sites and "All sites" selected we still open an
+      // existing diary, but refuse to create one without knowing where.
+      const targetSite = selectedSite ?? (sites.length === 1 ? sites[0] : undefined);
+      const targetSiteRef = targetSite ? `Location/${targetSite.id}` : undefined;
+
       medplum
-        .searchOne('Schedule', { actor: ref.reference })
-        .then(async (foundSchedule) => {
+        .searchResources('Schedule', { actor: ref.reference, _count: '50' })
+        .then(async (candidates) => {
+          const withSite = (candidate: Schedule): string | undefined => getScheduleLocation(candidate)?.reference;
+          const foundSchedule = targetSiteRef
+            ? (candidates.find((candidate) => withSite(candidate) === targetSiteRef) ??
+              candidates.find((candidate) => !withSite(candidate)))
+            : candidates[0];
           if (foundSchedule?.id) {
             await navigate(`/Calendar/Schedule/${foundSchedule.id}`);
-          } else if (canWriteResource(medplum.getAccessPolicy(), 'Schedule')) {
-            // First visit to this practitioner's diary: open it.
-            const created = await medplum.createResource({
-              resourceType: 'Schedule',
-              actor: [ref as Reference<Practitioner>],
-              active: true,
-            });
-            await navigate(`/Calendar/Schedule/${created.id}`);
-          } else {
-            showErrorNotification('This practitioner has no schedule yet — ask a clinician or admin to open it.');
+            return;
           }
+          if (!canWriteResource(medplum.getAccessPolicy(), 'Schedule')) {
+            showErrorNotification('This practitioner has no schedule yet — ask a clinician or admin to open it.');
+            return;
+          }
+          if (!targetSite) {
+            showErrorNotification('Pick a site first, then choose the practitioner to open their diary there.');
+            return;
+          }
+          // First visit to this practitioner's diary at this site: open it with
+          // every service the site offers (staff can trim these in Settings).
+          const services = await medplum.searchResources('HealthcareService', {
+            location: targetSiteRef as string,
+            active: 'true',
+            _count: '100',
+          });
+          const created = await medplum.createResource<Schedule>({
+            resourceType: 'Schedule',
+            actor: [
+              ref as Reference<Practitioner>,
+              { reference: targetSiteRef as string, display: targetSite.name } as Reference<Location>,
+            ],
+            active: true,
+            serviceType: services.flatMap((service) => toCodeableReferenceLike(service)),
+          });
+          await navigate(`/Calendar/Schedule/${created.id}`);
         })
         .catch(showErrorNotification);
     },
-    [medplum, navigate]
+    [medplum, navigate, selectedSite, sites]
   );
 
   return (
     <Box pos="relative" p="md" style={{ height, backgroundColor: 'var(--phc-surface-card)' }}>
       <div className={classes.wrapper}>
         <Group justify="space-between">
-          <Box mb="sm" w={320}>
-            <ReferenceInput
-              key={schedule?.id ?? 'all'}
-              name="schedule-actor"
-              targetTypes={['Practitioner']}
-              placeholder={id ? 'Switch schedule...' : 'All appointments — pick a schedule...'}
-              defaultValue={schedule?.actor?.[0] as Reference<Practitioner>}
-              onChange={handleActorChange}
-            />
-          </Box>
+          <Group gap="sm" mb="sm" align="flex-start">
+            <SitePicker w={240} />
+            <Box w={320}>
+              <ReferenceInput
+                key={schedule?.id ?? 'all'}
+                name="schedule-actor"
+                targetTypes={['Practitioner']}
+                placeholder={id ? 'Switch schedule...' : 'All appointments — pick a schedule...'}
+                defaultValue={practitioner}
+                onChange={handleActorChange}
+              />
+            </Box>
+            {schedule && (scheduleSiteName ?? scheduleSite?.display) && (
+              <Text size="sm" c="dimmed" pt={8}>
+                {scheduleSiteName ?? scheduleSite?.display}
+              </Text>
+            )}
+          </Group>
           {schedule && hasSchedulingParameters(schedule) && (
             <ActionIcon
               variant="subtle"

@@ -103,7 +103,7 @@ export interface TodayAppointmentsResult {
  * @param enabled - When false, the query is skipped.
  * @returns Today's appointments, a loading flag, and a refresh callback.
  */
-export function useTodayAppointments(enabled = true): TodayAppointmentsResult {
+export function useTodayAppointments(enabled = true, siteRef?: string): TodayAppointmentsResult {
   const medplum = useMedplum();
   const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(enabled);
@@ -119,6 +119,7 @@ export function useTodayAppointments(enabled = true): TodayAppointmentsResult {
     medplum
       .searchResources('Appointment', [
         ['_count', '100'],
+        ...(siteRef ? [['location', siteRef] as [string, string]] : []),
         ['date', `ge${startOfToday()}`],
         ['date', `le${endOfToday()}`],
         ['_sort', 'date'],
@@ -138,7 +139,7 @@ export function useTodayAppointments(enabled = true): TodayAppointmentsResult {
     return () => {
       active = false;
     };
-  }, [medplum, enabled, tick]);
+  }, [medplum, enabled, tick, siteRef]);
 
   return { appointments, loading, refresh };
 }

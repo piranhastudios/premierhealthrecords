@@ -719,6 +719,116 @@ describe('Schedule/:id/$find', () => {
     });
   });
 
+  test('supports a primary actor plus Location actors (multi-site schedule)', async () => {
+    // `practitioner` is America/New_York (-05:00 in December); `location` is America/Phoenix.
+    // The practitioner is the primary actor, so its timezone must win over the Location's.
+    const schedule = await makeSchedule([{ service: genericVisit, availability: fourDayWorkWeek, duration: 20 }], {
+      actor: [createReference(practitioner), createReference(location)],
+    });
+    const response = await request
+      .get(`/fhir/R4/Schedule/${schedule.id}/$find`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Content-Type', ContentType.FHIR_JSON)
+      .query({
+        start: new Date('2025-12-01T00:00:00.000-05:00').toISOString(),
+        end: new Date('2025-12-01T12:00:00.000-05:00').toISOString(),
+        'service-type-reference': `HealthcareService/${genericVisit.id}`,
+      });
+    expect(response.body).not.toHaveProperty('issue');
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject<Bundle>({
+      resourceType: 'Bundle',
+      type: 'searchset',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Slot',
+            start: new Date('2025-12-01T10:00:00.000-05:00').toISOString(),
+            end: new Date('2025-12-01T10:20:00.000-05:00').toISOString(),
+            status: 'free',
+            schedule: createReference(schedule),
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Slot',
+            start: new Date('2025-12-01T11:00:00.000-05:00').toISOString(),
+            end: new Date('2025-12-01T11:20:00.000-05:00').toISOString(),
+            status: 'free',
+            schedule: createReference(schedule),
+          },
+        },
+      ],
+    });
+  });
+
+  test('rejects a schedule with two non-Location actors', async () => {
+    const otherPractitioner = await systemRepo.createResource<Practitioner>({
+      resourceType: 'Practitioner',
+      meta: { project: project.id },
+      extension: [{ url: 'http://hl7.org/fhir/StructureDefinition/timezone', valueCode: 'America/New_York' }],
+    });
+    const schedule = await makeSchedule([{ service: genericVisit, availability: fourDayWorkWeek, duration: 20 }], {
+      actor: [createReference(practitioner), createReference(otherPractitioner)],
+    });
+    const response = await request
+      .get(`/fhir/R4/Schedule/${schedule.id}/$find`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Content-Type', ContentType.FHIR_JSON)
+      .query({
+        start: new Date('2025-12-01T00:00:00.000-05:00').toISOString(),
+        end: new Date('2025-12-01T12:00:00.000-05:00').toISOString(),
+        'service-type-reference': `HealthcareService/${genericVisit.id}`,
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.issue?.[0]?.details?.text).toBe('Schedule must have at most one non-Location actor');
+  });
+
+  test('falls back to the scheduling parameters timezone when the actor has none', async () => {
+    const untimedPractitioner = await systemRepo.createResource<Practitioner>({
+      resourceType: 'Practitioner',
+      meta: { project: project.id },
+    });
+    const schedule = await makeSchedule(
+      [{ service: genericVisit, availability: fourDayWorkWeek, duration: 20, timezone: 'Pacific/Honolulu' }],
+      { actor: [createReference(untimedPractitioner), createReference(location)] }
+    );
+    const response = await request
+      .get(`/fhir/R4/Schedule/${schedule.id}/$find`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Content-Type', ContentType.FHIR_JSON)
+      .query({
+        start: new Date('2025-12-01T00:00:00.000-10:00').toISOString(),
+        end: new Date('2025-12-01T12:00:00.000-10:00').toISOString(),
+        'service-type-reference': `HealthcareService/${genericVisit.id}`,
+      });
+    expect(response.body).not.toHaveProperty('issue');
+    expect(response.status).toBe(200);
+    expect(response.body.entry).toHaveLength(2);
+    expect(response.body.entry[0].resource.start).toBe(new Date('2025-12-01T10:00:00.000-10:00').toISOString());
+  });
+
+  test('rejects when neither the actor nor the scheduling parameters carry a timezone', async () => {
+    const untimedPractitioner = await systemRepo.createResource<Practitioner>({
+      resourceType: 'Practitioner',
+      meta: { project: project.id },
+    });
+    const schedule = await makeSchedule([{ service: genericVisit, availability: fourDayWorkWeek, duration: 20 }], {
+      actor: [createReference(untimedPractitioner)],
+    });
+    const response = await request
+      .get(`/fhir/R4/Schedule/${schedule.id}/$find`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Content-Type', ContentType.FHIR_JSON)
+      .query({
+        start: new Date('2025-12-01T00:00:00.000-05:00').toISOString(),
+        end: new Date('2025-12-01T12:00:00.000-05:00').toISOString(),
+        'service-type-reference': `HealthcareService/${genericVisit.id}`,
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.issue?.[0]?.details?.text).toBe('No timezone specified');
+  });
+
   test("timezone in scheduling parameters overrides the schedule's actor's timezone", async () => {
     // `location` has timezone set to America/Phoenix, which is always at offset -07:00
     // scheduling params have timezone set to Pacific/Honolulu, which is always at offset -10:00

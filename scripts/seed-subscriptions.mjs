@@ -135,6 +135,44 @@ const WIRING = [
     webhookPolicy: ['Patient', 'Consent', 'Task'],
     unsubscribeEndpoint: true,
   },
+  // --- Appointments -----------------------------------------------------------------
+  {
+    bot: 'premierhealth-appointment-notify',
+    reason: 'Confirmation / reschedule / cancellation notices to patients (WhatsApp or email)',
+    // Create AND update: confirmations on booking, reschedules and cancellations on
+    // update. The bot stamps the notified state on the Appointment so its own
+    // write-back is a no-op.
+    criteria: 'Appointment',
+  },
+  {
+    bot: 'premierhealth-appointment-reminders',
+    reason: '24h appointment reminders',
+    // Cron bot — no Subscription. Requires the project `cron` feature (seed-users.mjs).
+    cron: '0 * * * *',
+  },
+  // --- Cal.diy (website booking widget) sync ----------------------------------------
+  {
+    bot: 'premierhealth-caldiy-webhook',
+    reason: 'Turn Cal.diy bookings (BOOKING_CREATED/RESCHEDULED/CANCELLED) into FHIR Appointments',
+    // Public webhook — register the printed URL in Cal.diy (Settings → Developer →
+    // Webhooks) with the CALDIY_WEBHOOK_SECRET project secret (see ensureCaldiySecrets).
+    publicWebhook: true,
+    webhookPolicy: ['Appointment', 'Slot', 'Patient', 'Schedule', 'HealthcareService', 'Location', 'Practitioner', 'Task'],
+    caldiyEndpoint: true,
+  },
+  {
+    bot: 'premierhealth-caldiy-mirror',
+    reason: 'Mirror portal/provider bookings into Cal.diy so its booking pages never offer a taken slot',
+    criteria: 'Appointment',
+    // Never fire for appointments that came FROM Cal.diy (loop guard, see the bot).
+    extension: [
+      {
+        url: FHIRPATH_CRITERIA_URL,
+        valueString:
+          "%current.identifier.where(system = 'https://premierhealth.cm/fhir/sid/caldiy-booking').exists().not()",
+      },
+    ],
+  },
 ];
 
 async function http(method, path, body, { token, form } = {}) {
@@ -301,6 +339,38 @@ async function ensureUnsubscribeSecrets(token, projectId, webhookUrl) {
   }
 }
 
+// Provision the Cal.diy webhook secrets: the webhook bot's public URL (to paste into
+// Cal.diy → Settings → Developer → Webhooks) and the shared HMAC secret Cal.diy signs
+// payloads with (x-cal-signature-256). CALDIY_API_URL / CALDIY_API_KEY are set by
+// the operator (see examples/medplum-demo-bots/src/premierhealth/CALDIY.md).
+async function ensureCaldiySecrets(token, projectId, webhookUrl) {
+  const project = await http('GET', `/fhir/R4/Project/${projectId}`, undefined, { token });
+  const secrets = [...(project.secret ?? [])];
+  const existingUrl = secrets.find((s) => s.name === 'CALDIY_WEBHOOK_URL');
+  const existingSecret = secrets.find((s) => s.name === 'CALDIY_WEBHOOK_SECRET');
+  let changed = false;
+
+  if (existingUrl?.valueString !== webhookUrl) {
+    if (existingUrl) {
+      existingUrl.valueString = webhookUrl;
+    } else {
+      secrets.push({ name: 'CALDIY_WEBHOOK_URL', valueString: webhookUrl });
+    }
+    changed = true;
+  }
+  if (!existingSecret) {
+    secrets.push({ name: 'CALDIY_WEBHOOK_SECRET', valueString: randomBytes(32).toString('hex') });
+    changed = true;
+  }
+  if (changed) {
+    await http('PUT', `/fhir/R4/Project/${projectId}`, { ...project, secret: secrets }, { token });
+    console.log('  + Cal.diy webhook secrets provisioned (CALDIY_WEBHOOK_URL + CALDIY_WEBHOOK_SECRET)');
+  }
+  const secretValue = (existingSecret ?? secrets.find((s) => s.name === 'CALDIY_WEBHOOK_SECRET')).valueString;
+  console.log(`  i Cal.diy webhook: subscriber URL ${webhookUrl}`);
+  console.log(`  i Cal.diy webhook: secret ${secretValue}`);
+}
+
 async function ensureBotWebhook(token, bot, policyResources) {
   // Re-read before PUT — see ensureBotCron.
   const fresh = await http('GET', `/fhir/R4/Bot/${bot.id}`, undefined, { token });
@@ -401,6 +471,9 @@ async function wireProject(superToken, projectId, projectName) {
       const webhookUrl = await ensureBotWebhook(token, bot, entry.webhookPolicy ?? []);
       if (entry.unsubscribeEndpoint && webhookUrl) {
         await ensureUnsubscribeSecrets(superToken, projectId, webhookUrl);
+      }
+      if (entry.caldiyEndpoint && webhookUrl) {
+        await ensureCaldiySecrets(superToken, projectId, webhookUrl);
       }
     }
     if (entry.criteria) {

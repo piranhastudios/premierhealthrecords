@@ -16,7 +16,13 @@ import { getAuthenticatedContext } from '../../context';
 import { isCodeableReferenceLikeTo, toCodeableReferenceLike } from '../../util/servicetype';
 import { findSlotTimes } from './utils/find';
 import { buildOutputParameters, parseInputParameters } from './utils/parameters';
-import { applyExistingSlots, getTimeZone, resolveAvailability, TimezoneExtensionURI } from './utils/scheduling';
+import {
+  applyExistingSlots,
+  getPrimaryActor,
+  getTimeZone,
+  resolveAvailability,
+  TimezoneExtensionURI,
+} from './utils/scheduling';
 import { chooseSchedulingParameters } from './utils/scheduling-parameters';
 
 const findOperation = {
@@ -127,23 +133,22 @@ export async function scheduleFindHandler(req: FhirRequest): Promise<FhirRespons
     throw new OperationOutcomeError(badRequest('Too many slots found in range; try searching with smaller bounds'));
   }
 
-  if (schedule.actor.length !== 1) {
-    throw new OperationOutcomeError(badRequest('$find only supported on schedules with exactly one actor'));
-  }
-  const actor = await ctx.repo.readReference(schedule.actor[0]);
-  const actorTimeZone = getTimeZone(actor);
-  if (!actorTimeZone) {
-    throw new OperationOutcomeError(
-      badRequest('No timezone specified', `Schedule.actor[0].extension(${TimezoneExtensionURI})`)
-    );
-  }
+  // A Schedule has one primary actor (e.g. a Practitioner) and optionally Location
+  // actors for the site(s); the primary actor's timezone governs availability unless
+  // the SchedulingParameters carry an explicit timezone.
+  const actor = await ctx.repo.readReference(getPrimaryActor(schedule));
 
   const schedulingParameters = chooseSchedulingParameters(schedule, healthcareService);
   if (!schedulingParameters) {
     throw new OperationOutcomeError(badRequest('SchedulingParameters not present on Schedule or HealthcareService'));
   }
 
-  const activeTimeZone = schedulingParameters.timezone ?? actorTimeZone;
+  const activeTimeZone = schedulingParameters.timezone ?? getTimeZone(actor);
+  if (!activeTimeZone) {
+    throw new OperationOutcomeError(
+      badRequest('No timezone specified', `Schedule.actor.extension(${TimezoneExtensionURI})`)
+    );
+  }
 
   let availability = resolveAvailability(schedulingParameters, range, activeTimeZone);
   availability = applyExistingSlots({

@@ -78,6 +78,29 @@ export const HOME_PAGE_QUERY = defineQuery(`
   }
 `)
 
+/** Clinic sites, joined to Medplum by `fhirLocationId` for the booking flow. */
+export const LOCATIONS_QUERY = defineQuery(`
+  *[_type == "location" && defined(fhirLocationId)] | order(order asc, name asc){
+    _id,
+    "name": coalesce(select($locale == "fr" => name_fr), name),
+    "slug": slug.current,
+    fhirLocationId,
+    "address": coalesce(select($locale == "fr" => address_fr), address),
+    city,
+    phone,
+    email,
+    geo,
+    openingHours[]{
+      _key,
+      days,
+      hours,
+      "daysLabel": coalesce(select($locale == "fr" => days_fr), days),
+      "hoursLabel": coalesce(select($locale == "fr" => hours_fr), hours)
+    },
+    image{${imageFields}}
+  }
+`)
+
 const serviceListFields = /* groq */ `
   _id,
   "title": coalesce(select($locale == "fr" => title_fr), title),

@@ -27,7 +27,13 @@ import { addMinutes, areIntervalsOverlapping } from '../../util/date';
 import { invariant } from '../../util/invariant';
 import { extractReferencesFromCodeableReferenceLike } from '../../util/servicetype';
 import { buildOutputParameters, parseInputParameters } from './utils/parameters';
-import { applyExistingSlots, getTimeZone, resolveAvailability } from './utils/scheduling';
+import {
+  applyExistingSlots,
+  getPrimaryActor,
+  getTimeZone,
+  isLocationActor,
+  resolveAvailability,
+} from './utils/scheduling';
 import { chooseSchedulingParameters } from './utils/scheduling-parameters';
 
 const bookOperation = {
@@ -122,11 +128,8 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
   const schedules = await ctx.repo.readReferences(proposedSlots.map((slot) => slot.schedule));
   assertAllOk(schedules, 'Schedule load failed', 'Parameters.parameter[%i].schedule');
 
-  schedules.forEach((schedule) => {
-    if (schedule.actor.length !== 1) {
-      throw new OperationOutcomeError(badRequest('$book only supported on schedules with exactly one actor'));
-    }
-  });
+  // Validate actor lists up front (one primary actor + optional Location actors).
+  schedules.forEach((schedule) => getPrimaryActor(schedule));
 
   const actors = await ctx.repo.readReferences(schedules.flatMap((schedule) => schedule.actor));
   assertAllOk(actors, 'Schedule.actor load failed', 'Parameters.parameter[%i].schedule.actor');
@@ -183,14 +186,9 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
           const schedule = schedules.find((s) => `Schedule/${s.id}` === scheduleRefString);
           invariant(schedule, 'Slot.schedule not loaded');
 
-          const actor = actors.find((a) => `${a.resourceType}/${a.id}` === schedule.actor[0].reference);
+          const primaryActorRef = getPrimaryActor(schedule).reference;
+          const actor = actors.find((a) => `${a.resourceType}/${a.id}` === primaryActorRef);
           invariant(actor, 'Slot.schedule.actor not loaded');
-          const actorTimeZone = getTimeZone(actor);
-          if (!actorTimeZone) {
-            throw new OperationOutcomeError(
-              badRequest('No timezone specified', `Parameters.parameter[${index}].schedule.actor`)
-            );
-          }
           const durationMinutes = (Date.parse(proposedSlot.end) - Date.parse(proposedSlot.start)) / 60000;
           const parameters = chooseSchedulingParameters(schedule, healthcareService);
 
@@ -198,7 +196,12 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
             throw new OperationOutcomeError(badRequest('No matching scheduling parameters found'));
           }
 
-          const timeZone = parameters.timezone ?? actorTimeZone;
+          const timeZone = parameters.timezone ?? getTimeZone(actor);
+          if (!timeZone) {
+            throw new OperationOutcomeError(
+              badRequest('No timezone specified', `Parameters.parameter[${index}].schedule.actor`)
+            );
+          }
 
           const range = {
             start: addMinutes(startDate, -1 * parameters.bufferBefore),
@@ -287,10 +290,21 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
         })
       );
 
-      const participant: Appointment['participant'] = schedules.map((schedule) => ({
-        actor: schedule.actor[0],
-        status: 'tentative',
-      }));
+      // Every Schedule actor becomes a participant: the primary actor (practitioner)
+      // as tentative, Location actors (the site) as accepted. Locations shared by
+      // several schedules are only listed once.
+      const participant: Appointment['participant'] = [];
+      const seenActors = new Set<string>();
+      for (const schedule of schedules) {
+        for (const actor of schedule.actor) {
+          const key = actor.reference ?? '';
+          if (key && seenActors.has(key)) {
+            continue;
+          }
+          seenActors.add(key);
+          participant.push({ actor, status: isLocationActor(actor) ? 'accepted' : 'tentative' });
+        }
+      }
 
       if (params['patient-reference']) {
         participant.push({
