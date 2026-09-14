@@ -48,7 +48,7 @@ npm install
 
 cd examples/patient-portal
 # point the app at your server + client
-export MEDPLUM_BASE_URL="https://api.premierhealth.cm/"   # or http://localhost:8103/
+export MEDPLUM_BASE_URL="https://phr.commerce.storefactory.shop/api/"  # test; or http://localhost:8103/
 export MEDPLUM_CLIENT_ID="<your-pkce-client-id>"
 
 # Web (fastest to try)
@@ -110,6 +110,73 @@ src/qr/              rotating-QR token model, online JWS, offline TOTP, biometri
 src/components/      PHC UI kit + IdCard (flip), QrBadge, banners
 src/theme/           PHC design tokens
 ```
+
+## Builds, CI/CD and crash reporting
+
+### Pipelines
+
+| Workflow | Trigger | Does |
+| --- | --- | --- |
+| `.github/workflows/mobile-ci.yml` | PR / push touching `examples/patient-portal/**` | `tsc`, `npm run check:native-dupes`, a **release** `expo export` for Android + iOS, and `expo-doctor` as a report |
+| `.github/workflows/mobile-release.yml` | Manual (`Actions -> Mobile Release`) or a `portal-v*` tag | `eas build` for the chosen profile; optional `eas submit` |
+
+**`check:native-dupes` is the gate that matters** (`scripts/check-native-dupes.mjs`).
+A native module resolved at two different versions is invisible to `tsc` and to
+Metro in development, but it links one version natively while bundling the other
+in JS — a launch crash on a real device. That is what shipped: `@expo/vector-icons`
+declares an open-ended `expo-font: ">=14.0.4"` **peer** range, so npm installed
+`expo-font@57.0.0` and hoisted it above the `expo-font@14.0.12` that Expo SDK 54
+pins, and autolinking picked the 57. `expo-font` is now both an explicit
+dependency here and pinned in the root `package.json` `overrides`, so only one
+copy can exist.
+
+`expo-doctor` runs too, but only as a report. Its duplicate check is
+all-or-nothing and permanently flags the two copies of `react` (the app's 19.1.0
+and `@medplum/react-hooks`' 19.2.5) that `metro.config.js` already collapses to a
+single instance, plus patch-level SDK drift — so it cannot gate. Do read it.
+
+The `expo export` step matters for the same reason: it builds the bundle the way
+it ships (`__DEV__` false, minified, production module resolution), so a module
+that only resolves in the dev server fails in CI instead of on a patient's phone.
+
+### Required secrets
+
+| Secret | Needed for | Where to get it |
+| --- | --- | --- |
+| `EXPO_TOKEN` | every `Mobile Release` run | expo.dev -> Account -> Access tokens (robot token) |
+| `SENTRY_DSN` | turning crash reporting on | Sentry -> Project -> Client Keys |
+| `SENTRY_AUTH_TOKEN` | readable (un-minified) stack traces | Sentry -> Auth tokens, scope `project:releases` |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | source-map upload | your Sentry org / project slugs |
+
+Only `EXPO_TOKEN` is mandatory. With no `SENTRY_DSN` the app runs exactly as
+before and reporting is a no-op (`src/lib/reporting.ts`).
+
+Store submission is **off** unless you tick `submit` on a manual production run.
+The first-ever Play release must be uploaded by hand — Google rejects API
+submissions to a track that has never received a build.
+
+### Crash reporting
+
+- `src/lib/reporting.ts` is the only module that touches Sentry. It scrubs FHIR
+  resource ids and bearer tokens out of every event before it leaves the device;
+  this app handles patient records, so a raw stack trace is not safe to upload.
+- It starts from `src/lib/startReporting.ts`, imported **first** in `index.ts`.
+  That indirection is deliberate: `import` declarations are hoisted, so a bare
+  `initCrashReporting()` call in `index.ts` would run *after* `expo-router/entry`
+  had already loaded the app — too late for a crash during module evaluation.
+- `app/_layout.tsx` exports an `ErrorBoundary`. Release builds have no red box,
+  so without one a render-time exception unmounts the tree and the app simply
+  closes with no explanation.
+
+### Build profiles
+
+`eas.json` profiles differ in more than signing — each points at its own server:
+
+| Profile | Android artifact | Server |
+| --- | --- | --- |
+| `development` | APK, internal | `phr.commerce.storefactory.shop` (test) |
+| `preview` | APK, internal | `phr.commerce.storefactory.shop` (test) |
+| `production` | AAB, store | `app.premierhealthcentres.com` (live) |
 
 ## Known limitations / next steps
 

@@ -12,6 +12,7 @@
     "ios": "expo run:ios",
     "lint": "echo \"patient-portal: run 'expo lint' locally after 'npx expo install'\"",
     "typecheck": "tsc --noEmit",
+    "check:native-dupes": "node scripts/check-native-dupes.mjs",
     "test": "echo \"patient-portal: no tests yet (jest-expo)\""
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "@medplum/fhirtypes": "5.1.9",
     "@medplum/react-hooks": "5.1.9",
     "@react-native-community/netinfo": "11.4.1",
+    "@sentry/react-native": "~7.2.0",
     "@tanstack/react-query": "5.62.7",
     "expo": "~54.0.0",
     "expo-auth-session": "~7.0.0",
@@ -28,6 +30,7 @@
     "expo-constants": "~18.0.0",
     "expo-crypto": "~15.0.0",
     "expo-dev-client": "~6.0.0",
+    "expo-font": "~14.0.12",
     "expo-linear-gradient": "~15.0.0",
     "expo-local-authentication": "~17.0.0",
     "expo-router": "~6.0.0",

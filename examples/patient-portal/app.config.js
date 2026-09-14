@@ -8,6 +8,10 @@
 //   MEDPLUM_BASE_URL   FHIR/Medplum server base URL (prod: https://app.premierhealthcentres.com/api/)
 //   MEDPLUM_CLIENT_ID  Optional public PKCE client id (NO secret ever ships on device)
 //   MEDPLUM_PROJECT_ID Medplum project patients sign in / register into (the FHIR R4 project)
+//   SENTRY_DSN         Optional crash-reporting DSN. Absent = reporting is off and the
+//                      app behaves exactly as before (see src/lib/reporting.ts).
+//   SENTRY_ORG /       Optional, build-machine only. Set together with a SENTRY_AUTH_TOKEN
+//   SENTRY_PROJECT     secret to upload source maps so stack traces are readable.
 
 /**
  * @param {{ config: import('expo/config').ExpoConfig }} ctx
@@ -75,6 +79,16 @@ module.exports = ({ config }) => ({
   },
   plugins: [
     'expo-router',
+    // Installs the native (Java/Kotlin + C++) crash handlers, so a crash that
+    // never reaches JS — the "closes instantly on launch" kind — is still
+    // reported. Source-map upload only runs when SENTRY_AUTH_TOKEN is set.
+    [
+      '@sentry/react-native/expo',
+      {
+        organization: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+      },
+    ],
     'expo-secure-store',
     'expo-local-authentication',
     [
@@ -99,6 +113,7 @@ module.exports = ({ config }) => ({
     medplumClientId: process.env.MEDPLUM_CLIENT_ID ?? '',
     medplumProjectId: process.env.MEDPLUM_PROJECT_ID ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6',
     phcFhirBase: 'https://premierhealth.cm/fhir',
+    sentryDsn: process.env.SENTRY_DSN ?? '',
     router: {},
     eas: { projectId: '32904d99-92a8-4afd-b199-340c7c8fcfe9' },
   },

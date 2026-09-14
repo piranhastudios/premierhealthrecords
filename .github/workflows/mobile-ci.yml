@@ -1,0 +1,101 @@
+name: Mobile CI
+
+# Checks for the Expo patient-portal app (examples/patient-portal).
+#
+# The app is excluded from the repo's root `turbo run build` (examples/* never
+# ship in the server/provider images), so nothing in the main Build workflow
+# looks at it. These are the checks that would have caught the defects behind
+# the live Android launch crash:
+#   * check:native-dupes — a native module resolved at two versions links one
+#                    natively and bundles the other in JS: a launch crash that
+#                    nothing else catches. This is the gate that matters.
+#   * expo export  — proves the RELEASE bundle actually builds; a module that
+#                    only resolves in dev fails here, not on a user's phone
+#   * tsc          — the app is outside the root tsconfig project references
+#
+# expo-doctor also runs, but only as a report. Its duplicate check is
+# all-or-nothing and permanently flags the two copies of `react` that
+# metro.config.js already collapses to one instance, so it cannot gate.
+
+concurrency:
+  group: mobile-ci-${{ github.ref_name == 'main' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/patient-portal/**'
+      - 'package-lock.json'
+      - '.github/workflows/mobile-ci.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'examples/patient-portal/**'
+      - 'package-lock.json'
+      - '.github/workflows/mobile-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: examples/patient-portal
+
+jobs:
+  check:
+    name: Typecheck, doctor, bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+      # The bundle must be built the way it ships. These are public values (the
+      # client id is a PKCE public client; no secret ever reaches the device).
+      MEDPLUM_BASE_URL: https://phr.commerce.storefactory.shop/api/
+      MEDPLUM_PROJECT_ID: c4c16ab3-e93d-47b3-a106-2030dcf79f1a
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Cache node modules
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-mobile-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-mobile-
+            ${{ runner.os }}-
+
+      - name: Install
+        # The app depends on @medplum/core + @medplum/react-hooks by workspace
+        # symlink, so the whole monorepo has to be installed, from the root.
+        run: npm ci
+        working-directory: .
+
+      - name: Build workspace dependencies
+        # @medplum/core and @medplum/react-hooks are consumed as built dist/
+        # (see examples/patient-portal/metro.config.js), so they must exist.
+        run: npx turbo run build --filter=@medplum/core --filter=@medplum/react-hooks
+        working-directory: .
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Check for duplicate native modules
+        run: npm run check:native-dupes
+
+      - name: expo-doctor (report only)
+        continue-on-error: true
+        run: npx expo-doctor
+
+      - name: Bundle for Android (release)
+        run: npx expo export --platform android --output-dir dist-ci
+
+      - name: Bundle for iOS (release)
+        run: npx expo export --platform ios --output-dir dist-ci-ios
