@@ -162,11 +162,17 @@ Only `EXPO_TOKEN` is mandatory. With no `SENTRY_DSN` the app runs exactly as
 before and reporting is a no-op (`src/lib/reporting.ts`).
 
 **Turning Sentry on is two steps, not one.** The config plugin is only added when
-`SENTRY_DSN` is set (`app.config.js`), because it registers a Gradle task that
+`PHC_SENTRY_DSN` is set (`app.config.js`), because it registers a Gradle task that
 shells out to `sentry-cli` — with no org configured that task fails and takes the
 whole Android build with it (`An organization ID or slug is required`). As a
 second guard, every profile sets `SENTRY_DISABLE_AUTO_UPLOAD=true` in `eas.json`,
 so a DSN without an auth token still builds; it just ships without source maps.
+The DSN variable is namespaced deliberately: **EAS Build sets its own
+`SENTRY_DSN`** during the `READ_APP_CONFIG` phase (Expo's CLI telemetry DSN), so
+reading the plain name would silently bake Expo's DSN into the app and send
+patient crash reports to Expo's Sentry org. The workflow exports the repo's
+`SENTRY_DSN` secret as `PHC_SENTRY_DSN`.
+
 To get readable stack traces, set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and
 `SENTRY_PROJECT` **as EAS environment variables** (expo.dev → project →
 Environment variables — the GitHub secrets do not reach the EAS build worker) and

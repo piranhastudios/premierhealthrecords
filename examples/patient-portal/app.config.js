@@ -11,8 +11,12 @@
 //                      and test share it and are separated by MEDPLUM_PROJECT_ID.
 //   MEDPLUM_CLIENT_ID  Optional public PKCE client id (NO secret ever ships on device)
 //   MEDPLUM_PROJECT_ID Medplum project patients sign in / register into (the FHIR R4 project)
-//   SENTRY_DSN         Optional crash-reporting DSN. Absent = reporting is off and the
+//   PHC_SENTRY_DSN     Optional crash-reporting DSN. Absent = reporting is off and the
 //                      app behaves exactly as before (see src/lib/reporting.ts).
+//                      Deliberately NOT called SENTRY_DSN: EAS Build sets its own
+//                      SENTRY_DSN during the READ_APP_CONFIG phase (Expo's CLI
+//                      telemetry DSN), which would silently bake Expo's DSN into
+//                      the app and send patient crash reports to Expo's org.
 //   SENTRY_ORG /       Optional, build-machine only. Set together with a SENTRY_AUTH_TOKEN
 //   SENTRY_PROJECT     secret to upload source maps so stack traces are readable.
 
@@ -90,7 +94,7 @@ module.exports = ({ config }) => ({
     // sentry-cli: with no org configured that task fails, taking the whole
     // Android build down with "An organization ID or slug is required".
     // See also SENTRY_DISABLE_AUTO_UPLOAD in eas.json.
-    ...(process.env.SENTRY_DSN
+    ...(process.env.PHC_SENTRY_DSN
       ? [
           [
             '@sentry/react-native/expo',
@@ -125,7 +129,7 @@ module.exports = ({ config }) => ({
     medplumClientId: process.env.MEDPLUM_CLIENT_ID ?? '',
     medplumProjectId: process.env.MEDPLUM_PROJECT_ID ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6',
     phcFhirBase: 'https://premierhealth.cm/fhir',
-    sentryDsn: process.env.SENTRY_DSN ?? '',
+    sentryDsn: process.env.PHC_SENTRY_DSN ?? '',
     router: {},
     eas: { projectId: '32904d99-92a8-4afd-b199-340c7c8fcfe9' },
   },

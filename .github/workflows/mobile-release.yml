@@ -13,7 +13,7 @@ name: Mobile Release
 # Required repository secret:
 #   EXPO_TOKEN            EAS robot access token (expo.dev -> Account -> Access tokens)
 # Optional:
-#   SENTRY_DSN            turns crash reporting on for the build
+#   SENTRY_DSN            turns crash reporting on (exported as PHC_SENTRY_DSN)
 #   SENTRY_AUTH_TOKEN     uploads source maps so stack traces are readable
 #   SENTRY_ORG / SENTRY_PROJECT
 #
@@ -64,7 +64,9 @@ jobs:
       PROFILE: ${{ github.event_name == 'push' && 'production' || inputs.profile }}
       PLATFORM: ${{ github.event_name == 'push' && 'android' || inputs.platform }}
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      # Namespaced on purpose — EAS Build sets its own SENTRY_DSN during
+      # READ_APP_CONFIG, so app.config.js reads PHC_SENTRY_DSN instead.
+      PHC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
