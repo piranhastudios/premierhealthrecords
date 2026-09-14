@@ -1,6 +1,7 @@
 import '../global.css';
 import '../src/theme/cssInterop';
 import { MedplumProvider } from '@medplum/react-hooks';
+import * as Sentry from '@sentry/react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter, type ErrorBoundaryProps } from 'expo-router';
 import { useEffect } from 'react';
@@ -29,7 +30,13 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps): JSX.Element
   return <ErrorScreen error={error} retry={retry} />;
 }
 
-export default function RootLayout(): JSX.Element {
+// Sentry.wrap adds navigation/render instrumentation to the root component.
+// NOTE: Sentry.init is deliberately NOT called here. It runs from
+// src/lib/startReporting.ts, imported first in index.ts, so it is live before
+// the modules below are evaluated — a crash during module evaluation is the
+// whole reason this app has crash reporting. Initialising in this file would be
+// far too late, and would also bypass the PHI scrubbing in src/lib/reporting.ts.
+export default Sentry.wrap(function RootLayout(): JSX.Element {
   const router = useRouter();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -52,4 +59,4 @@ export default function RootLayout(): JSX.Element {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
-}
+});

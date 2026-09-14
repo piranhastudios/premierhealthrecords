@@ -151,32 +151,53 @@ Run either check locally: `npm run check:api -- --profile production`.
 
 ### Required secrets
 
-| Secret | Needed for | Where to get it |
+| Where | Name | Needed for |
 | --- | --- | --- |
-| `EXPO_TOKEN` | every `Mobile Release` run | expo.dev -> Account -> Access tokens (robot token) |
-| `SENTRY_DSN` | turning crash reporting on | Sentry -> Project -> Client Keys |
-| `SENTRY_AUTH_TOKEN` | readable (un-minified) stack traces | Sentry -> Auth tokens, scope `project:releases` |
-| `SENTRY_ORG`, `SENTRY_PROJECT` | source-map upload | your Sentry org / project slugs |
+| GitHub repo secret | `EXPO_TOKEN` | every `Mobile Release` run |
+| EAS env var (secret) | `SENTRY_AUTH_TOKEN` | source-map upload during the build |
+| `eas.json` (not secret) | `PHC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | crash reporting + release association |
 
-Only `EXPO_TOKEN` is mandatory. With no `SENTRY_DSN` the app runs exactly as
-before and reporting is a no-op (`src/lib/reporting.ts`).
+`EXPO_TOKEN` is the only GitHub secret. Sentry's build-time variables have to be
+**EAS** environment variables: the GitHub runner only queues the build, and its
+environment is not forwarded to the EAS build worker.
 
-**Turning Sentry on is two steps, not one.** The config plugin is only added when
-`PHC_SENTRY_DSN` is set (`app.config.js`), because it registers a Gradle task that
-shells out to `sentry-cli` — with no org configured that task fails and takes the
-whole Android build with it (`An organization ID or slug is required`). As a
-second guard, every profile sets `SENTRY_DISABLE_AUTO_UPLOAD=true` in `eas.json`,
-so a DSN without an auth token still builds; it just ships without source maps.
-The DSN variable is namespaced deliberately: **EAS Build sets its own
-`SENTRY_DSN`** during the `READ_APP_CONFIG` phase (Expo's CLI telemetry DSN), so
-reading the plain name would silently bake Expo's DSN into the app and send
-patient crash reports to Expo's Sentry org. The workflow exports the repo's
-`SENTRY_DSN` secret as `PHC_SENTRY_DSN`.
+**Sentry is configured** — org `piranha-studios`, project `react-native` (EU
+region). The DSN lives in `eas.json` next to the base URL because a DSN is a
+public client credential: it ships inside the app by design. `SENTRY_AUTH_TOKEN`
+is the only secret, and it is stored as an **EAS environment variable** (secret
+visibility, all three environments) because GitHub secrets do not reach the EAS
+build worker. `metro.config.js` uses `getSentryExpoConfig` so builds emit the
+debug ids Sentry needs to resolve minified frames.
 
-To get readable stack traces, set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and
-`SENTRY_PROJECT` **as EAS environment variables** (expo.dev → project →
-Environment variables — the GitHub secrets do not reach the EAS build worker) and
-drop `SENTRY_DISABLE_AUTO_UPLOAD` from the profile you are building.
+The DSN variable is named `PHC_SENTRY_DSN`, not `SENTRY_DSN`, on purpose: **EAS
+Build sets its own `SENTRY_DSN`** during the `READ_APP_CONFIG` phase (Expo's CLI
+telemetry DSN), and reading the plain name would silently bake Expo's DSN into
+the app and send patient crash reports to Expo's Sentry org.
+
+`app.config.js` only adds the Sentry config plugin when `PHC_SENTRY_DSN` is set,
+because the plugin registers a Gradle task that shells out to `sentry-cli`; with
+no org configured that task fails and takes the whole Android build down with
+`An organization ID or slug is required`. If you ever need to build without
+Sentry, unset that variable — do not delete `SENTRY_AUTH_TOKEN` and leave the DSN
+in place, or set `SENTRY_DISABLE_AUTO_UPLOAD=true` on the profile.
+
+### What this app deliberately does NOT send
+
+`npx @sentry/wizard` writes a default `Sentry.init` that is wrong for a patient
+records app. Its settings were removed on purpose; do not restore them from a
+future wizard run:
+
+| Wizard default | Why it is off here |
+| --- | --- |
+| `sendDefaultPii: true` | Attaches IP address, cookies and user identifiers to every event. |
+| `mobileReplayIntegration()` | Session Replay **records the screen** — medical records, the ID card, the QR code. `replaysOnErrorSampleRate: 1` would capture a replay on every error. |
+| `feedbackIntegration()` | Adds a user-facing feedback widget nobody designed or translated. |
+| `enableLogs: true` | Ships console output, which can carry patient data. |
+| `Sentry.init` in `app/_layout.tsx` | Runs only once expo-router has loaded the app — far too late to catch a module-evaluation crash, which is the reason this app has crash reporting at all. |
+
+Initialisation happens in `src/lib/startReporting.ts` (imported first in
+`index.ts`) and all events pass through `src/lib/reporting.ts`, which strips FHIR
+resource ids and bearer tokens before anything leaves the device.
 
 Store submission is **off** unless you tick `submit` on a manual production run.
 The first-ever Play release must be uploaded by hand — Google rejects API

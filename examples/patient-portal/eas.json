@@ -14,7 +14,9 @@
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
         "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "PHC_SENTRY_DSN": "https://fc90a3bdd6d7fc3780e3d865fbabfe23@o4512084015251456.ingest.de.sentry.io/4512084864991312",
+        "SENTRY_ORG": "piranha-studios",
+        "SENTRY_PROJECT": "react-native"
       }
     },
     "preview": {
@@ -26,7 +28,9 @@
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
         "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "PHC_SENTRY_DSN": "https://fc90a3bdd6d7fc3780e3d865fbabfe23@o4512084015251456.ingest.de.sentry.io/4512084864991312",
+        "SENTRY_ORG": "piranha-studios",
+        "SENTRY_PROJECT": "react-native"
       }
     },
     "production": {
@@ -35,7 +39,9 @@
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
         "MEDPLUM_PROJECT_ID": "161452d9-43b7-5c29-aa7b-c85680fa45c6",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "PHC_SENTRY_DSN": "https://fc90a3bdd6d7fc3780e3d865fbabfe23@o4512084015251456.ingest.de.sentry.io/4512084864991312",
+        "SENTRY_ORG": "piranha-studios",
+        "SENTRY_PROJECT": "react-native"
       }
     }
   },

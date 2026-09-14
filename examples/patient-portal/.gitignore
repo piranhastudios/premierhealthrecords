@@ -23,3 +23,6 @@ npm-debug.*
 
 # local env
 .env*.local
+
+# Editor / agent config written by the Sentry wizard
+.vscode/

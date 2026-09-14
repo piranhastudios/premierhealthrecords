@@ -1,13 +1,17 @@
 // Monorepo-aware Metro config for the PHC patient portal.
 // npm workspaces hoist deps to the repo root; @medplum/* are workspace symlinks.
-const { getDefaultConfig } = require('expo/metro-config');
+//
+// getSentryExpoConfig wraps expo/metro-config's getDefaultConfig and additionally
+// emits the debug ids that let Sentry match a minified stack frame back to source.
+// It is a drop-in replacement — everything configured below still applies.
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const { withNativeWind } = require('nativewind/metro');
 const path = require('path');
 
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, '../..');
 
-const config = getDefaultConfig(projectRoot);
+const config = getSentryExpoConfig(projectRoot);
 
 // 0. Treat .wasm as a bundled asset so expo-sqlite's web build can import
 //    wa-sqlite.wasm (Metro doesn't resolve .wasm imports by default).
