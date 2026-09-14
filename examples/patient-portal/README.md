@@ -161,6 +161,17 @@ Run either check locally: `npm run check:api -- --profile production`.
 Only `EXPO_TOKEN` is mandatory. With no `SENTRY_DSN` the app runs exactly as
 before and reporting is a no-op (`src/lib/reporting.ts`).
 
+**Turning Sentry on is two steps, not one.** The config plugin is only added when
+`SENTRY_DSN` is set (`app.config.js`), because it registers a Gradle task that
+shells out to `sentry-cli` — with no org configured that task fails and takes the
+whole Android build with it (`An organization ID or slug is required`). As a
+second guard, every profile sets `SENTRY_DISABLE_AUTO_UPLOAD=true` in `eas.json`,
+so a DSN without an auth token still builds; it just ships without source maps.
+To get readable stack traces, set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and
+`SENTRY_PROJECT` **as EAS environment variables** (expo.dev → project →
+Environment variables — the GitHub secrets do not reach the EAS build worker) and
+drop `SENTRY_DISABLE_AUTO_UPLOAD` from the profile you are building.
+
 Store submission is **off** unless you tick `submit` on a manual production run.
 The first-ever Play release must be uploaded by hand — Google rejects API
 submissions to a track that has never received a build.

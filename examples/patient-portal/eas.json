@@ -13,7 +13,8 @@
       },
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
-        "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a"
+        "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
@@ -24,7 +25,8 @@
       },
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
-        "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a"
+        "MEDPLUM_PROJECT_ID": "c4c16ab3-e93d-47b3-a106-2030dcf79f1a",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
@@ -32,7 +34,8 @@
       "channel": "production",
       "env": {
         "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
-        "MEDPLUM_PROJECT_ID": "161452d9-43b7-5c29-aa7b-c85680fa45c6"
+        "MEDPLUM_PROJECT_ID": "161452d9-43b7-5c29-aa7b-c85680fa45c6",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },

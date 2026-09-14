@@ -82,16 +82,25 @@ module.exports = ({ config }) => ({
   },
   plugins: [
     'expo-router',
-    // Installs the native (Java/Kotlin + C++) crash handlers, so a crash that
-    // never reaches JS — the "closes instantly on launch" kind — is still
-    // reported. Source-map upload only runs when SENTRY_AUTH_TOKEN is set.
-    [
-      '@sentry/react-native/expo',
-      {
-        organization: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-      },
-    ],
+    // Sentry's native (Java/Kotlin + C++) crash handlers, so a crash that never
+    // reaches JS — the "closes instantly on launch" kind — is still reported.
+    //
+    // Only added when a DSN exists. Without one nothing would be reported
+    // anyway, and the plugin registers a Gradle task that shells out to
+    // sentry-cli: with no org configured that task fails, taking the whole
+    // Android build down with "An organization ID or slug is required".
+    // See also SENTRY_DISABLE_AUTO_UPLOAD in eas.json.
+    ...(process.env.SENTRY_DSN
+      ? [
+          [
+            '@sentry/react-native/expo',
+            {
+              organization: process.env.SENTRY_ORG,
+              project: process.env.SENTRY_PROJECT,
+            },
+          ],
+        ]
+      : []),
     'expo-secure-store',
     'expo-local-authentication',
     [
