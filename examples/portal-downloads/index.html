@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Internal test builds: keep this out of search results. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Premier Health — test builds</title>
+    <style>
+      :root {
+        --orange: #ee6a1f;
+        --red: #e0231f;
+        --gold: #f7a91e;
+        --ink: #1a1110;
+        --ink-2: #6b5b53;
+        --bg: #fbf8f5;
+        --card: #fff;
+        --line: #efe6df;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: linear-gradient(135deg, var(--gold), var(--orange) 45%, var(--red));
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card);
+        border-radius: 20px;
+        padding: 32px 28px;
+        box-shadow: 0 18px 50px rgb(0 0 0 / 22%);
+      }
+      h1 { margin: 0 0 4px; font-size: 22px; }
+      .sub { margin: 0 0 24px; color: var(--ink-2); font-size: 14px; }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 24px; font-size: 14px; }
+      dt { color: var(--ink-2); }
+      dd { margin: 0; font-variant-numeric: tabular-nums; }
+      a.btn {
+        display: block;
+        background: var(--orange);
+        color: #fff;
+        text-align: center;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 16px;
+        padding: 16px;
+        border-radius: 999px;
+      }
+      a.btn:active { background: #c24e12; }
+      .note { margin: 20px 0 0; font-size: 12px; line-height: 1.55; color: var(--ink-2); }
+      .err { color: var(--red); font-size: 14px; }
+      hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0 16px; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Premier Health</h1>
+      <p class="sub">Android test build — patient portal</p>
+
+      <div id="meta"><p class="sub">Looking up the latest build…</p></div>
+
+      <a class="btn" id="dl" href="/api/latest">Download APK</a>
+
+      <hr />
+      <p class="note">
+        This always serves the newest finished <strong>preview</strong> build, resolved
+        when you tap it — EAS download links expire, so never bookmark the file itself,
+        only this page.
+      </p>
+      <p class="note">
+        Android will warn about installing outside the Play Store. Allow installs from
+        your browser once, then open the file. It points at the <strong>test</strong>
+        server, not live patient data.
+      </p>
+    </main>
+
+    <script type="module">
+      const meta = document.getElementById('meta');
+      try {
+        const res = await fetch('/api/info');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const built = new Date(data.builtAt);
+        meta.innerHTML = `
+          <dl>
+            <dt>Version</dt><dd>${data.version}</dd>
+            <dt>Commit</dt><dd>${data.commit}</dd>
+            <dt>Built</dt><dd>${built.toLocaleString()}</dd>
+          </dl>`;
+      } catch (err) {
+        meta.innerHTML = `<p class="err">Could not load build info: ${err.message}</p>`;
+      }
+    </script>
+  </body>
+</html>

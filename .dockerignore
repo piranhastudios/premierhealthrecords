@@ -10,3 +10,5 @@ node_modules
 examples/website
 # Sanity Studio: separate pnpm project, deployed to sanity.studio, not part of the Medplum build
 examples/studio
+# Tester download page: deployed on Vercel, not part of the Medplum build
+examples/portal-downloads
