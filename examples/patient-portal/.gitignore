@@ -1,6 +1,7 @@
 # Expo
 .expo/
 dist/
+dist-ci*/
 web-build/
 
 # Native

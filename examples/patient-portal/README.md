@@ -48,7 +48,7 @@ npm install
 
 cd examples/patient-portal
 # point the app at your server + client
-export MEDPLUM_BASE_URL="https://api.premierhealth.cm/"   # or http://localhost:8103/
+export MEDPLUM_BASE_URL="https://phr.commerce.storefactory.shop/api/"  # test; or http://localhost:8103/
 export MEDPLUM_CLIENT_ID="<your-pkce-client-id>"
 
 # Web (fastest to try)
@@ -89,7 +89,7 @@ Existing: `Invoice/$pay` (pawaPay). Added in this change set:
 own rate — enable Adaptive Pricing in the Stripe Dashboard (Settings → Adaptive Pricing). No manual FX
 rate config. The amount actually charged is captured from the completed session onto the
 `PaymentReconciliation` by the webhook. **Stripe live webhook URL:**
-`https://app.premierhealthcentres.com/api/payments/stripe/webhook`.
+`https://phr.commerce.storefactory.shop/api/payments/stripe/webhook`.
 
 ## Security notes
 
@@ -110,6 +110,107 @@ src/qr/              rotating-QR token model, online JWS, offline TOTP, biometri
 src/components/      PHC UI kit + IdCard (flip), QrBadge, banners
 src/theme/           PHC design tokens
 ```
+
+## Builds, CI/CD and crash reporting
+
+### Pipelines
+
+| Workflow | Trigger | Does |
+| --- | --- | --- |
+| `.github/workflows/mobile-ci.yml` | PR / push touching `examples/patient-portal/**` | `tsc`, `npm run check:native-dupes`, a **release** `expo export` for Android + iOS, and `expo-doctor` as a report |
+| `.github/workflows/mobile-release.yml` | Manual (`Actions -> Mobile Release`) or a `portal-v*` tag | `eas build` for the chosen profile; optional `eas submit` |
+
+**`check:native-dupes` is the gate that matters** (`scripts/check-native-dupes.mjs`).
+A native module resolved at two different versions is invisible to `tsc` and to
+Metro in development, but it links one version natively while bundling the other
+in JS — a launch crash on a real device. That is what shipped: `@expo/vector-icons`
+declares an open-ended `expo-font: ">=14.0.4"` **peer** range, so npm installed
+`expo-font@57.0.0` and hoisted it above the `expo-font@14.0.12` that Expo SDK 54
+pins, and autolinking picked the 57. `expo-font` is now both an explicit
+dependency here and pinned in the root `package.json` `overrides`, so only one
+copy can exist.
+
+`expo-doctor` runs too, but only as a report. Its duplicate check is
+all-or-nothing and permanently flags the two copies of `react` (the app's 19.1.0
+and `@medplum/react-hooks`' 19.2.5) that `metro.config.js` already collapses to a
+single instance, plus patch-level SDK drift — so it cannot gate. Do read it.
+
+The `expo export` step matters for the same reason: it builds the bundle the way
+it ships (`__DEV__` false, minified, production module resolution), so a module
+that only resolves in the dev server fails in CI instead of on a patient's phone.
+
+`Mobile Release` additionally runs `scripts/check-api-reachable.mjs` before it
+spends an EAS build slot: it GETs `{MEDPLUM_BASE_URL}healthcheck` for the chosen
+profile and fails on DNS failure, TLS failure or anything that is not a Medplum
+healthcheck. The base URL is **baked into the binary**, so getting it wrong means
+a reinstall, not a config change — the shipped app pointed at
+`https://api.premierhealth.cm/`, a hostname with no DNS record at all. Tick
+`skip_api_preflight` on a manual run to build anyway during an infra migration.
+
+Run either check locally: `npm run check:api -- --profile production`.
+
+### Required secrets
+
+| Secret | Needed for | Where to get it |
+| --- | --- | --- |
+| `EXPO_TOKEN` | every `Mobile Release` run | expo.dev -> Account -> Access tokens (robot token) |
+| `SENTRY_DSN` | turning crash reporting on | Sentry -> Project -> Client Keys |
+| `SENTRY_AUTH_TOKEN` | readable (un-minified) stack traces | Sentry -> Auth tokens, scope `project:releases` |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | source-map upload | your Sentry org / project slugs |
+
+Only `EXPO_TOKEN` is mandatory. With no `SENTRY_DSN` the app runs exactly as
+before and reporting is a no-op (`src/lib/reporting.ts`).
+
+Store submission is **off** unless you tick `submit` on a manual production run.
+The first-ever Play release must be uploaded by hand — Google rejects API
+submissions to a track that has never received a build.
+
+### Crash reporting
+
+- `src/lib/reporting.ts` is the only module that touches Sentry. It scrubs FHIR
+  resource ids and bearer tokens out of every event before it leaves the device;
+  this app handles patient records, so a raw stack trace is not safe to upload.
+- It starts from `src/lib/startReporting.ts`, imported **first** in `index.ts`.
+  That indirection is deliberate: `import` declarations are hoisted, so a bare
+  `initCrashReporting()` call in `index.ts` would run *after* `expo-router/entry`
+  had already loaded the app — too late for a crash during module evaluation.
+- `app/_layout.tsx` exports an `ErrorBoundary`. Release builds have no red box,
+  so without one a render-time exception unmounts the tree and the app simply
+  closes with no explanation.
+
+### Build profiles
+
+`eas.json` profiles differ in more than signing — each points at its own server:
+
+All three profiles hit the **same server**; live and test are separated by
+`MEDPLUM_PROJECT_ID`, not by hostname:
+
+| Profile | Android artifact | Project | `MEDPLUM_PROJECT_ID` |
+| --- | --- | --- | --- |
+| `development` | APK, internal | Douala (dev) | `c4c16ab3-…` |
+| `preview` | APK, internal | Douala (dev) | `c4c16ab3-…` |
+| `production` | AAB, store | Douala (live) | `161452d9-…` |
+
+**The Medplum API is reachable only at `https://phr.commerce.storefactory.shop/api/`.**
+Traefik on the `sf-prod-1` host routes by hostname:
+
+| Host | Container |
+| --- | --- |
+| `phr.commerce.storefactory.shop` + `PathPrefix(/api)` | `phr-server` (the API) |
+| `phr.commerce.storefactory.shop` | `phr-provider` (provider web app) |
+| `phr-admin.commerce.storefactory.shop` | `phr-app` (Medplum admin console) |
+| `premier-health-centres.commerce.storefactory.shop` | `premier-health-centres-medusa` — a **Medusa storefront**, not the EHR |
+
+Two traps that have already cost a release:
+
+- `premier-health-centres.commerce.storefactory.shop` looks like the right host
+  but is that client's e-commerce store. It answers on 443 with a valid
+  certificate and 404s every Medplum path.
+- `app.premierhealthcentres.com` has **no Traefik router at all**, so it serves
+  the Traefik default self-signed certificate. Android rejects an untrusted
+  certificate outright, so a build pointed there cannot make a single request.
+
+`npm run check:api -- --profile <name>` catches both.
 
 ## Known limitations / next steps
 

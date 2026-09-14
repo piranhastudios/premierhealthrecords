@@ -19,6 +19,11 @@ ENV VITE_MEDPLUM_BASE_URL=${VITE_MEDPLUM_BASE_URL} \
     VITE_TURN_CREDENTIAL=${VITE_TURN_CREDENTIAL}
 
 COPY . .
+# The patient-portal workspace (examples/patient-portal) pulls in @sentry/cli,
+# whose postinstall downloads a platform binary from Sentry's CDN. None of the
+# server/provider/app images ever run it — only EAS and mobile CI do — so skip
+# the download rather than make this deploy depend on a third-party CDN.
+ENV SENTRYCLI_SKIP_DOWNLOAD=1
 RUN npm ci
 # Build dist for the @medplum workspace packages in the provider's runtime graph
 # via esbuild (NOT the packages' full `build`, whose `tsc` step type-checks test

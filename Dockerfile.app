@@ -10,6 +10,11 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /usr/src/medplum
 COPY . .
+# The patient-portal workspace (examples/patient-portal) pulls in @sentry/cli,
+# whose postinstall downloads a platform binary from Sentry's CDN. None of the
+# server/provider/app images ever run it — only EAS and mobile CI do — so skip
+# the download rather than make this deploy depend on a third-party CDN.
+ENV SENTRYCLI_SKIP_DOWNLOAD=1
 RUN npm ci
 # Build dist (via esbuild, NOT the packages' full `build` whose tsc step type-checks
 # a test importing react-router-dom, not a dep, and fails on a clean install) for the

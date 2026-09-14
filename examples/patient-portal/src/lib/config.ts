@@ -19,7 +19,7 @@ function trailingSlash(url: string): string {
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<PhcConfig>;
 
 export const config: PhcConfig = {
-  medplumBaseUrl: trailingSlash(extra.medplumBaseUrl ?? 'https://app.premierhealthcentres.com/api/'),
+  medplumBaseUrl: trailingSlash(extra.medplumBaseUrl ?? 'https://phr.commerce.storefactory.shop/api/'),
   medplumClientId: extra.medplumClientId ?? '',
   medplumProjectId: extra.medplumProjectId ?? '',
   phcFhirBase: extra.phcFhirBase ?? 'https://premierhealth.cm/fhir',

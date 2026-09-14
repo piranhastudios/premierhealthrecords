@@ -5,9 +5,16 @@
 // (reading 'CommonJS')"). A JS config needs no transpilation and loads on any Node.
 //
 // Env (read at build time, surfaced via `extra` -> expo-constants):
-//   MEDPLUM_BASE_URL   FHIR/Medplum server base URL (prod: https://app.premierhealthcentres.com/api/)
+//   MEDPLUM_BASE_URL   FHIR/Medplum server base URL. The Medplum server is reachable
+//                      ONLY at https://phr.commerce.storefactory.shop/api/ — Traefik on
+//                      sf-prod-1 routes that host + PathPrefix(/api) to phr-server. Live
+//                      and test share it and are separated by MEDPLUM_PROJECT_ID.
 //   MEDPLUM_CLIENT_ID  Optional public PKCE client id (NO secret ever ships on device)
 //   MEDPLUM_PROJECT_ID Medplum project patients sign in / register into (the FHIR R4 project)
+//   SENTRY_DSN         Optional crash-reporting DSN. Absent = reporting is off and the
+//                      app behaves exactly as before (see src/lib/reporting.ts).
+//   SENTRY_ORG /       Optional, build-machine only. Set together with a SENTRY_AUTH_TOKEN
+//   SENTRY_PROJECT     secret to upload source maps so stack traces are readable.
 
 /**
  * @param {{ config: import('expo/config').ExpoConfig }} ctx
@@ -42,7 +49,7 @@ module.exports = ({ config }) => ({
     bundleIdentifier: 'cm.premierhealth.portal',
     // Universal Links: lets the password-reset email link (/setpassword/:id/:secret)
     // open the app. Requires the server to host /.well-known/apple-app-site-association.
-    associatedDomains: ['applinks:app.premierhealthcentres.com'],
+    associatedDomains: ['applinks:phr.commerce.storefactory.shop'],
     infoPlist: {
       NSFaceIDUsageDescription:
         'Premier Health uses Face ID to protect your health ID card and digital records.',
@@ -63,7 +70,7 @@ module.exports = ({ config }) => ({
       {
         action: 'VIEW',
         autoVerify: true,
-        data: [{ scheme: 'https', host: 'app.premierhealthcentres.com', pathPrefix: '/setpassword' }],
+        data: [{ scheme: 'https', host: 'phr.commerce.storefactory.shop', pathPrefix: '/setpassword' }],
         category: ['BROWSABLE', 'DEFAULT'],
       },
     ],
@@ -75,6 +82,16 @@ module.exports = ({ config }) => ({
   },
   plugins: [
     'expo-router',
+    // Installs the native (Java/Kotlin + C++) crash handlers, so a crash that
+    // never reaches JS — the "closes instantly on launch" kind — is still
+    // reported. Source-map upload only runs when SENTRY_AUTH_TOKEN is set.
+    [
+      '@sentry/react-native/expo',
+      {
+        organization: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+      },
+    ],
     'expo-secure-store',
     'expo-local-authentication',
     [
@@ -95,10 +112,11 @@ module.exports = ({ config }) => ({
     typedRoutes: false,
   },
   extra: {
-    medplumBaseUrl: process.env.MEDPLUM_BASE_URL ?? 'https://app.premierhealthcentres.com/api/',
+    medplumBaseUrl: process.env.MEDPLUM_BASE_URL ?? 'https://phr.commerce.storefactory.shop/api/',
     medplumClientId: process.env.MEDPLUM_CLIENT_ID ?? '',
     medplumProjectId: process.env.MEDPLUM_PROJECT_ID ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6',
     phcFhirBase: 'https://premierhealth.cm/fhir',
+    sentryDsn: process.env.SENTRY_DSN ?? '',
     router: {},
     eas: { projectId: '32904d99-92a8-4afd-b199-340c7c8fcfe9' },
   },
