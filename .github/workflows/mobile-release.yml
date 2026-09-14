@@ -43,6 +43,10 @@ on:
         description: 'Submit to the store after building (production only)'
         type: boolean
         default: false
+      skip_api_preflight:
+        description: 'Build even if the profile API is unreachable (infra migration)'
+        type: boolean
+        default: false
   push:
     tags:
       - 'portal-v*'
@@ -95,6 +99,13 @@ jobs:
         # EAS also runs this via `eas-build-post-install`, but the local copy has
         # to exist for `expo config` / fingerprinting to resolve @medplum/*.
         run: npx turbo run build --filter=@medplum/core --filter=@medplum/react-hooks
+
+      - name: Preflight — profile API is reachable
+        # The base URL is baked into the binary, so a wrong one means a reinstall,
+        # not a config change. Catch it before burning an EAS build slot.
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_api_preflight) }}
+        working-directory: examples/patient-portal
+        run: node scripts/check-api-reachable.mjs --profile "$PROFILE"
 
       - name: EAS build
         working-directory: examples/patient-portal

@@ -139,6 +139,16 @@ The `expo export` step matters for the same reason: it builds the bundle the way
 it ships (`__DEV__` false, minified, production module resolution), so a module
 that only resolves in the dev server fails in CI instead of on a patient's phone.
 
+`Mobile Release` additionally runs `scripts/check-api-reachable.mjs` before it
+spends an EAS build slot: it GETs `{MEDPLUM_BASE_URL}healthcheck` for the chosen
+profile and fails on DNS failure, TLS failure or anything that is not a Medplum
+healthcheck. The base URL is **baked into the binary**, so getting it wrong means
+a reinstall, not a config change — the shipped app pointed at
+`https://api.premierhealth.cm/`, a hostname with no DNS record at all. Tick
+`skip_api_preflight` on a manual run to build anyway during an infra migration.
+
+Run either check locally: `npm run check:api -- --profile production`.
+
 ### Required secrets
 
 | Secret | Needed for | Where to get it |
@@ -176,7 +186,7 @@ submissions to a track that has never received a build.
 | --- | --- | --- |
 | `development` | APK, internal | `phr.commerce.storefactory.shop` (test) |
 | `preview` | APK, internal | `phr.commerce.storefactory.shop` (test) |
-| `production` | AAB, store | `app.premierhealthcentres.com` (live) |
+| `production` | AAB, store | `premier-health-centres.commerce.storefactory.shop` (live) |
 
 ## Known limitations / next steps
 

@@ -5,7 +5,8 @@
 // (reading 'CommonJS')"). A JS config needs no transpilation and loads on any Node.
 //
 // Env (read at build time, surfaced via `extra` -> expo-constants):
-//   MEDPLUM_BASE_URL   FHIR/Medplum server base URL (prod: https://app.premierhealthcentres.com/api/)
+//   MEDPLUM_BASE_URL   FHIR/Medplum server base URL
+//                      (prod: https://premier-health-centres.commerce.storefactory.shop/api/)
 //   MEDPLUM_CLIENT_ID  Optional public PKCE client id (NO secret ever ships on device)
 //   MEDPLUM_PROJECT_ID Medplum project patients sign in / register into (the FHIR R4 project)
 //   SENTRY_DSN         Optional crash-reporting DSN. Absent = reporting is off and the
@@ -109,7 +110,7 @@ module.exports = ({ config }) => ({
     typedRoutes: false,
   },
   extra: {
-    medplumBaseUrl: process.env.MEDPLUM_BASE_URL ?? 'https://app.premierhealthcentres.com/api/',
+    medplumBaseUrl: process.env.MEDPLUM_BASE_URL ?? 'https://premier-health-centres.commerce.storefactory.shop/api/',
     medplumClientId: process.env.MEDPLUM_CLIENT_ID ?? '',
     medplumProjectId: process.env.MEDPLUM_PROJECT_ID ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6',
     phcFhirBase: 'https://premierhealth.cm/fhir',

@@ -13,6 +13,7 @@
     "lint": "echo \"patient-portal: run 'expo lint' locally after 'npx expo install'\"",
     "typecheck": "tsc --noEmit",
     "check:native-dupes": "node scripts/check-native-dupes.mjs",
+    "check:api": "node scripts/check-api-reachable.mjs",
     "test": "echo \"patient-portal: no tests yet (jest-expo)\""
   },
   "dependencies": {
