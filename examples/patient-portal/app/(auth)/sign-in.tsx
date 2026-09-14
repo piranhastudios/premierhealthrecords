@@ -17,6 +17,7 @@ import { PasswordInput } from '../../src/components/PasswordInput';
 import { signIn } from '../../src/medplum/auth';
 import { config } from '../../src/lib/config';
 import { cardShadow, colors, heroGradient } from '../../src/theme/tokens';
+import { reportError } from '../../src/lib/reporting';
 
 export default function SignIn(): JSX.Element {
   const medplum = useMedplum();
@@ -38,6 +39,10 @@ export default function SignIn(): JSX.Element {
       await signIn(medplum, { email, password });
       router.replace('/(tabs)');
     } catch (err) {
+      // Report before surfacing: a wrong password is expected, but a bug here
+      // (e.g. a TypeError) is invisible otherwise — nothing else catches a
+      // rejected promise, and the user only sees the raw message.
+      reportError(err, { source: 'sign-in' });
       setError(err instanceof Error ? err.message : 'Sign-in failed. Please check your details and try again.');
     } finally {
       setBusy(false);

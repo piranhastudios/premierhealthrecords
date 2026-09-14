@@ -16,6 +16,20 @@ export function isBrowserEnvironment(): boolean {
 }
 
 /**
+ * Returns true if a DOM `location` object is actually available.
+ *
+ * Deliberately NOT the same check as `isBrowserEnvironment()`. React Native
+ * defines a global `window` (so `typeof window !== 'undefined'` is true) but has
+ * no `location`, so guarding location access with `isBrowserEnvironment()`
+ * throws "Cannot read property 'protocol' of undefined" on native — which broke
+ * `processCode()`, and with it every native email/password sign-in.
+ * @returns True if `globalThis.location` exists.
+ */
+export function hasLocation(): boolean {
+  return typeof globalThis !== 'undefined' && globalThis.location !== undefined && globalThis.location !== null;
+}
+
+/**
  * Returns true if running in Node.js environment with Buffer available.
  * @returns True if in Node.js environment.
  */
@@ -45,30 +59,30 @@ export function getBuffer(): typeof Buffer | undefined {
  */
 export const locationUtils = {
   assign(url: string): void {
-    if (isBrowserEnvironment()) {
+    if (hasLocation()) {
       globalThis.location.assign(url);
     }
   },
 
   reload(): void {
-    if (isBrowserEnvironment()) {
+    if (hasLocation()) {
       globalThis.location.reload();
     }
   },
 
   getSearch(): string {
-    return isBrowserEnvironment() ? globalThis.location.search : '';
+    return hasLocation() ? globalThis.location.search : '';
   },
 
   getPathname(): string {
-    return isBrowserEnvironment() ? globalThis.location.pathname : '';
+    return hasLocation() ? globalThis.location.pathname : '';
   },
 
   getLocation(): string {
-    return isBrowserEnvironment() ? globalThis.location.toString() : '';
+    return hasLocation() ? globalThis.location.toString() : '';
   },
 
   getOrigin(): string {
-    return isBrowserEnvironment() ? globalThis.location.protocol + '//' + globalThis.location.host + '/' : '';
+    return hasLocation() ? globalThis.location.protocol + '//' + globalThis.location.host + '/' : '';
   },
 };
