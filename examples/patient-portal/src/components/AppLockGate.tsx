@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authenticateForUnlock, isAppLockEnabled } from '../lib/appLock';
 import { heroGradient } from '../theme/tokens';
 
@@ -26,6 +27,7 @@ export function AppLockGate({ children }: { children: ReactNode }): JSX.Element 
   const medplum = useMedplum();
   const profile = useMedplumProfile();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [enabled, setEnabled] = useState<boolean | undefined>(undefined);
   /** Unlocked for THIS foreground session; reset whenever we re-lock. */
@@ -113,6 +115,7 @@ export function AppLockGate({ children }: { children: ReactNode }): JSX.Element 
   return (
     <LinearGradient
       colors={heroGradient.colors as readonly [string, string, ...string[]]}
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
       className="flex-1 items-center justify-center px-8"
     >
       <Text className="text-white text-3xl font-extrabold mb-3">Premier Health</Text>

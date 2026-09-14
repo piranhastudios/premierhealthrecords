@@ -11,6 +11,17 @@ interface ScreenProps {
   edges?: Edge[];
 }
 
+/**
+ * Standard screen frame.
+ *
+ * Android is edge-to-edge from Expo SDK 54, so every screen draws under the
+ * system bars. Which edges to pass:
+ *   - inside `(tabs)`: `edges={[]}` when the screen starts with a full-bleed
+ *     header, otherwise the default `['top']`. The bottom is already handled —
+ *     the tab bar grows by the bottom inset (see app/(tabs)/_layout.tsx).
+ *   - anywhere else: `['top', 'bottom']`, because nothing underneath is
+ *     clearing the navigation bar for you.
+ */
 export function Screen({ children, scroll = true, refreshing, onRefresh, edges = ['top'] }: ScreenProps): JSX.Element {
   return (
     <SafeAreaView edges={edges} className="flex-1 bg-surface-bg">

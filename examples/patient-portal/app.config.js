@@ -63,6 +63,11 @@ module.exports = ({ config }) => ({
   },
   android: {
     package: 'cm.premierhealth.portal',
+    // Explicit because it drives every layout decision in the app: from SDK 54
+    // the config type only accepts `true`, so the app always draws under the
+    // status and navigation bars and every screen must handle safe-area insets
+    // itself. See src/components/ui/Screen.tsx for which edges to use where.
+    edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#EE6A1F',

@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Loading } from '../../src/components/ui';
 import { CORRESPONDENTS } from '../../src/lib/constants';
 import { formatMoney } from '../../src/lib/format';
@@ -113,14 +114,16 @@ export default function PayScreen(): JSX.Element {
 
   if (!invoice) {
     return (
-      <View className="flex-1 bg-surface-bg">
+      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-surface-bg">
         <Loading />
-      </View>
+      </SafeAreaView>
     );
   }
 
+  // A modal covers the whole screen, so it has to clear the status bar and the
+  // navigation bar itself — there is no tab bar underneath it doing that.
   return (
-    <View className="flex-1 bg-surface-bg px-5 pt-4">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-surface-bg px-5 pt-4">
       <View className="flex-row items-center justify-between mb-4">
         <Text className="text-ink text-xl font-bold">Pay invoice</Text>
         <Pressable onPress={() => router.back()}>
@@ -181,6 +184,6 @@ export default function PayScreen(): JSX.Element {
           )}
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

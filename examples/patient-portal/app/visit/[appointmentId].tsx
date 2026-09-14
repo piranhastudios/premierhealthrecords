@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/tokens';
 
 /**
@@ -15,6 +16,10 @@ export default function VideoVisit(): JSX.Element {
   const { appointmentId } = useLocalSearchParams<{ appointmentId: string }>();
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  // The video itself should stay edge-to-edge — a call filling the screen is the
+  // point — so insets go on the overlays rather than the root container, or the
+  // end-call button ends up behind the navigation bar.
+  const insets = useSafeAreaInsets();
 
   return (
     <View className="flex-1 bg-[#201a17]">
@@ -28,12 +33,15 @@ export default function VideoVisit(): JSX.Element {
       </View>
 
       {/* Self preview */}
-      <View className="absolute top-16 right-5 w-24 h-32 rounded-2xl bg-white/15 items-center justify-center">
+      <View
+        style={{ top: insets.top + 16 }}
+        className="absolute right-5 w-24 h-32 rounded-2xl bg-white/15 items-center justify-center"
+      >
         <Ionicons name={cameraOff ? 'videocam-off' : 'person'} size={28} color="white" />
       </View>
 
       {/* Controls */}
-      <View className="flex-row items-center justify-center gap-5 pb-12 pt-6">
+      <View style={{ paddingBottom: 24 + insets.bottom }} className="flex-row items-center justify-center gap-5 pt-6">
         <ControlButton icon={muted ? 'mic-off' : 'mic'} onPress={() => setMuted((v) => !v)} />
         <ControlButton icon={cameraOff ? 'videocam-off' : 'videocam'} onPress={() => setCameraOff((v) => !v)} />
         <Pressable onPress={() => router.back()} className="w-16 h-16 rounded-full bg-status-error items-center justify-center">

@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { heroGradient } from '../theme/tokens';
 
 interface ErrorScreenProps {
@@ -18,9 +19,11 @@ interface ErrorScreenProps {
  * a Try again button while the real error goes to Sentry.
  */
 export function ErrorScreen({ error, retry }: ErrorScreenProps): JSX.Element {
+  const insets = useSafeAreaInsets();
   return (
     <LinearGradient
       colors={heroGradient.colors as readonly [string, string, ...string[]]}
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
       className="flex-1 items-center justify-center px-8"
     >
       <Text className="text-white text-2xl font-extrabold text-center mb-2">Something went wrong</Text>

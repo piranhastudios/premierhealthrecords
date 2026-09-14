@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { config } from '../src/lib/config';
 import { reportError } from '../src/lib/reporting';
@@ -13,6 +14,7 @@ const LAST_BASE_URL_KEY = 'phc.lastBaseUrl';
 
 export default function Index(): JSX.Element {
   const medplum = useMedplum();
+  const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
 
@@ -67,6 +69,7 @@ export default function Index(): JSX.Element {
     return (
       <LinearGradient
         colors={heroGradient.colors as readonly [string, string, ...string[]]}
+        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
         className="flex-1 items-center justify-center"
       >
         <Text className="text-white text-3xl font-extrabold mb-3">Premier Health</Text>

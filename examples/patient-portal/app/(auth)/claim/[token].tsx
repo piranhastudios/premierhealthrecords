@@ -45,7 +45,9 @@ export default function ClaimInvite(): JSX.Element {
   }
 
   return (
-    <Screen scroll={false}>
+    // Outside the tab navigator, so nothing below this clears the navigation
+    // bar — this screen takes both edges itself.
+    <Screen scroll={false} edges={['top', 'bottom']}>
       <View className="flex-1 justify-center gap-4">
         <Text className="text-ink text-2xl font-bold">Join your family on Premier Health</Text>
         <Text className="text-ink-secondary">
