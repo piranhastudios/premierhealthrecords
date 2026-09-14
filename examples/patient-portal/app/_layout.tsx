@@ -7,6 +7,7 @@ import { Stack, useRouter, type ErrorBoundaryProps } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppLockGate } from '../src/components/AppLockGate';
 import { ErrorScreen } from '../src/components/ErrorScreen';
 import { ActiveProfileProvider } from '../src/hooks/useActiveProfile';
 import { reportError } from '../src/lib/reporting';
@@ -45,14 +46,16 @@ export default Sentry.wrap(function RootLayout(): JSX.Element {
           <ActiveProfileProvider>
             <SyncProvider>
               <StatusBar style="light" />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="setpassword/[id]/[secret]" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
-                <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />
-              </Stack>
+              <AppLockGate>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="setpassword/[id]/[secret]" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />
+                </Stack>
+              </AppLockGate>
             </SyncProvider>
           </ActiveProfileProvider>
         </MedplumProvider>

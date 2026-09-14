@@ -76,30 +76,37 @@ export async function authenticateForUnlock(reason = 'Unlock Premier Health'): P
 }
 
 /**
- * Whether the user has turned the lock on. Defaults to OFF: switching it on
- * without asking could strand someone whose biometrics stop working, and the
- * records behind it are ones people may need urgently.
+ * Whether the lock is on. Defaults to ON — an unset preference means enabled,
+ * so the protection is there from first launch rather than waiting for someone
+ * to find a settings screen. "Off" is stored explicitly so the default can
+ * never silently re-enable itself after a user has opted out.
+ *
+ * Defaulting on is only safe because of two things elsewhere in this module:
+ * a device with no screen lock at all is treated as unlocked (there would be
+ * nothing to challenge with), and the lock screen offers a way out to the
+ * sign-in screen. These are medical records people may need urgently; being
+ * stuck behind a prompt that cannot be satisfied is not an acceptable failure.
  * @returns True when the app lock is enabled.
  */
 export async function isAppLockEnabled(): Promise<boolean> {
   try {
-    return (await SecureStore.getItemAsync(LOCK_KEY)) === '1';
+    const raw = await SecureStore.getItemAsync(LOCK_KEY);
+    return raw === null ? true : raw === '1';
   } catch {
+    // Storage unreadable: fail OPEN. A locked-out patient is worse than an
+    // unlocked one on a device they are already holding.
     return false;
   }
 }
 
 /**
- * Turn the lock on or off.
+ * Turn the lock on or off. Both states are written explicitly — see
+ * {@link isAppLockEnabled} for why "off" cannot just be a deleted key.
  * @param enabled - Desired state.
  */
 export async function setAppLockEnabled(enabled: boolean): Promise<void> {
   try {
-    if (enabled) {
-      await SecureStore.setItemAsync(LOCK_KEY, '1');
-    } else {
-      await SecureStore.deleteItemAsync(LOCK_KEY);
-    }
+    await SecureStore.setItemAsync(LOCK_KEY, enabled ? '1' : '0');
   } catch {
     // Best effort — the preference is a convenience, not a security boundary.
   }

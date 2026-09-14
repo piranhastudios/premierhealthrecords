@@ -2,9 +2,8 @@ import { useMedplum } from '@medplum/react-hooks';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { authenticateForUnlock, isAppLockEnabled } from '../src/lib/appLock';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { config } from '../src/lib/config';
 import { reportError } from '../src/lib/reporting';
 import { heroGradient } from '../src/theme/tokens';
@@ -12,18 +11,10 @@ import { heroGradient } from '../src/theme/tokens';
 // Remembers which server the cached session belongs to, so we can detect a switch.
 const LAST_BASE_URL_KEY = 'phc.lastBaseUrl';
 
-type Phase = 'loading' | 'locked' | 'ready';
-
 export default function Index(): JSX.Element {
   const medplum = useMedplum();
-  const [phase, setPhase] = useState<Phase>('loading');
+  const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-
-  const unlock = useCallback(async () => {
-    if (await authenticateForUnlock()) {
-      setPhase('ready');
-    }
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -65,41 +56,21 @@ export default function Index(): JSX.Element {
       }
 
       setSignedIn(hasSession);
-      setPhase(hasSession && (await isAppLockEnabled()) ? 'locked' : 'ready');
+      setReady(true);
     })();
   }, [medplum]);
 
-  // Prompt as soon as we enter the locked phase, so the usual path is a single
-  // Face ID glance with no extra tap.
-  useEffect(() => {
-    if (phase === 'locked') {
-      void unlock();
-    }
-  }, [phase, unlock]);
-
-  if (phase !== 'ready') {
+  // The biometric / passcode gate lives above the router in app/_layout.tsx
+  // (src/components/AppLockGate.tsx), so it covers every route and every return
+  // from the background, not just this screen.
+  if (!ready) {
     return (
       <LinearGradient
         colors={heroGradient.colors as readonly [string, string, ...string[]]}
-        className="flex-1 items-center justify-center px-8"
+        className="flex-1 items-center justify-center"
       >
         <Text className="text-white text-3xl font-extrabold mb-3">Premier Health</Text>
-        {phase === 'loading' ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <>
-            <Text className="text-white/90 text-base text-center mb-6">
-              Unlock to view your records.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void unlock()}
-              className="bg-white rounded-full px-8 py-4 active:opacity-80"
-            >
-              <Text className="text-ink text-base font-bold">Unlock</Text>
-            </Pressable>
-          </>
-        )}
+        <ActivityIndicator color="white" />
         <View className="h-8" />
       </LinearGradient>
     );
