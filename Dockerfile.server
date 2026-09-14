@@ -7,6 +7,11 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /usr/src/medplum
 COPY . .
+# The patient-portal workspace (examples/patient-portal) pulls in @sentry/cli,
+# whose postinstall downloads a platform binary from Sentry's CDN. None of the
+# server/provider/app images ever run it — only EAS and mobile CI do — so skip
+# the download rather than make this deploy depend on a third-party CDN.
+ENV SENTRYCLI_SKIP_DOWNLOAD=1
 RUN npm ci
 RUN npx turbo run build --filter=@medplum/server
 
