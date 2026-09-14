@@ -58,7 +58,11 @@ jobs:
   build:
     name: EAS build (${{ github.event_name == 'push' && 'production' || inputs.profile }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # EAS free-tier builds can sit IN_QUEUE for a long time before they even
+    # start, and `eas build --wait` blocks for all of it. A 60-minute cap
+    # cancelled a run whose EAS build then finished fine — a confusing red X on
+    # a good build. Budget for the queue, not just the ~20 minute build.
+    timeout-minutes: 150
     env:
       # A tag push is always a production build; a manual run uses the chosen profile.
       PROFILE: ${{ github.event_name == 'push' && 'production' || inputs.profile }}
