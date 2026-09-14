@@ -42,7 +42,16 @@ An automation bypass secret exists for scripted checks; send it as the
 
 ## Deploying
 
-    cd examples/portal-downloads
+Pushes to `main` deploy automatically. Two project settings make that work, and
+neither can live in `vercel.json` — they are Vercel project settings:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Root Directory | `examples/portal-downloads` | Without it Vercel builds from the repo root and runs the monorepo's `npm run build`, which fails on `@medplum/generator` (it imports the Docusaurus `docs/` this fork deleted). That broke every Git deploy until it was set. |
+| Ignored Build Step | `git diff --quiet HEAD^ HEAD -- .` | Exit 0 means skip, so unrelated monorepo pushes do not rebuild this site. |
+
+Manual deploy, from this directory:
+
     npx vercel deploy --prod --scope piranha-studios
 
 Not an npm workspace (the root `workspaces` globs do not match this directory),
