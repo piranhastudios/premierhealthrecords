@@ -31,7 +31,7 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "MEDPLUM_BASE_URL": "https://premier-health-centres.commerce.storefactory.shop/api/",
+        "MEDPLUM_BASE_URL": "https://phr.commerce.storefactory.shop/api/",
         "MEDPLUM_PROJECT_ID": "161452d9-43b7-5c29-aa7b-c85680fa45c6"
       }
     }

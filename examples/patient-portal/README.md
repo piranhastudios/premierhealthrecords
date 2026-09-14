@@ -89,7 +89,7 @@ Existing: `Invoice/$pay` (pawaPay). Added in this change set:
 own rate — enable Adaptive Pricing in the Stripe Dashboard (Settings → Adaptive Pricing). No manual FX
 rate config. The amount actually charged is captured from the completed session onto the
 `PaymentReconciliation` by the webhook. **Stripe live webhook URL:**
-`https://app.premierhealthcentres.com/api/payments/stripe/webhook`.
+`https://phr.commerce.storefactory.shop/api/payments/stripe/webhook`.
 
 ## Security notes
 
@@ -182,11 +182,35 @@ submissions to a track that has never received a build.
 
 `eas.json` profiles differ in more than signing — each points at its own server:
 
-| Profile | Android artifact | Server |
-| --- | --- | --- |
-| `development` | APK, internal | `phr.commerce.storefactory.shop` (test) |
-| `preview` | APK, internal | `phr.commerce.storefactory.shop` (test) |
-| `production` | AAB, store | `premier-health-centres.commerce.storefactory.shop` (live) |
+All three profiles hit the **same server**; live and test are separated by
+`MEDPLUM_PROJECT_ID`, not by hostname:
+
+| Profile | Android artifact | Project | `MEDPLUM_PROJECT_ID` |
+| --- | --- | --- | --- |
+| `development` | APK, internal | Douala (dev) | `c4c16ab3-…` |
+| `preview` | APK, internal | Douala (dev) | `c4c16ab3-…` |
+| `production` | AAB, store | Douala (live) | `161452d9-…` |
+
+**The Medplum API is reachable only at `https://phr.commerce.storefactory.shop/api/`.**
+Traefik on the `sf-prod-1` host routes by hostname:
+
+| Host | Container |
+| --- | --- |
+| `phr.commerce.storefactory.shop` + `PathPrefix(/api)` | `phr-server` (the API) |
+| `phr.commerce.storefactory.shop` | `phr-provider` (provider web app) |
+| `phr-admin.commerce.storefactory.shop` | `phr-app` (Medplum admin console) |
+| `premier-health-centres.commerce.storefactory.shop` | `premier-health-centres-medusa` — a **Medusa storefront**, not the EHR |
+
+Two traps that have already cost a release:
+
+- `premier-health-centres.commerce.storefactory.shop` looks like the right host
+  but is that client's e-commerce store. It answers on 443 with a valid
+  certificate and 404s every Medplum path.
+- `app.premierhealthcentres.com` has **no Traefik router at all**, so it serves
+  the Traefik default self-signed certificate. Android rejects an untrusted
+  certificate outright, so a build pointed there cannot make a single request.
+
+`npm run check:api -- --profile <name>` catches both.
 
 ## Known limitations / next steps
 
