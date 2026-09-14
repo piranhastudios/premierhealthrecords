@@ -50,6 +50,12 @@ neither can live in `vercel.json` — they are Vercel project settings:
 | Root Directory | `examples/portal-downloads` | Without it Vercel builds from the repo root and runs the monorepo's `npm run build`, which fails on `@medplum/generator` (it imports the Docusaurus `docs/` this fork deleted). That broke every Git deploy until it was set. |
 | Ignored Build Step | `git diff --quiet HEAD^ HEAD -- .` | Exit 0 means skip, so unrelated monorepo pushes do not rebuild this site. |
 
+Root Directory alone was not enough: Vercel still detected the Turborepo above
+it, installed the whole monorepo and ran `turbo run build`, which failed with
+"Could not resolve workspaces". `vercel.json` therefore sets empty
+`installCommand` and `buildCommand` — this site has no dependencies and nothing
+to compile, just static files and two functions.
+
 Manual deploy, from this directory:
 
     npx vercel deploy --prod --scope piranha-studios
