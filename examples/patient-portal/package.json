@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "check:native-dupes": "node scripts/check-native-dupes.mjs",
     "check:api": "node scripts/check-api-reachable.mjs",
+    "check:sentry": "node scripts/check-sentry-project.mjs",
     "test": "echo \"patient-portal: no tests yet (jest-expo)\""
   },
   "dependencies": {

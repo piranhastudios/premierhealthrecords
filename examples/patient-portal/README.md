@@ -147,7 +147,16 @@ a reinstall, not a config change — the shipped app pointed at
 `https://api.premierhealth.cm/`, a hostname with no DNS record at all. Tick
 `skip_api_preflight` on a manual run to build anyway during an infra migration.
 
-Run either check locally: `npm run check:api -- --profile production`.
+Run the checks locally:
+
+    npm run check:api     -- --profile production
+    npm run check:sentry  -- --profile production
+
+`check:sentry` exists because **renaming a project in Sentry changes its slug
+while the DSN keeps working** — the DSN encodes the numeric project id, which
+survives a rename. So nothing looks wrong until the Gradle source-map upload
+fails with `One or more projects are invalid`, seven minutes into the build.
+Update `SENTRY_PROJECT` in `eas.json` whenever the project is renamed.
 
 ### Required secrets
 

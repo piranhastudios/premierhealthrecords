@@ -113,6 +113,15 @@ jobs:
         working-directory: examples/patient-portal
         run: node scripts/check-api-reachable.mjs --profile "$PROFILE"
 
+      - name: Preflight — Sentry project resolves
+        # A renamed Sentry project keeps its DSN working but breaks the Gradle
+        # source-map upload ~7 minutes into the build. Catch it in a second.
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_api_preflight) }}
+        working-directory: examples/patient-portal
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node scripts/check-sentry-project.mjs --profile "$PROFILE"
+
       - name: EAS build
         working-directory: examples/patient-portal
         run: |
