@@ -76,6 +76,24 @@ export async function getSummarySection<T>(patientId: string, section: SummarySe
   return parseRows<T>(rows);
 }
 
+/**
+ * When this patient's summary was last written by a sync.
+ *
+ * A clinician reading the record offline has no other way to judge how current
+ * it is, and a stale medication list is actively dangerous. Every screen that
+ * presents the record to someone other than the patient must show this.
+ * @param patientId - Patient to look up.
+ * @returns ISO timestamp of the most recent sync, or undefined if never synced.
+ */
+export async function getSummaryUpdatedAt(patientId: string): Promise<string | undefined> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ updated_at: string | null }>(
+    'SELECT MAX(updated_at) AS updated_at FROM summary_entry WHERE patient_id = ?',
+    [patientId]
+  );
+  return row?.updated_at ?? undefined;
+}
+
 export async function getSummaryCounts(patientId: string): Promise<Record<string, number>> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ section: string; n: number }>(

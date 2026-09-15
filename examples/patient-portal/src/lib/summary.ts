@@ -26,10 +26,14 @@ export interface SummaryItem {
   title: string;
   /** Dosage, measured value, reaction — whatever is most useful for this type. */
   detail?: string;
+  /** Reference range, route, site — secondary clinical context. */
+  note?: string;
   /** ISO date, already picked from the right field for the resource type. */
   date?: string;
   /** `active`, `completed`, `resolved`… rendered as a badge. */
   status?: string;
+  /** True when a result is outside its reference range. Flagged, not hidden. */
+  abnormal?: boolean;
 }
 
 type Loose = Record<string, unknown>;
@@ -94,10 +98,13 @@ export function summaryItemOf(resource: Resource): SummaryItem {
       };
     }
     case 'MedicationRequest': {
-      const dosage = (r.dosageInstruction as { text?: string }[] | undefined)?.[0]?.text;
+      const instruction = (r.dosageInstruction as { text?: string; route?: Coded; timing?: { code?: Coded } }[] | undefined)?.[0];
+      const route = codedText(instruction?.route);
+      const timing = codedText(instruction?.timing?.code);
       return {
         title: codedText(r.medicationCodeableConcept) ?? (r.medicationReference as { display?: string })?.display ?? 'Medication',
-        detail: dosage,
+        detail: instruction?.text,
+        note: [route, timing].filter(Boolean).join(' · ') || undefined,
         date: r.authoredOn as string | undefined,
         status,
       };
@@ -127,13 +134,26 @@ export function summaryItemOf(resource: Resource): SummaryItem {
         date: r.occurrenceDateTime as string | undefined,
         status,
       };
-    case 'Observation':
+    case 'Observation': {
+      // A lab value without its reference range is not actionable by a
+      // clinician who does not know this lab's units or normals.
+      const range = (r.referenceRange as { low?: { value?: number; unit?: string }; high?: { value?: number; unit?: string }; text?: string }[] | undefined)?.[0];
+      const rangeText =
+        range?.text ??
+        (range?.low?.value !== undefined || range?.high?.value !== undefined
+          ? `Ref ${range?.low?.value ?? ''}–${range?.high?.value ?? ''}${range?.high?.unit ? ` ${range.high.unit}` : ''}`.trim()
+          : undefined);
+      const interpretation = codedText((r.interpretation as unknown[] | undefined)?.[0]);
       return {
         title: codedText(r.code) ?? 'Result',
         detail: valueText(r),
+        note: [rangeText, interpretation].filter(Boolean).join(' · ') || undefined,
+        // H/L/A/HH/LL are the HL7 abnormal codes; anything but N is worth a flag.
+        abnormal: Boolean(interpretation) && !/^normal$/i.test(interpretation as string) && !/^N$/i.test(interpretation as string),
         date: (r.effectiveDateTime ?? r.issued) as string | undefined,
         status,
       };
+    }
     case 'Encounter': {
       const period = r.period as { start?: string } | undefined;
       return {
