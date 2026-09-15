@@ -45,7 +45,9 @@ module.exports = ({ config }) => ({
   splash: {
     image: './assets/splash.png',
     resizeMode: 'contain',
-    backgroundColor: '#EE6A1F',
+    // Matches the logo artwork's own background (#40403F, sampled from the
+    // source PNG) so the mark never sits on a contrasting block.
+    backgroundColor: '#40403F',
   },
   assetBundlePatterns: ['**/*'],
   ios: {
@@ -70,7 +72,7 @@ module.exports = ({ config }) => ({
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#EE6A1F',
+      backgroundColor: '#40403F',
     },
     permissions: ['USE_BIOMETRIC', 'USE_FINGERPRINT', 'CAMERA'],
     // App Links: open the /setpassword reset link in the app. Requires the server

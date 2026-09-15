@@ -1,14 +1,14 @@
 import type { Resource } from '@medplum/fhirtypes';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { PatientIdentityCard } from '../../../../src/components/PatientIdentityCard';
-import { Badge, Card, EmptyState, Loading, Screen, statusTone } from '../../../../src/components/ui';
-import { useActiveProfile } from '../../../../src/hooks/useActiveProfile';
-import { SUMMARY_SECTIONS, type SummarySection } from '../../../../src/lib/constants';
-import { formatDate } from '../../../../src/lib/format';
-import { SECTION_EMPTY_HINT, SECTION_LABEL, summaryItemOf } from '../../../../src/lib/summary';
-import { getSummaryUpdatedAt } from '../../../../src/offline/repositories';
+import { PatientIdentityCard } from '../../src/components/PatientIdentityCard';
+import { Badge, Card, EmptyState, Loading, Screen, statusTone } from '../../src/components/ui';
+import { useActiveProfile } from '../../src/hooks/useActiveProfile';
+import { SUMMARY_SECTIONS, type SummarySection } from '../../src/lib/constants';
+import { formatDate } from '../../src/lib/format';
+import { SECTION_EMPTY_HINT, SECTION_LABEL, summaryItemOf } from '../../src/lib/summary';
+import { getSummaryUpdatedAt } from '../../src/offline/repositories';
 
 function isSection(value: string | undefined): value is SummarySection {
   return SUMMARY_SECTIONS.includes(value as SummarySection);
@@ -37,7 +37,7 @@ export default function RecordSection(): JSX.Element {
     }
     setLoading(true);
     try {
-      const { getSummarySection } = await import('../../../../src/offline/repositories');
+      const { getSummarySection } = await import('../../src/offline/repositories');
       setItems(await getSummarySection<Resource>(activePatient.id, section));
       setAsOf(await getSummaryUpdatedAt(activePatient.id));
     } finally {
@@ -75,6 +75,7 @@ export default function RecordSection(): JSX.Element {
 
   return (
     <Screen edges={[]} refreshing={false} onRefresh={load}>
+      <Stack.Screen options={{ title: SECTION_LABEL[section] }} />
       {/* Someone may be handed the phone on this screen rather than the summary,
           so identity and record age have to travel with the detail. */}
       <PatientIdentityCard patient={activePatient} asOf={asOf} />

@@ -52,6 +52,17 @@ export default Sentry.wrap(function RootLayout(): JSX.Element {
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="setpassword/[id]/[secret]" />
                   <Stack.Screen name="(tabs)" />
+                  {/* Records sit at the ROOT, not under the profile tab: they
+                      are opened from the home tiles too, and pushing into
+                      another tab's stack left no way back to where you were. */}
+                  <Stack.Screen
+                    name="records/index"
+                    options={{ headerShown: true, title: 'Medical summary', headerBackTitle: 'Back' }}
+                  />
+                  <Stack.Screen
+                    name="records/[section]"
+                    options={{ headerShown: true, title: 'Records', headerBackTitle: 'Back' }}
+                  />
                   <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
                   <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />
                 </Stack>

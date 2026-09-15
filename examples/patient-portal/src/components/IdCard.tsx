@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import type { Patient } from '@medplum/fhirtypes';
-import { patientCni, patientMrn, patientName } from '../lib/format';
+import { patientIdDocument, patientMrn, patientName } from '../lib/format';
 import { requireBiometric } from '../qr/biometricGate';
 import { useRotatingQr } from '../qr/useRotatingQr';
 import { QR_INTENTS, type QrIntent } from '../qr/types';
@@ -25,6 +25,9 @@ export function IdCard({ patient, context, initialIntent = 'id' }: IdCardProps):
   const spin = useRef(new Animated.Value(0)).current;
 
   const qr = useRotatingQr(revealed ? patient.id : undefined, intent, context);
+  // CNI for a Cameroonian national, otherwise passport or residence permit —
+  // the card has to identify anyone, not only nationals.
+  const idDocument = patientIdDocument(patient);
 
   const frontRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
   const backRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
@@ -66,12 +69,12 @@ export function IdCard({ patient, context, initialIntent = 'id' }: IdCardProps):
             </View>
             <View className="flex-row justify-between items-end">
               <View>
-                <Text className="text-white/70 text-[11px]">CNI</Text>
-                <Text className="text-white text-sm font-semibold">{patientCni(patient) ?? '—'}</Text>
+                <Text className="text-white/70 text-[11px]">{idDocument?.label ?? 'ID'}</Text>
+                <Text className="text-white text-sm font-semibold">{idDocument?.value ?? 'Not recorded'}</Text>
               </View>
               <View>
                 <Text className="text-white/70 text-[11px]">MRN</Text>
-                <Text className="text-white text-sm font-semibold">{patientMrn(patient) ?? '—'}</Text>
+                <Text className="text-white text-sm font-semibold">{patientMrn(patient) ?? 'Not recorded'}</Text>
               </View>
               <Text className="text-white/90 text-xs font-semibold">Tap to reveal code →</Text>
             </View>

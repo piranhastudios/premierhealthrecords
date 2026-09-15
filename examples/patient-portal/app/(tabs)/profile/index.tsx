@@ -9,7 +9,7 @@ import { colors } from '../../../src/theme/tokens';
 const MENU: { icon: keyof typeof Ionicons.glyphMap; label: string; route: string }[] = [
   { icon: 'card', label: 'Health ID card', route: '/(tabs)/profile/id-card' },
   { icon: 'people', label: 'Family members', route: '/(tabs)/profile/family' },
-  { icon: 'document-text', label: 'Medical summary', route: '/(tabs)/profile/records' },
+  { icon: 'document-text', label: 'Medical summary', route: '/records' },
   { icon: 'cash', label: 'Payments & invoices', route: '/(tabs)/profile/invoices' },
   { icon: 'settings', label: 'Settings', route: '/(tabs)/profile/settings' },
 ];

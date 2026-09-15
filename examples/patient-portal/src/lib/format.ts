@@ -1,5 +1,5 @@
 import type { HumanName, Identifier, Money, Patient } from '@medplum/fhirtypes';
-import { CNI_SYSTEM, DEFAULT_CURRENCY, MRN_SYSTEM } from './constants';
+import { CNI_SYSTEM, DEFAULT_CURRENCY, MRN_SYSTEM, PASSPORT_SYSTEM, RESIDENCE_PERMIT_SYSTEM } from './constants';
 
 /** Stripe / display: currencies with no minor unit. */
 const ZERO_DECIMAL = new Set(['XAF', 'XOF', 'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XPF']);
@@ -63,6 +63,33 @@ function findIdentifier(patient: Patient | undefined, system: string): string | 
 
 export function patientCni(patient?: Patient): string | undefined {
   return findIdentifier(patient, CNI_SYSTEM);
+}
+
+/**
+ * The strongest identity document on file, with a label to display beside it.
+ *
+ * Not every patient is a Cameroonian national, so a card that can only show a
+ * CNI is blank for anyone else. Preference order is CNI, then passport, then
+ * residence permit, then any other identifier that carries a value — a card
+ * showing "Passport A1234567" is useful, one showing "—" is not.
+ * @param patient - The patient.
+ * @returns Label and value, or undefined when nothing is recorded.
+ */
+export function patientIdDocument(patient?: Patient): { label: string; value: string } | undefined {
+  const cni = patientCni(patient);
+  if (cni) {
+    return { label: 'CNI', value: cni };
+  }
+  const passport = findIdentifier(patient, PASSPORT_SYSTEM);
+  if (passport) {
+    return { label: 'Passport', value: passport };
+  }
+  const permit = findIdentifier(patient, RESIDENCE_PERMIT_SYSTEM);
+  if (permit) {
+    return { label: 'Residence permit', value: permit };
+  }
+  const other = patient?.identifier?.find((id: Identifier) => id.value && id.system !== MRN_SYSTEM);
+  return other?.value ? { label: other.type?.text ?? 'ID', value: other.value } : undefined;
 }
 
 export function patientMrn(patient?: Patient): string | undefined {

@@ -8,6 +8,10 @@ export const PHC_FHIR = `${PHC_BASE}/fhir`;
 export const CNI_SYSTEM = `${PHC_FHIR}/sid/cni`;
 /** PHC medical record number. */
 export const MRN_SYSTEM = `${PHC_FHIR}/sid/mrn`;
+/** Passport number — the usual proof of identity for a non-national. */
+export const PASSPORT_SYSTEM = `${PHC_FHIR}/sid/passport`;
+/** Residence permit / carte de séjour, for foreign nationals living in Cameroon. */
+export const RESIDENCE_PERMIT_SYSTEM = `${PHC_FHIR}/sid/residence-permit`;
 /** Opaque, rotating-QR patient handle (NEVER the CNI). */
 export const QR_HANDLE_SYSTEM = `${PHC_FHIR}/sid/qr-handle`;
 
