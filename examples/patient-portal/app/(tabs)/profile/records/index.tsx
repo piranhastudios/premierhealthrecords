@@ -1,30 +1,17 @@
 import type { Resource } from '@medplum/fhirtypes';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
-import { Card, EmptyState, Loading, Screen } from '../../../src/components/ui';
-import { useActiveProfile } from '../../../src/hooks/useActiveProfile';
-import { SUMMARY_SECTIONS, type SummarySection } from '../../../src/lib/constants';
-import { getSummarySection } from '../../../src/offline/repositories';
-
-const SECTION_LABEL: Record<SummarySection, string> = {
-  allergy: 'Allergies',
-  medication: 'Medications',
-  condition: 'Conditions',
-  immunization: 'Immunizations',
-  lab: 'Recent labs',
-  encounter: 'Recent visits',
-};
-
-/** Pull a human label out of any IPS resource. */
-function labelOf(resource: Resource): string {
-  const r = resource as unknown as Record<string, unknown>;
-  const cc = (r.code ?? r.vaccineCode ?? r.medicationCodeableConcept) as { text?: string; coding?: { display?: string }[] } | undefined;
-  const medRef = (r.medicationReference as { display?: string } | undefined)?.display;
-  const type = (r.type as { text?: string; coding?: { display?: string }[] }[] | undefined)?.[0];
-  return cc?.text ?? cc?.coding?.[0]?.display ?? medRef ?? type?.text ?? type?.coding?.[0]?.display ?? resource.resourceType;
-}
+import { Pressable, Text, View } from 'react-native';
+import { Card, EmptyState, Loading, Screen } from '../../../../src/components/ui';
+import { useActiveProfile } from '../../../../src/hooks/useActiveProfile';
+import { SUMMARY_SECTIONS } from '../../../../src/lib/constants';
+import { SECTION_LABEL, summaryItemOf } from '../../../../src/lib/summary';
+import { getSummarySection } from '../../../../src/offline/repositories';
+import { colors } from '../../../../src/theme/tokens';
 
 export default function Records(): JSX.Element {
+  const router = useRouter();
   const { activePatient } = useActiveProfile();
   const [data, setData] = useState<Record<string, Resource[]>>({});
   const [loading, setLoading] = useState(true);
@@ -76,13 +63,23 @@ export default function Records(): JSX.Element {
         }
         return (
           <View key={section}>
-            <Text className="text-ink font-bold mt-2 mb-1">{SECTION_LABEL[section]}</Text>
+            <Pressable
+              onPress={() => router.push(`/(tabs)/profile/records/${section}`)}
+              className="flex-row items-center justify-between mt-2 mb-1 active:opacity-70"
+            >
+              <Text className="text-ink font-bold">{SECTION_LABEL[section]}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.inkFaint} />
+            </Pressable>
             <Card className="p-0 overflow-hidden">
-              {items.map((item, i) => (
-                <View key={item.id ?? i} className={`px-4 py-3 ${i < items.length - 1 ? 'border-b border-line' : ''}`}>
-                  <Text className="text-ink text-sm font-medium">{labelOf(item)}</Text>
-                </View>
-              ))}
+              {items.map((resource, i) => {
+                const item = summaryItemOf(resource);
+                return (
+                  <View key={resource.id ?? i} className={`px-4 py-3 ${i < items.length - 1 ? 'border-b border-line' : ''}`}>
+                    <Text className="text-ink text-sm font-medium">{item.title}</Text>
+                    {item.detail ? <Text className="text-ink-secondary text-xs mt-0.5">{item.detail}</Text> : null}
+                  </View>
+                );
+              })}
             </Card>
           </View>
         );

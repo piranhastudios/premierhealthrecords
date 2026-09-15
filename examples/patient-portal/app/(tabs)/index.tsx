@@ -7,13 +7,14 @@ import { Pressable, Text, View } from 'react-native';
 import { ProfileBanner } from '../../src/components/ProfileBanner';
 import { Avatar, Badge, Card, GradientHeader, Loading, Screen, SectionTitle, statusTone } from '../../src/components/ui';
 import { useActiveProfile } from '../../src/hooks/useActiveProfile';
+import type { SummarySection } from '../../src/lib/constants';
 import { formatDate, patientInitials, patientName } from '../../src/lib/format';
 import { getSummaryCounts } from '../../src/offline/repositories';
 import { useSync } from '../../src/offline/SyncProvider';
 import { colors } from '../../src/theme/tokens';
 
 const SPECIALTIES = ['Dermatology', 'Cardiology', 'Pediatrics', 'Neurology', 'General'];
-const SUMMARY_TILES: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+const SUMMARY_TILES: { key: SummarySection; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'allergy', label: 'Allergies', icon: 'alert-circle' },
   { key: 'medication', label: 'Medications', icon: 'medkit' },
   { key: 'condition', label: 'Conditions', icon: 'pulse' },
@@ -120,7 +121,11 @@ export default function Home(): JSX.Element {
       <SectionTitle>Your health summary</SectionTitle>
       <View className="flex-row flex-wrap gap-3">
         {SUMMARY_TILES.map((t) => (
-          <Card key={t.key} className="flex-1 min-w-[44%]">
+          <Card
+            key={t.key}
+            className="flex-1 min-w-[44%]"
+            onPress={() => router.push(`/(tabs)/profile/records/${t.key}`)}
+          >
             <Ionicons name={t.icon} size={20} color={colors.orange} />
             <Text className="text-ink text-2xl font-bold mt-2">{counts[t.key] ?? 0}</Text>
             <Text className="text-ink-secondary text-xs">{t.label}</Text>
