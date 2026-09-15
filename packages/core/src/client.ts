@@ -115,6 +115,9 @@ export const DEFAULT_ACCEPT = ContentType.FHIR_JSON + ', */*; q=0.1';
 const DEFAULT_BASE_URL = 'https://api.medplum.com/';
 const DEFAULT_RESOURCE_CACHE_SIZE = 1000;
 const DEFAULT_BROWSER_CACHE_TIME = 60000; // 60 seconds
+
+/** Storage key for the session cached for offline use (see `offlineSessionCache`). */
+const SESSION_DETAILS_KEY = 'sessionDetails';
 const DEFAULT_NODE_CACHE_TIME = 0;
 const DEFAULT_REFRESH_GRACE_PERIOD = 300000; // 5 minutes
 const BINARY_URL_PREFIX = 'Binary/';
@@ -255,6 +258,26 @@ export interface MedplumClientOptions {
    * See: {@link https://developer.mozilla.org/en-US/docs/Web/API/Request/cache}
    */
   cacheTime?: number;
+
+  /**
+   * Keep the signed-in session usable with no network.
+   *
+   * `auth/me` is normally the only source of the profile, access policy and
+   * project, so a client that cannot reach the server has no profile and the
+   * application cannot render a signed-in UI — an offline launch looks exactly
+   * like being logged out. With this enabled the session is written to
+   * `storage` on every successful refresh and restored when a refresh fails
+   * *because the server could not be reached*. A rejected token still signs the
+   * user out normally.
+   *
+   * Off by default: it persists the profile and access policy, which in a
+   * browser means `localStorage`. Enable it where `storage` is encrypted and
+   * offline use is a requirement — a mobile app carrying health records into
+   * places with no signal, for instance.
+   *
+   * @defaultValue false
+   */
+  offlineSessionCache?: boolean;
 
   /**
    * The length of time in milliseconds to delay requests for auto batching.
@@ -973,6 +996,7 @@ export class MedplumClient extends TypedEventTarget<MedplumClientEventMap> {
   private readonly storage: IClientStorage;
   protected readonly requestCache: LRUCache<RequestCacheEntry> | undefined;
   private readonly cacheTime: number;
+  private readonly offlineSessionCache: boolean;
   private readonly baseUrl: string;
   private readonly fhirBaseUrl: string;
   private readonly authorizeUrl: string;
@@ -1038,6 +1062,7 @@ export class MedplumClient extends TypedEventTarget<MedplumClientEventMap> {
 
     this.cacheTime =
       options?.cacheTime ?? (!isBrowserEnvironment() ? DEFAULT_NODE_CACHE_TIME : DEFAULT_BROWSER_CACHE_TIME);
+    this.offlineSessionCache = options?.offlineSessionCache ?? false;
     if (this.cacheTime > 0) {
       this.requestCache = new LRUCache(options?.resourceCacheSize ?? DEFAULT_RESOURCE_CACHE_SIZE);
     } else {
@@ -1217,6 +1242,7 @@ export class MedplumClient extends TypedEventTarget<MedplumClientEventMap> {
    */
   clearActiveLogin(): void {
     this.storage.setString('activeLogin', undefined);
+    this.storage.setString(SESSION_DETAILS_KEY, undefined);
     this.requestCache?.clear();
     this.accessToken = undefined;
     this.refreshToken = undefined;
@@ -3134,17 +3160,59 @@ export class MedplumClient extends TypedEventTarget<MedplumClientEventMap> {
           this.profilePromise = undefined;
           const profileChanged = this.sessionDetails?.profile?.id !== result.profile.id;
           this.sessionDetails = result;
+          if (this.offlineSessionCache) {
+            this.storage.setObject(SESSION_DETAILS_KEY, result);
+          }
           if (profileChanged) {
             this.dispatchEvent({ type: 'change' });
           }
           resolve(result.profile);
           this.dispatchEvent({ type: 'profileRefreshed' });
         })
-        .catch(reject);
+        .catch((err: unknown) => {
+          this.profilePromise = undefined;
+          const cached = this.restoreOfflineSession(err);
+          if (cached) {
+            resolve(cached);
+            this.dispatchEvent({ type: 'profileRefreshed' });
+            return;
+          }
+          reject(err);
+        });
     });
 
     this.dispatchEvent({ type: 'profileRefreshing' });
     return this.profilePromise;
+  }
+
+  /**
+   * Restores the previous session after a failed `auth/me`, so a client with no
+   * connectivity can still present the signed-in user.
+   *
+   * Only applies when the request never reached the server. An
+   * `OperationOutcomeError` means the server DID answer and rejected us — an
+   * expired or revoked token must still sign the user out, not silently resurrect
+   * a cached session.
+   * @param err - The error that failed the refresh.
+   * @returns The cached profile, or undefined to let the original error stand.
+   */
+  private restoreOfflineSession(err: unknown): WithId<ProfileResource> | undefined {
+    if (!this.offlineSessionCache || err instanceof OperationOutcomeError) {
+      return undefined;
+    }
+    const cached = this.storage.getObject<SessionDetails>(SESSION_DETAILS_KEY);
+    if (!cached?.profile) {
+      return undefined;
+    }
+    // Only accept a cache belonging to whoever is logged in now, so switching
+    // accounts offline cannot show the previous user's record.
+    const expected = this.getActiveLogin()?.profile?.reference;
+    if (expected && getReferenceString(cached.profile) !== expected) {
+      return undefined;
+    }
+    this.sessionDetails = cached;
+    this.dispatchEvent({ type: 'change' });
+    return cached.profile;
   }
 
   /**
