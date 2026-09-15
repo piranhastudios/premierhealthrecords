@@ -107,6 +107,7 @@ describe('purge-identity-documents bot', () => {
       type: { coding: [{ system: 'http://loinc.org', code: '34133-9' }] },
       subject: { reference: `Patient/${patient.id}` },
       date: new Date(Date.now() - 400 * DAY_MS).toISOString(),
+      content: [],
     });
 
     const result = await handler(medplum, {} as never);

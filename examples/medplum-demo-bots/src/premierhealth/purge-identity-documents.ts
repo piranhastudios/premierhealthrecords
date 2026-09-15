@@ -25,23 +25,21 @@
  *
  * Idempotent: a document already deleted simply does not come back in the
  * search, so re-running is harmless.
+ *
+ * The codes and the retention period come from shared/identity-document.ts,
+ * which the patient portal imports too — the app states the retention period to
+ * patients and this bot enforces it, so they cannot be allowed to disagree.
  */
 
 import type { BotEvent, MedplumClient } from '@medplum/core';
 import type { DocumentReference, Patient } from '@medplum/fhirtypes';
 
-const PHC_FHIR = 'https://premierhealth.cm/fhir';
+import {
+  IDENTITY_DOCUMENT_TYPE_TOKEN,
+  IDENTITY_RETENTION_DAYS,
+  IDENTITY_VERIFIED_EXTENSION,
+} from '../../../../shared/identity-document';
 
-// Duplicated in the patient portal (src/lib/identityDocument.ts) because the app
-// and the bots are separate deployables with no shared package. If these drift,
-// this bot silently matches nothing and documents are kept for ever.
-const DOCUMENT_TYPE_SYSTEM = `${PHC_FHIR}/CodeSystem/document-type`;
-const IDENTITY_DOCUMENT_CODE = 'identity-document';
-
-/** Marks a patient whose identity a member of staff confirmed. */
-const IDENTITY_VERIFIED_EXTENSION = `${PHC_FHIR}/StructureDefinition/identity-verified`;
-
-const RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** `Binary/abc-123` or a storage URL ending in the id — we need the id. */
@@ -81,11 +79,11 @@ async function preserveOutcome(medplum: MedplumClient, doc: DocumentReference): 
 }
 
 export async function handler(medplum: MedplumClient, _event: BotEvent): Promise<{ deleted: number }> {
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * DAY_MS).toISOString();
+  const cutoff = new Date(Date.now() - IDENTITY_RETENTION_DAYS * DAY_MS).toISOString();
 
   const expired = await medplum.searchResources(
     'DocumentReference',
-    `type=${DOCUMENT_TYPE_SYSTEM}|${IDENTITY_DOCUMENT_CODE}&date=lt${cutoff}&_count=200`
+    `type=${IDENTITY_DOCUMENT_TYPE_TOKEN}&date=lt${cutoff}&_count=200`
   );
 
   let deleted = 0;

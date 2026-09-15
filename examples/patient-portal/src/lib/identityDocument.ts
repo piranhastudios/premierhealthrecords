@@ -1,25 +1,25 @@
 import type { DocumentReference, Patient } from '@medplum/fhirtypes';
 import type { MedplumClient } from '@medplum/core';
-import { PHC_FHIR } from './constants';
+import {
+  DOCUMENT_TYPE_SYSTEM,
+  IDENTITY_DOCUMENT_CODE,
+  IDENTITY_DOCUMENT_TYPE_TOKEN,
+  IDENTITY_RETENTION_DAYS,
+} from '../../../../shared/identity-document';
 
 /**
  * Identity documents uploaded for verification.
  *
  * These are photographs of a CNI, passport or residence permit. They exist only
  * so a member of staff can confirm the person is who they say they are, and are
- * DELETED 30 DAYS after upload by the `purge-identity-documents` bot.
+ * deleted after {@link IDENTITY_RETENTION_DAYS} days by the
+ * `purge-identity-documents` bot.
  *
- * The constants below are duplicated in that bot
- * (examples/medplum-demo-bots/src/premierhealth/purge-identity-documents.ts)
- * because the app and the bots are separate deployables with no shared package.
- * If you change a code here, change it there — the bot finds nothing to delete
- * if they drift, and documents would be retained indefinitely.
+ * The codes and the retention period come from shared/identity-document.ts,
+ * which that bot imports too. The app states the retention period to patients
+ * and the bot enforces it, so the two must never disagree.
  */
-export const DOCUMENT_TYPE_SYSTEM = `${PHC_FHIR}/CodeSystem/document-type`;
-export const IDENTITY_DOCUMENT_CODE = 'identity-document';
-
-/** How long an uploaded document may be kept. */
-export const IDENTITY_RETENTION_DAYS = 30;
+export { DOCUMENT_TYPE_SYSTEM, IDENTITY_DOCUMENT_CODE, IDENTITY_RETENTION_DAYS };
 
 /** Where the app looks to decide what to tell the patient. */
 export type VerificationState = 'none' | 'pending' | 'verified' | 'rejected';
@@ -50,7 +50,7 @@ export async function latestIdentityDocument(
 ): Promise<DocumentReference | undefined> {
   const results = await medplum.searchResources(
     'DocumentReference',
-    `subject=Patient/${patientId}&type=${DOCUMENT_TYPE_SYSTEM}|${IDENTITY_DOCUMENT_CODE}&_sort=-date&_count=1`
+    `subject=Patient/${patientId}&type=${IDENTITY_DOCUMENT_TYPE_TOKEN}&_sort=-date&_count=1`
   );
   return results[0];
 }

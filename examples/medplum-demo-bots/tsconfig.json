@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
-    "rootDir": "src",
+    // Repo root, because bots import the cross-deployable contract in
+    // ../../shared and rootDir must contain every source file. Nothing is
+    // emitted from here regardless (noEmit below; esbuild-script.mjs
+    // builds dist/ from medplum.config.json), so this only affects
+    // type-checking.
+    "rootDir": "../..",
     "outDir": "dist",
     "lib": ["esnext"],
     "types": ["vitest/globals"],
@@ -29,6 +34,9 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*.ts"],
+  // The shared contract lives outside this package because the patient portal
+  // imports it too; including it here makes it part of the program so the
+  // import type-checks.
+  "include": ["src/**/*.ts", "../../shared/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
