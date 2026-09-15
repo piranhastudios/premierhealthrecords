@@ -150,6 +150,13 @@ const WIRING = [
     // Cron bot — no Subscription. Requires the project `cron` feature (seed-users.mjs).
     cron: '0 * * * *',
   },
+  {
+    bot: 'premierhealth-purge-identity-documents',
+    reason: 'Delete uploaded identity documents 30 days after upload (retention promise)',
+    // Cron bot — no Subscription. Daily at 03:15, off-peak. Without this the
+    // retention notice shown to patients in the app would not be true.
+    cron: '15 3 * * *',
+  },
   // --- Cal.diy (website booking widget) sync ----------------------------------------
   {
     bot: 'premierhealth-caldiy-webhook',

@@ -229,6 +229,12 @@
       "dist": "dist/premierhealth/appointment-reminders.js"
     },
     {
+      "name": "premierhealth-purge-identity-documents",
+      "id": "",
+      "source": "src/premierhealth/purge-identity-documents.ts",
+      "dist": "dist/premierhealth/purge-identity-documents.js"
+    },
+    {
       "name": "premierhealth-caldiy-webhook",
       "id": "",
       "source": "src/premierhealth/caldiy-webhook.ts",

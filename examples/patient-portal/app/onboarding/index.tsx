@@ -85,7 +85,7 @@ export default function Onboarding(): JSX.Element {
       // the key is per-patient-per-version so a replay cannot double-apply.
       await queueProfileEdit(updated, `profile-${holder.id}-${Date.now()}`);
       await refresh();
-      router.replace('/onboarding/intro-visit');
+      router.replace('/onboarding/verify-id');
     } catch (err) {
       reportError(err, { source: 'onboarding-save' });
       setError(err instanceof Error ? err.message : 'Could not save your details. Please try again.');

@@ -60,6 +60,10 @@ export default Sentry.wrap(function RootLayout(): JSX.Element {
                     options={{ headerShown: true, title: 'Complete your profile', headerBackTitle: 'Back' }}
                   />
                   <Stack.Screen
+                    name="onboarding/verify-id"
+                    options={{ headerShown: true, title: 'Identity check', headerBackTitle: 'Back' }}
+                  />
+                  <Stack.Screen
                     name="onboarding/intro-visit"
                     options={{ headerShown: true, title: 'Your first appointment', headerBackTitle: 'Back' }}
                   />
