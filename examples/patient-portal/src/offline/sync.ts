@@ -138,6 +138,17 @@ async function processOutboxItem(medplum: MedplumClient, item: OutboxItem): Prom
   }
 }
 
+/**
+ * Queue a profile update. Works offline and drains on reconnect, so onboarding
+ * can be completed with no signal — which is often exactly when someone has
+ * time to sit and fill it in.
+ * @param patient - The full updated Patient resource.
+ * @param idempotencyKey - Stable key so a replay cannot apply twice.
+ */
+export async function queueProfileEdit(patient: Patient, idempotencyKey: string): Promise<void> {
+  await enqueueOutbox({ id: idempotencyKey, kind: 'profile-edit', payload: patient, idempotencyKey });
+}
+
 /** Queue a booking request (works offline; drained on reconnect). */
 export async function queueBooking(appointment: Appointment, idempotencyKey: string): Promise<void> {
   await enqueueOutbox({ id: idempotencyKey, kind: 'book', payload: appointment, idempotencyKey });

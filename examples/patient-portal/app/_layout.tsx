@@ -56,6 +56,14 @@ export default Sentry.wrap(function RootLayout(): JSX.Element {
                       are opened from the home tiles too, and pushing into
                       another tab's stack left no way back to where you were. */}
                   <Stack.Screen
+                    name="onboarding/index"
+                    options={{ headerShown: true, title: 'Complete your profile', headerBackTitle: 'Back' }}
+                  />
+                  <Stack.Screen
+                    name="onboarding/intro-visit"
+                    options={{ headerShown: true, title: 'Your first appointment', headerBackTitle: 'Back' }}
+                  />
+                  <Stack.Screen
                     name="records/index"
                     options={{ headerShown: true, title: 'Medical summary', headerBackTitle: 'Back' }}
                   />

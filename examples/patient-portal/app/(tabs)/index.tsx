@@ -4,6 +4,7 @@ import { useMedplum } from '@medplum/react-hooks';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { OnboardingPrompt } from '../../src/components/OnboardingPrompt';
 import { ProfileBanner } from '../../src/components/ProfileBanner';
 import { Avatar, Badge, Card, GradientHeader, Loading, Screen, SectionTitle, statusTone } from '../../src/components/ui';
 import { useActiveProfile } from '../../src/hooks/useActiveProfile';
@@ -82,6 +83,7 @@ export default function Home(): JSX.Element {
       />
 
       <ProfileBanner />
+      <OnboardingPrompt />
 
       <Card>
         <View className="flex-row justify-between">
