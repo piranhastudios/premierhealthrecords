@@ -45,6 +45,7 @@ import { MedicationsPage } from './pages/patient/MedicationsPage';
 import { OverviewTab } from './pages/patient/overview/OverviewTab';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
+import { VisitsTab } from './pages/patient/VisitsTab';
 import { PaymentsTab } from './pages/patient/PaymentsTab';
 import { ScriptSureTab } from './pages/patient/ScriptSureTab';
 import { TasksTab } from './pages/patient/TasksTab';
@@ -228,6 +229,9 @@ export function App(): JSX.Element | null {
                 <Route path="ServiceRequest" element={<LabsPage />} />
                 <Route path="ServiceRequest/:serviceRequestId" element={<LabsPage />} />
                 <Route path="MedicationRequest" element={<MedicationsPage />} />
+                {/* Must precede the :resourceType fallback, which would
+                    otherwise render the generic Encounter-only search. */}
+                <Route path="Encounter" element={<VisitsTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path="Coverage" element={<CoveragePage />} />
                 <Route path="Coverage/:coverageId" element={<CoveragePage />} />

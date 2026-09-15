@@ -121,6 +121,11 @@ export const PatientPageTabs: PatientPageTabInfo[] = [
   // are not valid search parameter codes, and `-date` would float records that never
   // got a date to the top.
   {
+    // Rendered by `VisitsTab`, not the generic search page: Visits lists
+    // Appointments alongside Encounters so portal- and website-booked visits are
+    // visible from the chart. The query string below is vestigial — VisitsTab
+    // runs its own two searches — but is kept so the tab URL stays stable for
+    // anything comparing against it.
     id: 'encounter',
     url: 'Encounter?_count=20&_fields=class,period,status,practitioner,_lastUpdated&_sort=-_lastUpdated&patient=%patient.id',
     label: 'Visits',
