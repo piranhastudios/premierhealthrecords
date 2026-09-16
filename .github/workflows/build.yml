@@ -43,7 +43,7 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         env:
-          cache-name: cache-node-modules
+          cache-name: cache-node-modules-v2
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
@@ -100,7 +100,7 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         env:
-          cache-name: cache-node-modules
+          cache-name: cache-node-modules-v2
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
@@ -211,7 +211,7 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         env:
-          cache-name: cache-node-modules
+          cache-name: cache-node-modules-v2
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
@@ -292,7 +292,7 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         env:
-          cache-name: cache-node-modules
+          cache-name: cache-node-modules-v2
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
@@ -370,7 +370,7 @@ jobs:
       - name: Cache node modules
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         env:
-          cache-name: cache-node-modules
+          cache-name: cache-node-modules-v2
         with:
           path: ~/.npm
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
