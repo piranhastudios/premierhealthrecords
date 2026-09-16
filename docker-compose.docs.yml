@@ -1,31 +1,27 @@
-# Optional overlay: BookStack knowledge base — staff wiki for SOPs, platform
-# training guides and per-location areas. Enable with
-#   docker compose -f docker-compose.full-stack.yml -f docker-compose.docs.yml up -d
-# Runbook: docs/knowledge-base.md
+# BookStack knowledge base — staff wiki (SOPs, training, per-location shelves).
+#
+# This is the reference copy of the stack deployed by hand at
+# /opt/storefactory/stores/premier-health-docs on the Hetzner box, alongside the
+# Medplum stack. Secrets and hostnames come from the .env file next to it there
+# (DOCS_HOST, BOOKSTACK_DB_PASSWORD, BOOKSTACK_APP_KEY, BOOKSTACK_OIDC_*).
+#
+# AUTH_METHOD is `standard` (email + password), NOT `oidc`: BookStack only
+# accepts RS256-signed tokens and this Medplum signs ES256, so SSO cannot work
+# until that is resolved. Runbook: docs/knowledge-base.md.
 services:
-  # ---------------------------------------------------------------------------
-  # BookStack — "Confluence but free" (MIT). Staff sign in with their MEDPLUM
-  # account (OIDC against this stack's own server), edit in a WYSIWYG editor,
-  # and see only the shelves their role allows; admins see everything.
-  #
-  # Own MariaDB (BookStack is MySQL-only) so the wiki can be removed without
-  # touching Medplum data. All secrets come from the Coolify env store — set
-  # them BEFORE this file deploys:
-  #   BOOKSTACK_DB_PASSWORD
-  #   BOOKSTACK_APP_KEY      (docker run --rm lscr.io/linuxserver/bookstack:latest appkey)
-  #   BOOKSTACK_OIDC_CLIENT_ID / BOOKSTACK_OIDC_CLIENT_SECRET
-  #                          (a ClientApplication in the Douala project, see runbook)
-  # ---------------------------------------------------------------------------
   bookstack-db:
     image: mariadb:11
+    container_name: phr-docs-db
     restart: unless-stopped
     environment:
-      - MARIADB_ROOT_PASSWORD=${BOOKSTACK_DB_PASSWORD:?set BOOKSTACK_DB_PASSWORD}
-      - MARIADB_DATABASE=bookstack
-      - MARIADB_USER=bookstack
-      - MARIADB_PASSWORD=${BOOKSTACK_DB_PASSWORD:?set BOOKSTACK_DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${BOOKSTACK_DB_PASSWORD}
+      MARIADB_DATABASE: bookstack
+      MARIADB_USER: bookstack
+      MARIADB_PASSWORD: ${BOOKSTACK_DB_PASSWORD}
     volumes:
       - bookstack-db-data:/var/lib/mysql
+    networks: [docs]
+    mem_limit: 512m
     healthcheck:
       test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 10s
@@ -33,55 +29,58 @@ services:
       retries: 5
 
   bookstack:
-    # Pin to the tag the first deploy pulls (docker image inspect) once live;
-    # `latest` is only to avoid guessing linuxserver's date-stamped tag names.
     image: lscr.io/linuxserver/bookstack:latest
+    container_name: phr-docs
     restart: unless-stopped
     depends_on:
-      bookstack-db:
-        condition: service_healthy
+      bookstack-db: { condition: service_healthy }
     environment:
       PUID: '1000'
       PGID: '1000'
       TZ: 'Africa/Douala'
-      APP_URL: '${BOOKSTACK_PUBLIC_URL:-https://docs.premierhealthcentres.com}'
-      APP_KEY: '${BOOKSTACK_APP_KEY:?set BOOKSTACK_APP_KEY}'
+      APP_URL: 'https://${DOCS_HOST}'
+      APP_KEY: '${BOOKSTACK_APP_KEY}'
       DB_HOST: 'bookstack-db'
       DB_PORT: '3306'
       DB_USERNAME: 'bookstack'
-      DB_PASSWORD: '${BOOKSTACK_DB_PASSWORD:?set BOOKSTACK_DB_PASSWORD}'
+      DB_PASSWORD: '${BOOKSTACK_DB_PASSWORD}'
       DB_DATABASE: 'bookstack'
-      # Ships as `standard` so the built-in admin (admin@admin.com) can be
-      # claimed first; flip to `oidc` in the Coolify env store afterwards.
-      # BookStack matches external logins to existing users BY EMAIL, which is
-      # how the claimed admin keeps admin rights under SSO (runbook, step 4).
-      AUTH_METHOD: '${BOOKSTACK_AUTH_METHOD:-standard}'
+      # Held at `standard` by the RS256/ES256 mismatch above. When SSO does
+      # become possible, BookStack matches logins to existing users BY EMAIL,
+      # so accounts keep their roles as long as the emails match.
+      AUTH_METHOD: '${BOOKSTACK_AUTH_METHOD}'
       AUTH_AUTO_INITIATE: 'false'
       OIDC_NAME: 'Premier Health'
       OIDC_DISPLAY_NAME_CLAIMS: 'name'
-      OIDC_CLIENT_ID: '${BOOKSTACK_OIDC_CLIENT_ID:-}'
-      OIDC_CLIENT_SECRET: '${BOOKSTACK_OIDC_CLIENT_SECRET:-}'
-      # Must BYTE-match the `issuer` in <api>/.well-known/openid-configuration
-      # (trailing slash included). As of 2026-09-16 the server still reports the
-      # old phr.commerce.storefactory.shop domain — fix MEDPLUM_BASE_URL on the
-      # stack before going live with SSO, or override this to the reported value.
-      OIDC_ISSUER: '${BOOKSTACK_OIDC_ISSUER:-https://app.premierhealthcentres.com/api/}'
+      OIDC_CLIENT_ID: '${BOOKSTACK_OIDC_CLIENT_ID}'
+      OIDC_CLIENT_SECRET: '${BOOKSTACK_OIDC_CLIENT_SECRET}'
+      # Must byte-match the issuer in /api/.well-known/openid-configuration.
+      OIDC_ISSUER: 'https://app.premierhealthcentres.com/api/'
       OIDC_ISSUER_DISCOVER: 'true'
       OIDC_USER_TO_GROUPS: 'false'
     volumes:
       - bookstack-data:/config
-    ports:
-      - '3003:80'
+    networks: [docs, proxy]
+    expose: ['80']
+    mem_limit: 512m
     healthcheck:
-      test: ['CMD', 'curl', '-fs', 'http://127.0.0.1:80/status']
+      test: ['CMD-SHELL', 'curl -fs http://127.0.0.1:80/status || wget -qO- http://127.0.0.1:80/status']
       interval: 30s
       timeout: 10s
       retries: 5
     labels:
-      # UUID hard-coded like the other services (Coolify v4.0.0 does not expand
-      # ${COOLIFY_RESOURCE_UUID}); map the router for docs.* to this port.
-      - traefik.http.services.http-0-lb8d6788oexaznj9u39kmky8-bookstack.loadbalancer.server.port=80
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.phr-docs.rule=Host(`${DOCS_HOST}`)
+      - traefik.http.routers.phr-docs.entrypoints=websecure
+      - traefik.http.routers.phr-docs.tls.certresolver=le
+      - traefik.http.services.phr-docs.loadbalancer.server.port=80
 
 volumes:
   bookstack-db-data:
   bookstack-data:
+
+networks:
+  docs:
+  proxy:
+    external: true

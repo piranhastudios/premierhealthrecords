@@ -2,8 +2,8 @@
 
 The staff wiki: standard operating procedures, platform training guides, and a
 gated area per location. "Confluence but free" — BookStack is MIT-licensed and
-runs as one more service on the existing Coolify stack
-(`docker-compose.docs.yml`, an optional overlay like Cal.diy).
+runs as its own compose stack on the same server
+(`docker-compose.docs.yml` in this repo is the reference copy of it).
 
 Why BookStack and not the obvious alternatives:
 
@@ -29,36 +29,59 @@ code that they describe). BookStack is for everything staff-facing:
 Admins see every shelf regardless of role — that is BookStack's built-in admin
 behaviour, no configuration needed.
 
-## Deploying it
+## Where it is right now
 
-1. **Fix the OIDC issuer first.** The server currently announces
-   `https://phr.commerce.storefactory.shop/api/` as its issuer (check
-   `https://app.premierhealthcentres.com/api/.well-known/openid-configuration`)
-   because the stack's `MEDPLUM_BASE_URL` still carries the old deploy domain.
-   Set it to `https://app.premierhealthcentres.com/api/` in the Coolify env
-   store and redeploy — staff will have to sign in again (tokens carry the
-   issuer), which is the whole disruption. Until it is fixed, SSO logins would
-   bounce staff through the storefactory.shop domain.
-2. **Secrets** in the Coolify env store:
-   - `BOOKSTACK_DB_PASSWORD` — `openssl rand -base64 24`
-   - `BOOKSTACK_APP_KEY` — `docker run --rm lscr.io/linuxserver/bookstack:latest appkey`
-   - `BOOKSTACK_OIDC_CLIENT_ID` / `BOOKSTACK_OIDC_CLIENT_SECRET` — step 3
-3. **ClientApplication in Medplum.** In the admin app, signed in to the
-   **Douala** project (staff memberships live there — a client in another
-   project cannot log them in), create a ClientApplication named `bookstack`
-   with redirect URI `https://docs.premierhealthcentres.com/oidc/callback`.
-   Copy its id and secret into the env store.
-4. **Deploy** with the overlay added to the compose command
-   (`-f docker-compose.docs.yml`), point DNS `docs.premierhealthcentres.com`
-   at the server, and map the domain to the `bookstack` service (port 80) in
-   Coolify. First boot takes a minute while MariaDB initialises.
-5. **Claim the admin account.** The wiki starts with local logins
-   (`AUTH_METHOD=standard`): sign in as `admin@admin.com` / `password`,
-   immediately change the email to your own **Medplum login email** and set a
-   real password. Then set `BOOKSTACK_AUTH_METHOD=oidc` in the env store and
-   redeploy the service. BookStack matches SSO logins to existing accounts by
-   email, so your Medplum login lands on the admin account. From here on the
-   login page has a single "Login with Premier Health" button.
+Deployed and running on the Hetzner box as its own compose stack at
+`/opt/storefactory/stores/premier-health-docs` (BookStack + its own MariaDB,
+same hand-managed pattern as the Medplum stack next to it):
+
+| | |
+|---|---|
+| URL | <https://phr-docs.commerce.storefactory.shop> |
+| Login | email + password (**not** Medplum SSO yet — see below) |
+| Admin | `jngatchu@gmail.com` — password was set at install, change it on first login |
+
+`docs.premierhealthcentres.com` is the intended address. Traefik is ready for
+it, but the GoDaddy DNS record does not exist yet, so the router is currently
+bound to the `phr-docs.commerce.storefactory.shop` name only — Let's Encrypt
+refuses to issue a certificate for a hostname that does not resolve, which
+takes the whole site down with it. ClickUp task `123yb693r00` tracks adding
+the A record (`docs` → `2.29.1.139`) and the flip afterwards.
+
+## Medplum SSO is blocked (BookStack is RS256-only)
+
+Staff signing in with their Medplum account does not work yet, and it is not a
+configuration mistake: **BookStack only accepts RS256-signed tokens**
+(`app/Access/Oidc/OidcJwtSigningKey.php`: *"Only RS256 keys are currently
+supported"*), and this Medplum signs with **ES256**. BookStack filters the
+provider's JWKS down to RSA keys, finds none, and fails the login with
+`Missing required configuration "keys" value`. The same restriction is still
+present on BookStack's development branch, so waiting for an upgrade will not
+fix it.
+
+Everything else for SSO is already in place: the `bookstack` ClientApplication
+exists in the Douala project, its id/secret are in the stack's `.env`, and
+`OIDC_ISSUER` matches the issuer the server now advertises. Only the signing
+algorithm is in the way. `BOOKSTACK_AUTH_METHOD` is therefore set to
+`standard`; flipping it to `oidc` before the algorithm is sorted out leaves a
+login page whose only button is broken.
+
+Getting from here to SSO needs a decision, because Medplum picks its signing
+key as `jsonWebKeys[0]` from an **unsorted** search of active JsonWebKey
+resources (`packages/server/src/oauth/keys.ts`) — with two active keys, which
+one signs is not deterministic across restarts. So adding an RS256 key
+alongside the ES256 one is not enough. The options:
+
+1. **Make an RS256 key the only active one.** Medplum supports RS256 (it was
+   the default for years and is still the fallback). Cost: every existing
+   token stops verifying, so everyone is signed out once — cheap today, much
+   less so after go-live. Reversible by reactivating the old key.
+2. **Change the fork** to choose the signing key deterministically (e.g. an
+   algorithm set in config) instead of relying on row order. Cleaner and
+   avoids the forced sign-out, but it means building and deploying a new
+   server image.
+3. **Leave the wiki on its own passwords.** No Medplum involvement, no risk,
+   but everyone has a second account to manage.
 
 ## Access recipe (per-location gating)
 
