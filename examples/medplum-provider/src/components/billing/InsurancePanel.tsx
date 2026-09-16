@@ -15,7 +15,11 @@ import { showErrorNotification, showSuccessNotification } from '../../utils/noti
 const SELF_PAY = 'self';
 const DEFAULT_COPAY_PERCENT = 20;
 
-/** The patient's share, read back off `costToBeneficiary`. */
+/**
+ * The patient's share, read back off `costToBeneficiary`.
+ * @param coverage - The coverage to read the split from.
+ * @returns The patient's percentage share, or undefined when none is recorded.
+ */
 export function getCoinsurancePercent(coverage: Coverage): number | undefined {
   for (const cost of coverage.costToBeneficiary ?? []) {
     if (cost.valueQuantity?.code === '%' && typeof cost.valueQuantity.value === 'number') {
@@ -41,6 +45,7 @@ function describe(coverage: WithId<Coverage>): string {
  * past invoice was raised stays intact.
  *
  * @param props - The patient whose cover is shown.
+ * @param props.patient - The patient whose cover is shown.
  * @returns The insurance panel.
  */
 export function InsurancePanel(props: { patient: Patient }): JSX.Element {

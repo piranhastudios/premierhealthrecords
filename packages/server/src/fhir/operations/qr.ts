@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Premier Health contributors
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 //
 // Rotating-QR server operations for Premier Health Cameroon.
@@ -66,7 +66,7 @@ export function getQrKey(project: Project): string {
 }
 
 function base64url(buf: Buffer): string {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
 }
 
 function base64urlJson(obj: unknown): string {
@@ -350,8 +350,8 @@ export async function patientQrEnrollHandler(req: FhirRequest): Promise<FhirResp
   parseInputParameters(enrollOperation, req);
 
   const patient = await ctx.repo.readResource<Patient>('Patient', id);
-  const handle = deriveHandle(key, patient.id as string);
-  const secret = deriveOfflineSecret(key, patient.id as string);
+  const handle = deriveHandle(key, patient.id);
+  const secret = deriveOfflineSecret(key, patient.id);
 
   // Upsert the qr-handle identifier if not already present.
   const hasHandle = patient.identifier?.some((i) => i.system === QR_HANDLE_SYSTEM && i.value === handle);
@@ -422,7 +422,7 @@ export async function patientIssueQrHandler(req: FhirRequest): Promise<FhirRespo
   }
 
   const patient = await ctx.repo.readResource<Patient>('Patient', id);
-  const handle = deriveHandle(key, patient.id as string);
+  const handle = deriveHandle(key, patient.id);
 
   // Ensure the stable qr-handle identifier exists so $verify-qr can resolve
   // handle -> patient. Online issuance may happen without a prior $qr-enroll

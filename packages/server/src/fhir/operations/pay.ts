@@ -144,8 +144,8 @@ export async function invoicePayHandler(req: FhirRequest): Promise<FhirResponse>
         payerMsisdn,
         statementDescription: 'Premier Health',
         metadata: [
-          { fieldName: 'projectId', fieldValue: ctx.project.id as string },
-          { fieldName: 'invoiceId', fieldValue: invoice.id as string },
+          { fieldName: 'projectId', fieldValue: ctx.project.id },
+          { fieldName: 'invoiceId', fieldValue: invoice.id },
         ],
       },
       config

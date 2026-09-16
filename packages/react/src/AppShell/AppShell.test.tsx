@@ -75,14 +75,14 @@ describe('AppShell v1', () => {
 
     // Click on the logo to open the menu
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Medplum Logo'));
+      fireEvent.click(screen.getByTitle('Premier Health Logo'));
     });
 
     expect(screen.getByText('Menu 1')).toBeInTheDocument();
 
     // Click on the logo to close the menu
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Medplum Logo'));
+      fireEvent.click(screen.getByTitle('Premier Health Logo'));
     });
 
     expect(screen.queryByText('Menu 1')).not.toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('AppShell v1', () => {
 
     // Click on the logo to open the menu
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Medplum Logo'));
+      fireEvent.click(screen.getByTitle('Premier Health Logo'));
     });
 
     const input = screen.getByPlaceholderText('Resource Type');
@@ -149,7 +149,7 @@ describe('AppShell v2', () => {
     await setup('v2');
     expect(screen.getByText('Your application here')).toBeInTheDocument();
 
-    const logoButton = screen.getByRole('button', { name: 'Medplum Logo' });
+    const logoButton = screen.getByRole('button', { name: 'Premier Health Logo' });
     const menuTitle = screen.getByText('Menu 1');
 
     expect(logoButton).toHaveAttribute('aria-expanded', 'false');
@@ -203,7 +203,7 @@ describe('AppShell v2', () => {
     await setup('v2');
 
     await act(async () => {
-      fireEvent.click(screen.getByTitle('Medplum Logo'));
+      fireEvent.click(screen.getByTitle('Premier Health Logo'));
     });
 
     const searchButton = screen.getByText('Search');

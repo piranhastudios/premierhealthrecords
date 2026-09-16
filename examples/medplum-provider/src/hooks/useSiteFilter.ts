@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { WithId } from '@medplum/core';
 import { EMPTY } from '@medplum/core';

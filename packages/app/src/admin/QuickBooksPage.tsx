@@ -139,10 +139,13 @@ export function QuickBooksPage(): JSX.Element {
   async function handlePullPricing(): Promise<void> {
     setBusy('pricing');
     try {
-      const result = (await medplum.post(medplum.fhirUrl('$qbo-pull-pricing'), {
+      // Annotated rather than asserted: `post` resolves to `any`, so an
+      // assertion reads as redundant to the linter while the annotation still
+      // types `result.parameter` below.
+      const result: Parameters = await medplum.post(medplum.fhirUrl('$qbo-pull-pricing'), {
         resourceType: 'Parameters',
         parameter: [],
-      })) as Parameters;
+      });
       const count = (name: string): number =>
         (result.parameter?.find((p) => p.name === name)?.valueInteger as number) ?? 0;
       showNotification({

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { Alert, Badge, Button, Loader, NumberInput, Stack, Table, Text, Title } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
@@ -14,7 +14,11 @@ import { useCallback, useEffect, useState } from 'react';
 const ZERO_DECIMAL = new Set(['XAF', 'XOF', 'JPY', 'KRW', 'VND', 'CLP', 'ISK']);
 const DEFAULT_CURRENCY = 'XAF' as const;
 
-/** The base price of a ChargeItemDefinition, if it has one. */
+/**
+ * The base price of a ChargeItemDefinition, if it has one.
+ * @param definition - The priced service.
+ * @returns The base price, or undefined when the service has never been priced.
+ */
 export function getBasePrice(definition: ChargeItemDefinition): Money | undefined {
   for (const group of definition.propertyGroup ?? []) {
     for (const component of group.priceComponent ?? []) {
@@ -30,6 +34,10 @@ export function getBasePrice(definition: ChargeItemDefinition): Money | undefine
  * Return a copy with the base price set, creating the propertyGroup /
  * priceComponent when the service has never been priced. Other price components
  * (surcharges, discounts) are left untouched.
+ * @param definition - The service to price.
+ * @param value - The new base price, in major units.
+ * @param currency - The ISO-4217 currency code.
+ * @returns A copy of the definition carrying the new base price.
  */
 export function withBasePrice(
   definition: ChargeItemDefinition,
@@ -110,7 +118,7 @@ export function FeesPage(): JSX.Element {
         const currency = getBasePrice(definition)?.currency ?? DEFAULT_CURRENCY;
         const updated = (await medplum.updateResource(
           withBasePrice(definition, value, currency)
-        )) as WithId<ChargeItemDefinition>;
+        ));
         setDefinitions((prev) => (prev ?? []).map((d) => (d.id === updated.id ? updated : d)));
         showNotification({
           color: 'green',

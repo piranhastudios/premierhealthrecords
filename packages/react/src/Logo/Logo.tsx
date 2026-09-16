@@ -8,7 +8,12 @@ export interface LogoProps {
 }
 
 export function Logo(props: LogoProps): JSX.Element {
-
+  // Kept from upstream: a deployment can point at its own mark without a
+  // rebuild of this package.
+  const overrideUrl = import.meta.env.MEDPLUM_LOGO_URL;
+  if (overrideUrl) {
+    return <img src={overrideUrl} alt="Logo" style={{ maxHeight: props.size }} />;
+  }
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -18,6 +23,9 @@ export function Logo(props: LogoProps): JSX.Element {
       viewBox="0 0 1500 1500"
       {...props}
     >
+      {/* The accessible name for the mark. Without it the logo is invisible to
+          screen readers, and the header button wrapping it has no name at all. */}
+      <title>Premier Health Logo</title>
       <defs>
         <filter id="a" width="100%" height="100%" x="0%" y="0%">
           <feColorMatrix

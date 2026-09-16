@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { Select } from '@mantine/core';
 import { IconMapPin } from '@tabler/icons-react';

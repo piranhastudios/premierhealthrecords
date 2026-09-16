@@ -10,6 +10,7 @@ import { VideoVisitFullscreen } from '../../components/telehealth/VideoVisitFull
  * desktop and mobile). The room is the Appointment/Encounter id; the patient
  * opens `/telehealth/:id` from a shared link (no account needed). Append
  * `?audioOnly=1` for a voice-only call on a constrained connection.
+ * @returns The telehealth page.
  */
 export function TelehealthPage(): JSX.Element {
   const { appointmentId } = useParams();

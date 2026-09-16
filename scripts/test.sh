@@ -31,9 +31,7 @@ if [ -z "$NO_COVERAGE" ]; then
 fi
 
 # Test
-# Even though docs do not have a "test" action, we still will build the docs via the
-# global "build" job unless we filter it out
-npx turbo run test --concurrency=1 --filter='!@medplum/docs' --filter='!./examples/*' -- $COVERAGE_FLAG
+npx turbo run test --concurrency=1 --filter='!./examples/*' -- $COVERAGE_FLAG
 
 if [ -z "$NO_COVERAGE" ]; then
   # Find all coverage-final.json files in packages subdirectories

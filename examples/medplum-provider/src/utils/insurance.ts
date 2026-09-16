@@ -84,7 +84,12 @@ export function computeCoPay(total: Money, coverage?: Coverage): CoPaySplit {
   };
 }
 
-/** Loads the patient's most recent active Coverage, if any. */
+/**
+ * Loads the patient's most recent active Coverage, if any.
+ * @param medplum - Client used to search for the coverage.
+ * @param patient - The patient whose cover is wanted.
+ * @returns The most recent active Coverage, or undefined when uninsured.
+ */
 export async function getActiveCoverage(medplum: MedplumClient, patient: Patient): Promise<Coverage | undefined> {
   const results = await medplum.searchResources(
     'Coverage',
@@ -93,12 +98,21 @@ export async function getActiveCoverage(medplum: MedplumClient, patient: Patient
   return results[0];
 }
 
-/** All active Coverages for a patient. */
+/**
+ * All active Coverages for a patient.
+ * @param medplum - Client used to search for the coverages.
+ * @param patient - The patient whose cover is wanted.
+ * @returns Every active Coverage for the patient.
+ */
 export async function getPatientCoverages(medplum: MedplumClient, patient: Patient): Promise<Coverage[]> {
   return medplum.searchResources('Coverage', `beneficiary=Patient/${patient.id}&status=active&_count=50`);
 }
 
-/** Loads the configured insurance payers (Organizations of type "ins"). */
+/**
+ * Loads the configured insurance payers (Organizations of type "ins").
+ * @param medplum - Client used to search for the payers.
+ * @returns Every active insurer, by name.
+ */
 export async function getInsurers(medplum: MedplumClient): Promise<Organization[]> {
   return medplum.searchResources('Organization', `type=${INSURER_TYPE}&active=true&_sort=name&_count=100`);
 }

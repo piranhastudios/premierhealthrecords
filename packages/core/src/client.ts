@@ -267,7 +267,7 @@ export interface MedplumClientOptions {
    * application cannot render a signed-in UI — an offline launch looks exactly
    * like being logged out. With this enabled the session is written to
    * `storage` on every successful refresh and restored when a refresh fails
-   * *because the server could not be reached*. A rejected token still signs the
+   * _because the server could not be reached_. A rejected token still signs the
    * user out normally.
    *
    * Off by default: it persists the profile and access policy, which in a

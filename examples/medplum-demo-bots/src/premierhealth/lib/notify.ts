@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -39,7 +39,11 @@ export interface QueueNoticeResult {
   communication?: Communication;
 }
 
-/** Which channel the patient can be reached on: WhatsApp first, then email. */
+/**
+ * Which channel the patient can be reached on: WhatsApp first, then email.
+ * @param patient - The patient to reach.
+ * @returns The channel to use, or undefined when the patient has neither.
+ */
 export function pickChannel(patient: Patient): Channel | undefined {
   if (resolvePatientEndpoint(patient, 'whatsapp')) {
     return 'whatsapp';

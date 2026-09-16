@@ -308,7 +308,7 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
                   Copy patient link
                 </Button>
               </Group>
-              <VideoVisit roomId={encounter.id as string} onLeave={() => setVideoOpen(false)} />
+              <VideoVisit roomId={encounter.id} onLeave={() => setVideoOpen(false)} />
             </Box>
           )}
         </Flex>

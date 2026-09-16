@@ -37,6 +37,8 @@ export interface VideoVisitProps {
  * Compact video visit panel — used docked beside the encounter chart so the
  * clinician can document while on the call. The patient gets the full-screen
  * VideoVisitFullscreen instead.
+ * @param props - The appointment and encounter the call belongs to.
+ * @returns The docked video panel.
  */
 export function VideoVisit(props: VideoVisitProps): JSX.Element {
   const call = useVideoCall(props.roomId, props.audioOnly ?? false, props.onLeave);

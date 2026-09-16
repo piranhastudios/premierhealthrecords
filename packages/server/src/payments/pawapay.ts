@@ -64,7 +64,12 @@ export interface PaymentProvider {
   getDeposit(depositId: string, config: PawaPayConfig): Promise<DepositResult | undefined>;
 }
 
-/** Maps a pawaPay deposit object (from any endpoint) to {@link DepositResult}. */
+/**
+ * Maps a pawaPay deposit object (from any endpoint) to {@link DepositResult}.
+ * @param depositId - The deposit the response belongs to, used when the body omits it.
+ * @param body - The raw pawaPay response, an object or a single-element array.
+ * @returns The normalised deposit result.
+ */
 function toDepositResult(depositId: string, body: any): DepositResult {
   const obj = Array.isArray(body) ? body[0] : body;
   return {

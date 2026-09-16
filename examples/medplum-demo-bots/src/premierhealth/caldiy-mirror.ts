@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -22,7 +22,7 @@
  */
 
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Appointment, Extension, Patient, Reference, Schedule, Slot } from '@medplum/fhirtypes';
+import type { Appointment, Extension, Patient, Reference, Schedule } from '@medplum/fhirtypes';
 import { CLINIC_TIMEZONE, getParticipantRef } from './lib/appointments';
 import {
   CALDIY_EXT,
@@ -75,9 +75,9 @@ function humanName(patient: Patient): string {
 async function resolveSchedule(medplum: MedplumClient, appointment: Appointment): Promise<Schedule | undefined> {
   const slotRef = appointment.slot?.[0];
   if (slotRef?.reference) {
-    const slot = await medplum.readReference(slotRef as Reference<Slot>).catch(() => undefined);
+    const slot = await medplum.readReference(slotRef).catch(() => undefined);
     if (slot?.schedule?.reference) {
-      const schedule = await medplum.readReference(slot.schedule as Reference<Schedule>).catch(() => undefined);
+      const schedule = await medplum.readReference(slot.schedule).catch(() => undefined);
       if (schedule) {
         return schedule;
       }

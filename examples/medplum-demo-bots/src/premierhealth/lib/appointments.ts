@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -34,12 +34,21 @@ export interface NotifiedState {
   status?: string;
 }
 
-/** First participant actor of the given resource type. */
+/**
+ * First participant actor of the given resource type.
+ * @param appointment - The appointment to look in.
+ * @param resourceType - The actor's resource type, e.g. `Patient`.
+ * @returns The first matching actor reference, or undefined when there is none.
+ */
 export function getParticipantRef(appointment: Appointment, resourceType: string): Reference | undefined {
   return appointment.participant?.find((p) => p.actor?.reference?.startsWith(`${resourceType}/`))?.actor;
 }
 
-/** Patient locale from `Patient.communication` (French when any language starts with `fr`). */
+/**
+ * Patient locale from `Patient.communication` (French when any language starts with `fr`).
+ * @param patient - The patient whose languages are read.
+ * @returns The locale to write messages in.
+ */
 export function resolveLocale(patient: Patient | undefined): Locale {
   for (const communication of patient?.communication ?? []) {
     const codes = [
@@ -53,7 +62,13 @@ export function resolveLocale(patient: Patient | undefined): Locale {
   return 'en';
 }
 
-/** Human date/time in the clinic timezone, e.g. "Monday 8 September at 10:30". */
+/**
+ * Human date/time in the clinic timezone, e.g. "Monday 8 September at 10:30".
+ * @param iso - The instant to format, in ISO-8601.
+ * @param locale - The locale to format for.
+ * @param timeZone - The IANA timezone to render in; defaults to the clinic's.
+ * @returns The formatted date and time, or an empty string without an instant.
+ */
 export function formatWhen(iso: string | undefined, locale: Locale, timeZone = CLINIC_TIMEZONE): string {
   if (!iso) {
     return '';
@@ -103,14 +118,16 @@ export interface NoticeContext {
   locale: Locale;
 }
 
-/** Message copy per notice kind and locale. Plain text: works for WhatsApp and email. */
+/**
+ * Message copy per notice kind and locale. Plain text: works for WhatsApp and email.
+ * @param kind - Which notice is being sent.
+ * @param ctx - The names, time and locale to write into the message.
+ * @returns The message body to send.
+ */
 export function noticeText(kind: NoticeKind, ctx: NoticeContext): string {
-  const at = ctx.siteName ? (ctx.locale === 'fr' ? ` à ${ctx.siteName}` : ` at ${ctx.siteName}`) : '';
-  const withDoctor = ctx.doctorName
-    ? ctx.locale === 'fr'
-      ? ` avec ${ctx.doctorName}`
-      : ` with ${ctx.doctorName}`
-    : '';
+  const fr = ctx.locale === 'fr';
+  const at = ctx.siteName ? `${fr ? ' à' : ' at'} ${ctx.siteName}` : '';
+  const withDoctor = ctx.doctorName ? `${fr ? ' avec' : ' with'} ${ctx.doctorName}` : '';
   const greet = ctx.locale === 'fr' ? `Bonjour ${ctx.patientName},` : `Hello ${ctx.patientName},`;
   const sign = ctx.locale === 'fr' ? '– Premier Health Centres' : '– Premier Health Centres';
 

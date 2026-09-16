@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { indexSearchParameterBundle, indexStructureDefinitionBundle } from '@medplum/core';
 import { readJson, SEARCH_PARAMETER_BUNDLE_FILES } from '@medplum/definitions';
@@ -113,7 +113,7 @@ describe('purge-identity-documents bot', () => {
     const result = await handler(medplum, {} as never);
 
     expect(result.deleted).toStrictEqual(0);
-    await expect(medplum.readResource('DocumentReference', other.id as string)).resolves.toBeDefined();
+    await expect(medplum.readResource('DocumentReference', other.id)).resolves.toBeDefined();
   });
 
   describe('binaryIdFromUrl', () => {

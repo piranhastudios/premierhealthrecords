@@ -35,6 +35,8 @@ const STATUS_TEXT: Record<CallStatus, string> = {
  * full-screen use). Remote video fills the screen, the local camera is a small
  * inset, controls float at the bottom, and chat is a side panel (desktop) /
  * full-width overlay (mobile). Responsive down to phones.
+ * @param props - The room to join and what to do when the call ends.
+ * @returns The full-screen call.
  */
 export function VideoVisitFullscreen(props: VideoVisitFullscreenProps): JSX.Element {
   const call = useVideoCall(props.roomId, props.audioOnly ?? false, props.onLeave);
@@ -209,7 +211,11 @@ function ControlButton(props: {
   disabled?: boolean;
 }): JSX.Element {
   const color = props.hangup || props.danger ? 'red' : 'gray';
-  const variant = props.hangup ? 'filled' : props.active ? 'white' : 'filled';
+  // Flattened: `active` only matters when this is not the hangup button.
+  let variant: 'filled' | 'white' = 'filled';
+  if (!props.hangup && props.active) {
+    variant = 'white';
+  }
   return (
     <Tooltip label={props.label}>
       <ActionIcon

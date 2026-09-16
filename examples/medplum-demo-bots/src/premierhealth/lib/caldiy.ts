@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -154,8 +154,11 @@ export async function rescheduleBooking(
  * `JSON.stringify` — Cal.com signs `JSON.stringify(body)` with the same key order
  * V8 preserves, so this normally matches. Callers must treat a mismatch as
  * "unknown", not "forged", and fall back to re-fetching the booking from the API.
+ * @param event - The bot event carrying the webhook headers and body.
+ * @param secret - The shared webhook secret; when unset nothing can be verified.
+ * @returns True only when the signature matches.
  */
-export function verifyCaldiySignature(event: BotEvent<unknown>, secret: string | undefined): boolean {
+export function verifyCaldiySignature(event: BotEvent, secret: string | undefined): boolean {
   if (!secret || !event.headers) {
     return false;
   }
@@ -167,7 +170,12 @@ export function verifyCaldiySignature(event: BotEvent<unknown>, secret: string |
   return verifyHmacSha256(JSON.stringify(event.input), signature, secret);
 }
 
-/** Read the first identifier value for a system. */
+/**
+ * Read the first identifier value for a system.
+ * @param resource - Any resource carrying identifiers.
+ * @param system - The identifier system to look for.
+ * @returns The first matching value, or undefined when there is none.
+ */
 export function identifierValue(
   resource: { identifier?: { system?: string; value?: string }[] } | undefined,
   system: string
@@ -175,15 +183,43 @@ export function identifierValue(
   return resource?.identifier?.find((i) => i.system === system)?.value;
 }
 
-/** Cal.com booking-question responses come as `{ field: value }` or `{ field: { value } }`. */
+/**
+ * Cal.com booking-question responses come as `{ field: value }` or `{ field: { value } }`.
+ * @param responses - The booking's answers, keyed by field name.
+ * @param key - The field to read.
+ * @returns The answer as text, or undefined when absent or not text-like.
+ */
 export function responseValue(responses: Record<string, unknown> | undefined, key: string): string | undefined {
   const raw = responses?.[key];
-  if (raw === undefined || raw === null) {
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    return answerText((raw as { value?: unknown }).value);
+  }
+  return answerText(raw);
+}
+
+/**
+ * Coerce one booking answer to text.
+ *
+ * Only primitives and arrays of them are answers we can use: passing an object
+ * to `String` yields "[object Object]", which would otherwise be written into a
+ * patient record as if it were their answer.
+ * @param value - The raw answer.
+ * @returns The answer as text, or undefined when it is not text-like.
+ */
+function answerText(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
     return undefined;
   }
-  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
-    const value = (raw as { value?: unknown }).value;
-    return value === undefined || value === null ? undefined : String(value);
+  if (typeof value === 'string') {
+    return value;
   }
-  return typeof raw === 'string' ? raw : String(raw);
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    // Multi-select answers arrive as arrays.
+    const parts = value.map(answerText).filter((part): part is string => part !== undefined);
+    return parts.length > 0 ? parts.join(', ') : undefined;
+  }
+  return undefined;
 }

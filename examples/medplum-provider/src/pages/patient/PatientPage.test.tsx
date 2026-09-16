@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import { calculateAgeString } from '@medplum/core';
 import { HomerSimpson, MockClient } from '@medplum/mock';
 import * as medplumReact from '@medplum/react';
 import { MedplumProvider } from '@medplum/react';
@@ -143,7 +144,10 @@ describe('PatientPage', () => {
     await waitFor(() => {
       expect(patientSummarySpy).toHaveBeenCalled();
       expect(screen.getByText('Male')).toBeInTheDocument();
-      expect(screen.getByText('1956-05-12 (069Y)')).toBeInTheDocument();
+      // Computed, not hard-coded: Homer's age changes every year, and a
+      // literal here fails the build on his birthday.
+      const birthDate = HomerSimpson.birthDate as string;
+      expect(screen.getByText(`${birthDate} (${calculateAgeString(birthDate)})`)).toBeInTheDocument();
     });
   });
 

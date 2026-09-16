@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -42,7 +42,11 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** `Binary/abc-123` or a storage URL ending in the id — we need the id. */
+/**
+ * `Binary/abc-123` or a storage URL ending in the id — we need the id.
+ * @param url - A Binary reference or storage URL.
+ * @returns The Binary id, or undefined when the url has none.
+ */
 export function binaryIdFromUrl(url: string | undefined): string | undefined {
   if (!url) {
     return undefined;

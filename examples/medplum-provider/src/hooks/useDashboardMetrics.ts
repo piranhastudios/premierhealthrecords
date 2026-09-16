@@ -101,6 +101,7 @@ export interface TodayAppointmentsResult {
  * the server once. `refresh()` refetches after a queue action mutates a status.
  *
  * @param enabled - When false, the query is skipped.
+ * @param siteRef - `Location/<id>` to scope to one site, or undefined for all.
  * @returns Today's appointments, a loading flag, and a refresh callback.
  */
 export function useTodayAppointments(enabled = true, siteRef?: string): TodayAppointmentsResult {

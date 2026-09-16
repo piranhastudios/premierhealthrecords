@@ -21,6 +21,7 @@ import { getPubSubRedisSubscriber } from '../redis';
  * - Any later frame is relayed verbatim to the other peer(s) in the room.
  * - Server -> client: the peer's relayed frames, plus `{ "type": "peer-joined" }`
  *   when another peer enters (the trigger for the existing peer to make an offer).
+ * @param socket - The newly opened client socket.
  */
 export async function handleTelehealthConnection(socket: WebSocket): Promise<void> {
   const connectionId = randomUUID();

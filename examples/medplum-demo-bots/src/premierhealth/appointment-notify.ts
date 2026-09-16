@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -42,7 +42,12 @@ function humanName(resource: { name?: { text?: string; given?: string[]; family?
   return name.text ?? [name.prefix?.join(' '), name.given?.join(' '), name.family].filter(Boolean).join(' ');
 }
 
-/** Decide which notice (if any) the transition from `previous` to `current` warrants. */
+/**
+ * Decide which notice (if any) the transition from `previous` to `current` warrants.
+ * @param previous - The state the patient was last told about, if any.
+ * @param current - The appointment's state now.
+ * @returns The notice to send, or undefined when nothing needs saying.
+ */
 export function decideNotice(previous: NotifiedState | undefined, current: NotifiedState): NoticeKind | undefined {
   if (current.status === 'cancelled') {
     // Only tell patients about cancellations of appointments they were told about.
@@ -51,7 +56,7 @@ export function decideNotice(previous: NotifiedState | undefined, current: Notif
   if (current.status !== 'booked') {
     return undefined;
   }
-  if (!previous || previous.status !== 'booked') {
+  if (previous?.status !== 'booked') {
     return 'confirmed';
   }
   if (previous.start !== current.start || previous.end !== current.end) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Premier Health contributors
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 //
 // Family identity linking for Premier Health Cameroon.

@@ -7,13 +7,36 @@
   "transform": {
     "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
   },
-  "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
+  "moduleFileExtensions": [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "json",
+    "node"
+  ],
   "moduleNameMapper": {
-    "\\.css$": "identity-obj-proxy"
+    "\\.css$": "identity-obj-proxy",
+    "^react$": "<rootDir>/node_modules/react",
+    "^react/(.*)$": "<rootDir>/node_modules/react/$1",
+    "^react-dom$": "<rootDir>/node_modules/react-dom",
+    "^react-dom/(.*)$": "<rootDir>/node_modules/react-dom/$1"
   },
-  "testMatch": ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
-  "setupFilesAfterEnv": ["./src/test.setup.ts"],
+  "testMatch": [
+    "**/src/**/*.test.ts",
+    "**/src/**/*.test.tsx"
+  ],
+  "setupFilesAfterEnv": [
+    "./src/test.setup.ts"
+  ],
   "coverageDirectory": "coverage",
-  "coverageReporters": ["json", "text"],
-  "collectCoverageFrom": ["**/src/**/*", "!**/stories/**", "!**/*.stories.tsx"]
+  "coverageReporters": [
+    "json",
+    "text"
+  ],
+  "collectCoverageFrom": [
+    "**/src/**/*",
+    "!**/stories/**",
+    "!**/*.stories.tsx"
+  ]
 }

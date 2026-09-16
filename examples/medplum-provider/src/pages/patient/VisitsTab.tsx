@@ -75,6 +75,7 @@ function appointmentRow(appointment: Appointment, patientId: string): VisitRow {
  * Now both are listed on one timeline. An appointment that already has an
  * encounter is shown ONCE, as the encounter: `Encounter.appointment` links the
  * two, and listing both would double-count the same visit.
+ * @returns The Visits tab.
  */
 export function VisitsTab(): JSX.Element {
   const medplum = useMedplum();
@@ -120,7 +121,7 @@ export function VisitsTab(): JSX.Element {
   }, [medplum, patientId]);
 
   useEffect(() => {
-    void load();
+    load().catch(console.error);
   }, [load]);
 
   if (!rows) {

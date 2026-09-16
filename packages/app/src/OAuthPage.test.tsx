@@ -99,7 +99,7 @@ describe('OAuthPage', () => {
     await setup('/oauth?client_id=123');
     await waitFor(() => expect(medplum.get).toHaveBeenCalledWith('/auth/clientinfo/123'));
     expect(screen.getByText('Sign in to Medplum')).toBeInTheDocument();
-    expect(screen.getByText('Medplum Logo')).toBeInTheDocument();
+    expect(screen.getByText('Premier Health Logo')).toBeInTheDocument();
   });
 
   test('Fetch logo and render default welcome string', async () => {

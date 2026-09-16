@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright Premier Health Centres
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -192,7 +192,13 @@ async function findOrCreatePatient(medplum: MedplumClient, attendee: NormalizedB
   });
 }
 
-/** Resolve the booked service to one of the schedule's HealthcareServices. */
+/**
+ * Resolve the booked service to one of the schedule's HealthcareServices.
+ * @param medplum - Client used to read the candidate services.
+ * @param schedule - The schedule the booking belongs to.
+ * @param service - The service slug or name Cal.diy sent, if any.
+ * @returns The matching HealthcareService, or undefined when none matches.
+ */
 async function resolveService(
   medplum: MedplumClient,
   schedule: Schedule,
@@ -235,7 +241,7 @@ async function freeSlots(medplum: MedplumClient, appointment: Appointment): Prom
     if (!slotRef.reference) {
       continue;
     }
-    const slot = await medplum.readReference(slotRef as Reference<Slot>).catch(() => undefined);
+    const slot = await medplum.readReference(slotRef).catch(() => undefined);
     if (slot) {
       await medplum.updateResource({ ...slot, status: 'free' });
     }
@@ -247,7 +253,7 @@ async function moveSlots(medplum: MedplumClient, appointment: Appointment, start
     if (!slotRef.reference) {
       continue;
     }
-    const slot = await medplum.readReference(slotRef as Reference<Slot>).catch(() => undefined);
+    const slot = await medplum.readReference(slotRef).catch(() => undefined);
     if (slot) {
       await medplum.updateResource({ ...slot, start, end, status: 'busy' });
     }
