@@ -14,7 +14,7 @@ interface DoctorResult {
 export default function DoctorSearch(): JSX.Element {
   const medplum = useMedplum();
   const router = useRouter();
-  const params = useLocalSearchParams<{ specialty?: string; site?: string }>();
+  const params = useLocalSearchParams<{ specialty?: string; site?: string; service?: string }>();
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState<string | undefined>(params.specialty);
   // Sites (FHIR Location). Undefined = every site.
@@ -79,7 +79,7 @@ export default function DoctorSearch(): JSX.Element {
     <Screen edges={[]}>
       <View className="bg-surface-card rounded-field flex-row items-center px-3 mt-2">
         <TextInput
-          placeholder="Search a doctor or specialty"
+          placeholder="Search by name or specialty"
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => void search()}
@@ -123,14 +123,19 @@ export default function DoctorSearch(): JSX.Element {
       {loading ? (
         <Loading />
       ) : results.length === 0 ? (
-        <EmptyState title="No doctors found" hint="Try a different name or specialty." />
+        <EmptyState title="No clinicians found" hint="Try a different name or specialty." />
       ) : (
         results.map((d) => (
           <Card
             key={d.practitioner.id}
-            onPress={() =>
-              router.push(`/(tabs)/appointments/doctor/${d.practitioner.id}${siteId ? `?site=${siteId}` : ''}`)
-            }
+            onPress={() => {
+              // `service` (from the booking entry screen) preselects the visit
+              // type on the profile, e.g. telehealth for nurse video calls.
+              const query = [siteId ? `site=${siteId}` : '', params.service ? `service=${params.service}` : '']
+                .filter(Boolean)
+                .join('&');
+              router.push(`/(tabs)/appointments/doctor/${d.practitioner.id}${query ? `?${query}` : ''}`);
+            }}
           >
             <View className="flex-row items-center">
               <Avatar initials={patientInitials(d.practitioner as never)} size={48} />

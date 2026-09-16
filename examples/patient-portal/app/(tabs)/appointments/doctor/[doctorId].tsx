@@ -41,7 +41,9 @@ export default function DoctorProfile(): JSX.Element {
   const router = useRouter();
   const { online } = useNetworkStatus();
   const { activePatient } = useActiveProfile();
-  const { doctorId, site } = useLocalSearchParams<{ doctorId: string; site?: string }>();
+  // `service` preselects a visit type by HealthcareService id or service-line
+  // code (e.g. `telehealth` from the nurse video entry point).
+  const { doctorId, site, service } = useLocalSearchParams<{ doctorId: string; site?: string; service?: string }>();
   const [doctor, setDoctor] = useState<Practitioner>();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [siteNames, setSiteNames] = useState<Record<string, string>>({});
@@ -130,13 +132,21 @@ export default function DoctorProfile(): JSX.Element {
           (s): s is WithId<HealthcareService> => s?.resourceType === 'HealthcareService'
         );
         setServices(list);
-        setServiceId((current) => (current && list.some((s) => s.id === current) ? current : list[0]?.id));
+        setServiceId((current) => {
+          if (current && list.some((s) => s.id === current)) {
+            return current;
+          }
+          const preferred = service
+            ? list.find((s) => s.id === service || s.type?.some((t) => t.coding?.some((c) => c.code === service)))
+            : undefined;
+          return (preferred ?? list[0])?.id;
+        });
       })
       .catch(() => active && setServices([]));
     return () => {
       active = false;
     };
-  }, [medplum, schedule]);
+  }, [medplum, schedule, service]);
 
   // Live availability via Schedule/$find (falls back to published free Slots).
   useEffect(() => {

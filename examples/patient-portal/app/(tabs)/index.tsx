@@ -93,7 +93,7 @@ export default function Home(): JSX.Element {
       <Card>
         <View className="flex-row justify-between">
           <QuickAction icon="card" label="ID card" onPress={() => router.push('/(tabs)/profile/id-card')} />
-          <QuickAction icon="calendar" label="Book" onPress={() => router.push('/(tabs)/appointments/search')} />
+          <QuickAction icon="calendar" label="Book" onPress={() => router.push('/(tabs)/appointments/book')} />
           <QuickAction icon="cash" label="Pay" onPress={() => router.push('/(tabs)/profile/invoices')} />
           <QuickAction icon="chatbubble-ellipses" label="Message" onPress={() => router.push('/(tabs)/messages')} />
         </View>
@@ -119,7 +119,7 @@ export default function Home(): JSX.Element {
       ) : (
         <Card>
           <Text className="text-ink-secondary text-sm">No upcoming appointments.</Text>
-          <Text className="text-phc-orange text-sm font-semibold mt-1" onPress={() => router.push('/(tabs)/appointments/search')}>
+          <Text className="text-phc-orange text-sm font-semibold mt-1" onPress={() => router.push('/(tabs)/appointments/book')}>
             Find a doctor →
           </Text>
         </Card>
@@ -145,7 +145,7 @@ export default function Home(): JSX.Element {
         {SPECIALTIES.map((s) => (
           <Pressable
             key={s}
-            onPress={() => router.push(`/(tabs)/appointments/search?specialty=${encodeURIComponent(s)}`)}
+            onPress={() => router.push(`/(tabs)/appointments/book?specialty=${encodeURIComponent(s)}`)}
             className="px-3.5 py-2 rounded-pill bg-surface-card"
           >
             <Text className="text-ink-secondary text-sm font-medium">{s}</Text>

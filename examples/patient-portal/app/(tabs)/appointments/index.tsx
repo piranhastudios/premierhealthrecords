@@ -63,7 +63,7 @@ export default function AppointmentsList(): JSX.Element {
           safeTop
           title="Appointments"
           right={
-            <Pressable onPress={() => router.push('/(tabs)/appointments/search')} className="bg-white/20 rounded-pill px-3 py-1.5">
+            <Pressable onPress={() => router.push('/(tabs)/appointments/book')} className="bg-white/20 rounded-pill px-3 py-1.5">
               <Text className="text-white font-semibold text-sm">+ Book</Text>
             </Pressable>
           }

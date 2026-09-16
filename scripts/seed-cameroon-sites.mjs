@@ -126,6 +126,15 @@ const CLINICIANS = [
   { slug: 'dyanda-stephanie', prefix: 'Ms', given: ['Dyanda'], family: 'Stephanie', specialty: 'Endocrinology', role: 'Endocrinologist', services: GENERAL },
 ].map((c) => ({ ...c, sites: c.sites ?? ['douala-grand-mall'] }));
 
+// Bookable nurses, run through the same pipeline as CLINICIANS. The patient
+// portal finds them by PractitionerRole.code text 'Nurse' (video visits and the
+// onboarding intro appointment), so keep that role text stable. "Nurse Team" is
+// deliberately generic — replace it with one entry per real nurse later; the
+// portal handles one or many.
+const NURSES = [
+  { slug: 'nurse-team', given: ['Nurse'], family: 'Team', specialty: 'Nursing', role: 'Nurse', services: ['telehealth'] },
+].map((c) => ({ ...c, sites: c.sites ?? ['douala-grand-mall'] }));
+
 // ---------------------------------------------------------------------------
 // HTTP + auth (same shape as the other seeds)
 // ---------------------------------------------------------------------------
@@ -308,7 +317,7 @@ const displayName = (p) => {
 const clinicians = [];
 if (!SKIP_SCHEDULES) {
   console.log('Clinicians');
-  for (const c of CLINICIANS) {
+  for (const c of [...CLINICIANS, ...NURSES]) {
     const [existing] = await fhir.search('Practitioner', {
       identifier: `${SID.practitioner}|${c.slug}`,
       _count: '1',
@@ -318,7 +327,7 @@ if (!SKIP_SCHEDULES) {
       resourceType: 'Practitioner',
       active: true,
       identifier: withIdentifier(existing, SID.practitioner, c.slug),
-      name: [{ prefix: [c.prefix], given: c.given, family: c.family }],
+      name: [{ prefix: c.prefix ? [c.prefix] : undefined, given: c.given, family: c.family }],
       qualification: [{ code: { text: c.specialty } }],
       // Required by Schedule/$find and $book unless the service carries a timezone.
       extension: [

@@ -12,9 +12,10 @@ export default function AppointmentsLayout(): JSX.Element {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'Appointments', headerShown: false }} />
-      <Stack.Screen name="search" options={{ title: 'Find a doctor' }} />
+      <Stack.Screen name="book" options={{ title: 'Book an appointment' }} />
+      <Stack.Screen name="search" options={{ title: 'Find a clinician' }} />
       <Stack.Screen name="[id]" options={{ title: 'Appointment' }} />
-      <Stack.Screen name="doctor/[doctorId]" options={{ title: 'Doctor' }} />
+      <Stack.Screen name="doctor/[doctorId]" options={{ title: 'Clinician' }} />
     </Stack>
   );
 }

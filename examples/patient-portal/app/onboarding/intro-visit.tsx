@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useMedplum } from '@medplum/react-hooks';
 import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button, Card, Screen } from '../../src/components/ui';
+import { nurseVideoHref } from '../../src/lib/booking';
 import { colors } from '../../src/theme/tokens';
 
 const STEPS = [
@@ -32,7 +35,9 @@ const STEPS = [
  * an empty record.
  */
 export default function IntroVisit(): JSX.Element {
+  const medplum = useMedplum();
   const router = useRouter();
+  const [finding, setFinding] = useState(false);
 
   return (
     <Screen edges={[]}>
@@ -64,7 +69,15 @@ export default function IntroVisit(): JSX.Element {
 
       <Button
         label="Book my introduction"
-        onPress={() => router.replace('/(tabs)/appointments/search')}
+        loading={finding}
+        onPress={() => {
+          // The intro visit is the nurse video call promised above, so go
+          // straight into the nurse telehealth booking path.
+          setFinding(true);
+          void nurseVideoHref(medplum)
+            .then((href) => router.replace(href))
+            .finally(() => setFinding(false));
+        }}
         className="mt-4"
       />
       {/* Never a dead end: the record is still usable, just thinner. */}
