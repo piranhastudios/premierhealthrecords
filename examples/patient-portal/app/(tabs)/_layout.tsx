@@ -41,6 +41,7 @@ export default function TabsLayout(): JSX.Element {
       >
         <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
         <Tabs.Screen name="appointments" options={{ title: 'Appointments', tabBarIcon: tabIcon('calendar') }} />
+        <Tabs.Screen name="records" options={{ title: 'Records', tabBarIcon: tabIcon('document-text') }} />
         <Tabs.Screen name="messages" options={{ title: 'Messages', tabBarIcon: tabIcon('chatbubble-ellipses') }} />
         <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: tabIcon('person') }} />
       </Tabs>

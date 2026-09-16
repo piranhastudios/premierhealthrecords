@@ -3,14 +3,14 @@ import type { Resource } from '@medplum/fhirtypes';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { PatientIdentityCard } from '../../src/components/PatientIdentityCard';
-import { Card, EmptyState, Loading, Screen } from '../../src/components/ui';
-import { useActiveProfile } from '../../src/hooks/useActiveProfile';
-import { SUMMARY_SECTIONS } from '../../src/lib/constants';
-import { formatDate } from '../../src/lib/format';
-import { SECTION_LABEL, summaryItemOf } from '../../src/lib/summary';
-import { getSummarySection, getSummaryUpdatedAt } from '../../src/offline/repositories';
-import { colors } from '../../src/theme/tokens';
+import { PatientIdentityCard } from '../../../src/components/PatientIdentityCard';
+import { Card, EmptyState, Loading, Screen } from '../../../src/components/ui';
+import { useActiveProfile } from '../../../src/hooks/useActiveProfile';
+import { SUMMARY_SECTIONS } from '../../../src/lib/constants';
+import { formatDate } from '../../../src/lib/format';
+import { SECTION_LABEL, summaryItemOf } from '../../../src/lib/summary';
+import { getSummarySection, getSummaryUpdatedAt } from '../../../src/offline/repositories';
+import { colors } from '../../../src/theme/tokens';
 
 /**
  * The medical summary, written to be read by a clinician the patient has never
@@ -79,7 +79,7 @@ export default function Records(): JSX.Element {
           return (
             <View key={section}>
               <Pressable
-                onPress={() => router.push(`/records/${section}`)}
+                onPress={() => router.push(`/(tabs)/records/${section}`)}
                 className="flex-row items-center justify-between mt-2 mb-1 active:opacity-70"
               >
                 <Text className="text-ink font-bold">

@@ -126,7 +126,7 @@ export default function Home(): JSX.Element {
           <Card
             key={t.key}
             className="flex-1 min-w-[44%]"
-            onPress={() => router.push(`/records/${t.key}`)}
+            onPress={() => router.push(`/(tabs)/records/${t.key}`)}
           >
             <Ionicons name={t.icon} size={20} color={colors.orange} />
             <Text className="text-ink text-2xl font-bold mt-2">{counts[t.key] ?? 0}</Text>
