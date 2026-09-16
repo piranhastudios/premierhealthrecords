@@ -21,6 +21,9 @@
     "singleQuote": true,
     "trailingComma": "es5"
   },
+  "dependencies": {
+    "mysql2": "3.14.1"
+  },
   "devDependencies": {
     "@medplum/bot-layer": "5.1.9",
     "@medplum/campaigns": "5.1.9",
