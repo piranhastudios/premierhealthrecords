@@ -39,8 +39,7 @@ export default function ThreadList(): JSX.Element {
   }, [load]);
 
   return (
-    <Screen refreshing={loading} onRefresh={load}>
-      <GradientHeader title="Messages" subtitle="Your care team" />
+    <Screen refreshing={loading} onRefresh={load} hero={<GradientHeader safeTop title="Messages" subtitle="Your care team" />}>
       <ProfileBanner />
 
       {loading ? (

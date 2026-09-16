@@ -19,8 +19,7 @@ export default function ProfileHome(): JSX.Element {
   const { activePatient } = useActiveProfile();
 
   return (
-    <Screen>
-      <GradientHeader title="Profile" />
+    <Screen hero={<GradientHeader safeTop title="Profile" />}>
       <Card className="items-center -mt-2">
         <Avatar initials={patientInitials(activePatient)} size={72} />
         <Text className="text-ink text-xl font-bold mt-3">{patientName(activePatient)}</Text>

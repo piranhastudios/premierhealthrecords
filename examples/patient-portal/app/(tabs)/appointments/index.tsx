@@ -55,15 +55,21 @@ export default function AppointmentsList(): JSX.Element {
   }, [appointments, tab, now]);
 
   return (
-    <Screen refreshing={loading} onRefresh={load}>
-      <GradientHeader
-        title="Appointments"
-        right={
-          <Pressable onPress={() => router.push('/(tabs)/appointments/search')} className="bg-white/20 rounded-pill px-3 py-1.5">
-            <Text className="text-white font-semibold text-sm">+ Book</Text>
-          </Pressable>
-        }
-      />
+    <Screen
+      refreshing={loading}
+      onRefresh={load}
+      hero={
+        <GradientHeader
+          safeTop
+          title="Appointments"
+          right={
+            <Pressable onPress={() => router.push('/(tabs)/appointments/search')} className="bg-white/20 rounded-pill px-3 py-1.5">
+              <Text className="text-white font-semibold text-sm">+ Book</Text>
+            </Pressable>
+          }
+        />
+      }
+    >
       <ProfileBanner />
 
       <View className="flex-row bg-surface-card rounded-pill p-1">

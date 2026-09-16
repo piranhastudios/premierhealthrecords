@@ -71,17 +71,22 @@ export default function Home(): JSX.Element {
   const firstName = patientName(holder).split(' ')[0];
 
   return (
-    <Screen refreshing={syncing} onRefresh={() => void refresh().then(load)}>
-      <GradientHeader
-        subtitle={`Hello${firstName ? `, ${firstName}` : ''}`}
-        title="How are you feeling today?"
-        right={
-          <Pressable onPress={() => router.push('/(tabs)/profile')}>
-            <Avatar initials={patientInitials(activePatient)} size={44} />
-          </Pressable>
-        }
-      />
-
+    <Screen
+      refreshing={syncing}
+      onRefresh={() => void refresh().then(load)}
+      hero={
+        <GradientHeader
+          safeTop
+          subtitle={`Hello${firstName ? `, ${firstName}` : ''}`}
+          title="How are you feeling today?"
+          right={
+            <Pressable onPress={() => router.push('/(tabs)/profile')}>
+              <Avatar initials={patientInitials(activePatient)} size={44} />
+            </Pressable>
+          }
+        />
+      }
+    >
       <ProfileBanner />
       <OnboardingPrompt />
 
