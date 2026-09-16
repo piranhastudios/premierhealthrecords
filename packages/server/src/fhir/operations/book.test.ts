@@ -180,6 +180,105 @@ describe('Appointment/$book', () => {
     expect(response.status).toEqual(201);
   });
 
+  test('records the appointment type the caller asked for', async () => {
+    // $book builds the Appointment itself and ignores any the client assembled,
+    // so a type it is not given is a type that never reaches the chart.
+    const schedule = await makeSchedule({ actor: practitioner1 });
+    const response = await request
+      .post('/fhir/R4/Appointment/$book')
+      .set('Authorization', `Bearer ${project.accessToken}`)
+      .send({
+        resourceType: 'Parameters',
+        parameter: [
+          {
+            name: 'slot',
+            resource: {
+              resourceType: 'Slot',
+              schedule: createReference(schedule),
+              serviceType: toCodeableReferenceLike(officeVisitService),
+              start: '2026-01-15T14:00:00Z',
+              end: '2026-01-15T15:00:00Z',
+              status: 'free',
+            } satisfies Slot,
+          },
+          { name: 'patient-reference', valueReference: createReference(patient) },
+          {
+            name: 'appointment-type',
+            valueCodeableConcept: {
+              coding: [
+                { system: 'http://terminology.hl7.org/CodeSystem/v2-0276', code: 'WALKIN', display: 'A previously unscheduled walk-in visit' },
+              ],
+            },
+          },
+        ],
+      });
+    expect(response.status).toEqual(201);
+    const entries = ((response.body as Bundle).entry ?? []).map((entry) => entry.resource).filter(isDefined);
+    const appointment = entries.find(isAppointment) as Appointment;
+    expect(appointment.appointmentType?.coding?.[0]?.code).toEqual('WALKIN');
+  });
+
+  test('defaults to ROUTINE when no appointment type is given', async () => {
+    // Older callers send no type. They must still produce a typed appointment
+    // rather than one the provider cannot describe.
+    const schedule = await makeSchedule({ actor: practitioner1 });
+    const response = await request
+      .post('/fhir/R4/Appointment/$book')
+      .set('Authorization', `Bearer ${project.accessToken}`)
+      .send({
+        resourceType: 'Parameters',
+        parameter: [
+          {
+            name: 'slot',
+            resource: {
+              resourceType: 'Slot',
+              schedule: createReference(schedule),
+              serviceType: toCodeableReferenceLike(officeVisitService),
+              start: '2026-01-15T14:00:00Z',
+              end: '2026-01-15T15:00:00Z',
+              status: 'free',
+            } satisfies Slot,
+          },
+          { name: 'patient-reference', valueReference: createReference(patient) },
+        ],
+      });
+    expect(response.status).toEqual(201);
+    const entries = ((response.body as Bundle).entry ?? []).map((entry) => entry.resource).filter(isDefined);
+    const appointment = entries.find(isAppointment) as Appointment;
+    expect(appointment.appointmentType?.coding?.[0]?.code).toEqual('ROUTINE');
+  });
+
+  test('carries the slot service type onto the appointment', async () => {
+    // The slots already say what service is being booked; dropping it left the
+    // chart unable to say what the visit was for.
+    const schedule = await makeSchedule({ actor: practitioner1 });
+    const response = await request
+      .post('/fhir/R4/Appointment/$book')
+      .set('Authorization', `Bearer ${project.accessToken}`)
+      .send({
+        resourceType: 'Parameters',
+        parameter: [
+          {
+            name: 'slot',
+            resource: {
+              resourceType: 'Slot',
+              schedule: createReference(schedule),
+              serviceType: [officeVisit],
+              start: '2026-01-15T14:00:00Z',
+              end: '2026-01-15T15:00:00Z',
+              status: 'free',
+            } satisfies Slot,
+          },
+          { name: 'patient-reference', valueReference: createReference(patient) },
+        ],
+      });
+    expect(response.status).toEqual(201);
+    const entries = ((response.body as Bundle).entry ?? []).map((entry) => entry.resource).filter(isDefined);
+    const appointment = entries.find(isAppointment) as Appointment;
+    expect(appointment.serviceType).toBeDefined();
+    expect(appointment.serviceType?.length).toBeGreaterThan(0);
+  });
+
   test('books a multi-site schedule (Practitioner + Location) and records the site as a participant', async () => {
     const site = await systemRepo.createResource<Location>({
       resourceType: 'Location',

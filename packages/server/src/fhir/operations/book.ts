@@ -16,6 +16,7 @@ import type { FhirRequest, FhirResponse } from '@medplum/fhir-router';
 import type {
   Appointment,
   Bundle,
+  CodeableConcept,
   HealthcareService,
   OperationDefinition,
   Patient,
@@ -49,6 +50,11 @@ const bookOperation = {
   parameter: [
     { use: 'in', name: 'slot', type: 'Resource', min: 1, max: '*' },
     { use: 'in', name: 'patient-reference', type: 'Reference', min: 0, max: '1' },
+    // How the visit is to be conducted — routine, follow-up, telehealth. Without
+    // it every booking made through this operation lands with no type at all, so
+    // nothing downstream can tell an in-person visit from a video one, and the
+    // provider's Visits list has only the word "Appointment" to show.
+    { use: 'in', name: 'appointment-type', type: 'CodeableConcept', min: 0, max: '1' },
     { use: 'out', name: 'return', type: 'Bundle', min: 0, max: '1' },
   ],
 } as const satisfies OperationDefinition;
@@ -56,6 +62,7 @@ const bookOperation = {
 type BookParameters = {
   slot: Slot[];
   'patient-reference'?: Reference<Patient>;
+  'appointment-type'?: CodeableConcept;
 };
 
 function assertAllOk<T>(objects: (Error | T)[], msg: string, path?: string): asserts objects is T[] {
@@ -72,6 +79,39 @@ function assertAllMatch<T>(objects: T[], msg: string): T {
     throw new OperationOutcomeError(badRequest(msg));
   }
   return first;
+}
+
+/**
+ * What a booking is when the caller does not say. FHIR's own default for
+ * `Appointment.appointmentType`, so a booking is never left untyped.
+ */
+const DEFAULT_APPOINTMENT_TYPE: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'ROUTINE',
+      display: 'Routine appointment - default if not valued',
+    },
+  ],
+};
+
+/**
+ * Collapses the service types of every booked slot into a distinct list.
+ * Booking several slots of the same service would otherwise repeat it.
+ * @param concepts - Service types from the slots being booked.
+ * @returns The distinct concepts, in first-seen order.
+ */
+function dedupeConcepts(concepts: CodeableConcept[]): CodeableConcept[] {
+  const seen = new Set<string>();
+  const out: CodeableConcept[] = [];
+  for (const concept of concepts) {
+    const key = JSON.stringify(concept);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(concept);
+    }
+  }
+  return out;
 }
 
 function serviceTypeTokens(slots: Slot[]): string[] {
@@ -323,6 +363,12 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
       );
       const createdBufferSlots = await Promise.all(bufferSlots.map((slot) => ctx.repo.createResource(slot)));
 
+      // Carry the clinical shape of the visit onto the Appointment. The slots
+      // already declare what service they are for and the caller says how it is
+      // to be conducted; dropping both left every booking indistinguishable from
+      // every other one once it reached the chart.
+      const appointmentServiceTypes = dedupeConcepts(proposedSlots.flatMap((slot) => slot.serviceType ?? EMPTY));
+
       const appointment = await ctx.repo.createResource<Appointment>({
         resourceType: 'Appointment',
         status: 'booked',
@@ -330,6 +376,8 @@ export async function appointmentBookHandler(req: FhirRequest): Promise<FhirResp
         participant,
         start,
         end,
+        appointmentType: params['appointment-type'] ?? DEFAULT_APPOINTMENT_TYPE,
+        ...(appointmentServiceTypes.length > 0 ? { serviceType: appointmentServiceTypes } : {}),
       });
       return [appointment, ...createdSlots, ...createdBufferSlots];
     },

@@ -221,6 +221,11 @@ export default function DoctorProfile(): JSX.Element {
             parameter: [
               { name: 'slot', resource: slot },
               { name: 'patient-reference', valueReference: { reference: `Patient/${activePatient.id}` } },
+              // $book builds the Appointment server-side and ignores the one
+              // assembled above, so the visit type has to be passed explicitly.
+              // Without it bookings arrived with no appointmentType at all and
+              // the provider could not tell one visit from another.
+              { name: 'appointment-type', valueCodeableConcept: appointment.appointmentType },
             ],
           });
         } catch {
