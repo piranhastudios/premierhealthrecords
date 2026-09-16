@@ -13,6 +13,7 @@ import { loadTestConfig } from '../../config/loader';
 import * as storage from '../../storage/loader';
 import type { BinaryStorage } from '../../storage/types';
 import { initTestAuth, withTestContext } from '../../test.setup';
+import { getGlobalSystemRepo } from '../repo';
 import * as streamUtils from '../../util/streams';
 
 const MOCK_PRESIGNED_URL = 'https://example.com/presigned';
@@ -212,6 +213,10 @@ describe('Deploy', () => {
         password: 'password!@#',
       })
     );
+
+    // The default project features in medplum.config.json now include `bots`,
+    // so the feature has to be taken away explicitly to exercise this path.
+    await withTestContext(() => getGlobalSystemRepo().updateResource({ ...project, features: [] }));
 
     // Next, Alice creates a bot
     const res2 = await request(app)

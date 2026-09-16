@@ -30,7 +30,7 @@ import * as oathKeysModule from '../../oauth/keys';
 import { getLoginForAccessToken } from '../../oauth/utils';
 import { getBinaryStorage } from '../../storage/loader';
 import { createTestProject, waitForAsyncJob, withTestContext } from '../../test.setup';
-import { getProjectSystemRepo } from '../repo';
+import { getGlobalSystemRepo, getProjectSystemRepo } from '../repo';
 
 const botCodes = [
   [
@@ -369,6 +369,12 @@ describe('Execute', () => {
         email: `alice${randomUUID()}@example.com`,
         password: 'password!@#',
       })
+    );
+
+    // The default project features in medplum.config.json now include `bots`,
+    // so the feature has to be taken away explicitly to exercise this path.
+    await withTestContext(() =>
+      getGlobalSystemRepo().updateResource({ ...project, features: [] })
     );
 
     // Next, Alice creates a bot

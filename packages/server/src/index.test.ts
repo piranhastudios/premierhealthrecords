@@ -22,6 +22,8 @@ jest.mock('express', () => {
   fn.json = original.json;
   fn.text = original.text;
   fn.urlencoded = original.urlencoded;
+  // The Stripe webhook needs the raw body to verify its signature (app.ts).
+  fn.raw = original.raw;
   fn.listen = listen;
   return fn;
 });
