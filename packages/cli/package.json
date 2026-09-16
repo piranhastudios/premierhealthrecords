@@ -74,6 +74,7 @@
     "dotenv": "17.4.2",
     "fast-glob": "3.3.3",
     "iconv-lite": "0.7.2",
+    "jose": "5.10.0",
     "node-fetch": "2.7.0",
     "semver": "7.7.4",
     "tar": "7.5.13"
