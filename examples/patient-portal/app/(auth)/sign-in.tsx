@@ -17,6 +17,7 @@ import { PasswordInput } from '../../src/components/PasswordInput';
 import { signIn } from '../../src/medplum/auth';
 import { config } from '../../src/lib/config';
 import { cardShadow, colors, heroGradient } from '../../src/theme/tokens';
+import { posthog } from '../../src/lib/posthog';
 import { reportError } from '../../src/lib/reporting';
 
 export default function SignIn(): JSX.Element {
@@ -37,6 +38,7 @@ export default function SignIn(): JSX.Element {
     setError(undefined);
     try {
       await signIn(medplum, { email, password });
+      posthog?.capture('user_signed_in');
       router.replace('/(tabs)');
     } catch (err) {
       // Report before surfacing: a wrong password is expected, but a bug here

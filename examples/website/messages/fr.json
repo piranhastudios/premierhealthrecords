@@ -6,6 +6,12 @@
   "preview": {
     "banner": "Aperçu : contenu non publié affiché"
   },
+  "error": {
+    "title": "Une erreur est survenue",
+    "body": "La page n’a pas pu s’afficher. Le problème a été signalé à notre équipe. Veuillez réessayer, ou appelez-nous si vous avez besoin d’un rendez-vous immédiatement.",
+    "retry": "Réessayer",
+    "home": "Retour à l’accueil"
+  },
   "common": {
     "learnMore": "En savoir plus",
     "bookAppointment": "Prendre rendez-vous",

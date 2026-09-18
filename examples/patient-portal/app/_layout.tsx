@@ -2,20 +2,26 @@ import '../global.css';
 import '../src/theme/cssInterop';
 import { MedplumProvider } from '@medplum/react-hooks';
 import * as Sentry from '@sentry/react-native';
+import { PostHogProvider } from 'posthog-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter, type ErrorBoundaryProps } from 'expo-router';
-import { useEffect } from 'react';
+import { type PropsWithChildren, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppLockGate } from '../src/components/AppLockGate';
 import { ErrorScreen } from '../src/components/ErrorScreen';
 import { ActiveProfileProvider } from '../src/hooks/useActiveProfile';
+import { posthog } from '../src/lib/posthog';
 import { reportError } from '../src/lib/reporting';
 import { getMedplum } from '../src/medplum/client';
 import { SyncProvider } from '../src/offline/SyncProvider';
 import { colors } from '../src/theme/tokens';
 
 const medplum = getMedplum();
+
+function PostHogRoot({ children }: PropsWithChildren): JSX.Element {
+  return posthog ? <PostHogProvider client={posthog}>{children}</PostHogProvider> : <>{children}</>;
+}
 
 /**
  * Expo Router renders this instead of the route tree when a descendant throws
@@ -46,28 +52,30 @@ export default Sentry.wrap(function RootLayout(): JSX.Element {
           <ActiveProfileProvider>
             <SyncProvider>
               <StatusBar style="light" />
-              <AppLockGate>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="setpassword/[id]/[secret]" />
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen
-                    name="onboarding/index"
-                    options={{ headerShown: true, title: 'Complete your profile', headerBackTitle: 'Back' }}
-                  />
-                  <Stack.Screen
-                    name="onboarding/verify-id"
-                    options={{ headerShown: true, title: 'Identity check', headerBackTitle: 'Back' }}
-                  />
-                  <Stack.Screen
-                    name="onboarding/intro-visit"
-                    options={{ headerShown: true, title: 'Your first appointment', headerBackTitle: 'Back' }}
-                  />
-                  <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
-                  <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />
-                </Stack>
-              </AppLockGate>
+              <PostHogRoot>
+                <AppLockGate>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="setpassword/[id]/[secret]" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen
+                      name="onboarding/index"
+                      options={{ headerShown: true, title: 'Complete your profile', headerBackTitle: 'Back' }}
+                    />
+                    <Stack.Screen
+                      name="onboarding/verify-id"
+                      options={{ headerShown: true, title: 'Identity check', headerBackTitle: 'Back' }}
+                    />
+                    <Stack.Screen
+                      name="onboarding/intro-visit"
+                      options={{ headerShown: true, title: 'Your first appointment', headerBackTitle: 'Back' }}
+                    />
+                    <Stack.Screen name="pay/[invoiceId]" options={{ presentation: 'modal', headerShown: false }} />
+                    <Stack.Screen name="visit/[appointmentId]" options={{ presentation: 'fullScreenModal' }} />
+                  </Stack>
+                </AppLockGate>
+              </PostHogRoot>
             </SyncProvider>
           </ActiveProfileProvider>
         </MedplumProvider>

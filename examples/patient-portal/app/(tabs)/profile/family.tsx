@@ -7,6 +7,7 @@ import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { Avatar, Button, Card, Screen } from '../../../src/components/ui';
 import { useActiveProfile } from '../../../src/hooks/useActiveProfile';
 import { patientInitials, patientName } from '../../../src/lib/format';
+import { posthog } from '../../../src/lib/posthog';
 import { colors } from '../../../src/theme/tokens';
 
 export default function Family(): JSX.Element {
@@ -38,6 +39,7 @@ export default function Family(): JSX.Element {
         link: [...(holder.link ?? []), { type: 'seealso', other: { reference: `Patient/${dependent.id}` } }],
       });
       await refresh();
+      posthog?.capture('family_dependent_added');
       reset();
       Alert.alert('Added', `${name} is now in your family.`);
     } catch {
@@ -61,6 +63,7 @@ export default function Family(): JSX.Element {
         ],
       };
       await medplum.post(medplum.fhirUrl('Patient', '$invite-family-member'), params);
+      posthog?.capture('family_invitation_sent');
       reset();
       Alert.alert('Invite sent', `${name} will receive a link to join your family.`);
     } catch {

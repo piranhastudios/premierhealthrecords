@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator } from 'react-native';
+import { completeOAuthLogin } from '../../src/medplum/auth';
 import { heroGradient } from '../../src/theme/tokens';
 
 /** OAuth redirect handler (primarily the web target; native completes in-browser). */
@@ -14,8 +15,7 @@ export default function Callback(): JSX.Element {
   useEffect(() => {
     const code = params.code;
     if (typeof code === 'string' && code) {
-      medplum
-        .processCode(code)
+      completeOAuthLogin(medplum, code)
         .then(() => router.replace('/(tabs)'))
         .catch(() => router.replace('/(auth)/sign-in'));
     } else {

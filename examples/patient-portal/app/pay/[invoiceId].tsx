@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Loading } from '../../src/components/ui';
 import { CORRESPONDENTS } from '../../src/lib/constants';
 import { formatMoney } from '../../src/lib/format';
+import { posthog } from '../../src/lib/posthog';
 import { colors } from '../../src/theme/tokens';
 
 type Method = 'momo' | 'card';
@@ -99,6 +100,7 @@ export default function PayScreen(): JSX.Element {
 
   function finish(ok: boolean): void {
     if (ok) {
+      posthog?.capture('payment_completed', { payment_method: method });
       setPhase('done');
       setMessage('Payment received. Thank you!');
     } else {

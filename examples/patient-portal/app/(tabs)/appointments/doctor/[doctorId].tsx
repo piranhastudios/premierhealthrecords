@@ -9,6 +9,7 @@ import { useNetworkStatus } from '../../../../src/hooks/useNetworkStatus';
 import { useActiveProfile } from '../../../../src/hooks/useActiveProfile';
 import { formatHumanName, patientInitials } from '../../../../src/lib/format';
 import { queueBooking } from '../../../../src/offline/sync';
+import { posthog } from '../../../../src/lib/posthog';
 
 // Schedule.serviceType entries embed the HealthcareService they refer to
 // (see packages/server/src/util/servicetype.ts).
@@ -246,6 +247,10 @@ export default function DoctorProfile(): JSX.Element {
       } else {
         await queueBooking(appointment, idempotencyKey);
       }
+      posthog?.capture('appointment_booked', {
+        booking_mode: slot ? 'scheduled' : 'request',
+        submission_mode: online ? 'online' : 'offline',
+      });
       Alert.alert(
         online ? (slot ? 'Appointment booked' : 'Appointment requested') : 'Saved offline',
         online

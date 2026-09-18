@@ -10,6 +10,10 @@ export interface PhcConfig {
   medplumProjectId: string;
   /** PHC FHIR identifier namespace. */
   phcFhirBase: string;
+  /** Public PostHog project token baked in by Expo at build time. */
+  posthogProjectToken: string;
+  /** PostHog ingestion host baked in by Expo at build time. */
+  posthogHost: string;
 }
 
 function trailingSlash(url: string): string {
@@ -23,4 +27,6 @@ export const config: PhcConfig = {
   medplumClientId: extra.medplumClientId ?? '',
   medplumProjectId: extra.medplumProjectId ?? '',
   phcFhirBase: extra.phcFhirBase ?? 'https://premierhealth.cm/fhir',
+  posthogProjectToken: extra.posthogProjectToken ?? '',
+  posthogHost: extra.posthogHost ?? '',
 };

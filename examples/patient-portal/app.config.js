@@ -17,6 +17,9 @@
 //                      SENTRY_DSN during the READ_APP_CONFIG phase (Expo's CLI
 //                      telemetry DSN), which would silently bake Expo's DSN into
 //                      the app and send patient crash reports to Expo's org.
+//   POSTHOG_PROJECT_TOKEN / POSTHOG_HOST
+//                      Public PostHog client configuration baked into the app for
+//                      product analytics (see src/lib/posthog.ts).
 //   SENTRY_ORG /       Optional, build-machine only. Set together with a SENTRY_AUTH_TOKEN
 //   SENTRY_PROJECT     secret to upload source maps so stack traces are readable.
 
@@ -137,6 +140,8 @@ module.exports = ({ config }) => ({
     medplumProjectId: process.env.MEDPLUM_PROJECT_ID ?? '161452d9-43b7-5c29-aa7b-c85680fa45c6',
     phcFhirBase: 'https://premierhealth.cm/fhir',
     sentryDsn: process.env.PHC_SENTRY_DSN ?? '',
+    posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN ?? '',
+    posthogHost: process.env.POSTHOG_HOST ?? '',
     router: {},
     eas: { projectId: '32904d99-92a8-4afd-b199-340c7c8fcfe9' },
   },

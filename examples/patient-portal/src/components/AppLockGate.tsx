@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authenticateForUnlock, isAppLockEnabled } from '../lib/appLock';
+import { logout } from '../medplum/auth';
 import { heroGradient } from '../theme/tokens';
 
 /**
@@ -81,7 +82,7 @@ export function AppLockGate({ children }: { children: ReactNode }): JSX.Element 
   const signOut = useCallback(async () => {
     // The way out for anyone whose biometrics have stopped working. Without it
     // a failed prompt is a dead end on a screen holding someone's records.
-    await medplum.signOut().catch(() => undefined);
+    await logout(medplum).catch(() => undefined);
     setUnlocked(true);
     router.replace('/(auth)/sign-in');
   }, [medplum, router]);

@@ -11,6 +11,7 @@ import {
   setAppLockEnabled,
   type LockCapability,
 } from '../../../src/lib/appLock';
+import { logout } from '../../../src/medplum/auth';
 import { colors } from '../../../src/theme/tokens';
 
 export default function Settings(): JSX.Element {
@@ -40,7 +41,7 @@ export default function Settings(): JSX.Element {
   }, []);
 
   async function signOut(): Promise<void> {
-    await medplum.signOut();
+    await logout(medplum);
     router.replace('/(auth)/sign-in');
   }
 

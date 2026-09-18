@@ -7,6 +7,12 @@ import { ArrowLeft, CheckCircle2, ClipboardList, Clock, CreditCard, MapPin, Smar
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  trackBookingCreated,
+  trackBookingSlotSelected,
+  trackPaymentCompleted,
+  trackPaymentStarted,
+} from "@/lib/analytics"
 import type { BookingPractitioner, BookingService } from "@/lib/medplum"
 import { telHref } from "@/lib/phone-link"
 
@@ -245,7 +251,16 @@ export function BookingDialog({ sites, phone }: Props) {
       <div className={STEP}>
         <Crumbs items={crumbs} onBack={backToService} backLabel={t("back")} />
         <StepTitle icon={<Clock className="h-4 w-4" />}>{t("pickTime")}</StepTitle>
-        <TimePicker scheduleId={practitioner.scheduleId} serviceId={serviceId} locale={locale} onPick={setSlot} phone={phone} />
+        <TimePicker
+          scheduleId={practitioner.scheduleId}
+          serviceId={serviceId}
+          locale={locale}
+          onPick={(selectedSlot) => {
+            trackBookingSlotSelected()
+            setSlot(selectedSlot)
+          }}
+          phone={phone}
+        />
       </div>
     )
   }
@@ -322,6 +337,7 @@ function PaymentStep({
         const json = (await res.json()) as { paid?: boolean }
         if (json.paid && active) {
           clearInterval(timer)
+          trackPaymentCompleted("mobile_money")
           onPaid({ start: booking.start, end: booking.end })
           return
         }
@@ -362,6 +378,7 @@ function PaymentStep({
         return
       }
       const json = (await res.json()) as { checkoutUrl?: string }
+      trackPaymentStarted(method === "card" ? "card" : "mobile_money")
       if (json.checkoutUrl) {
         window.location.assign(json.checkoutUrl)
         return
@@ -583,6 +600,7 @@ function DetailsForm({
         return
       }
       const json = (await res.json()) as BookingResponse
+      trackBookingCreated(json.requiresPayment)
       onBooked(json)
     } catch {
       setError(t("failed"))

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { SanityImage, type SanityImageValue } from "@/components/sanity-image"
 import { BookingDialog, type BookingSite } from "@/components/booking/booking-dialog"
+import { trackBookingDialogOpened } from "@/lib/analytics"
 
 /**
  * The patient portal is not live yet, so its entry points stay hidden.
@@ -69,6 +70,13 @@ export function Header({ variant = "transparent", logo, bookingSites, phone }: H
   const showBackground = isScrolled
 
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href))
+
+  const handleAppointmentOpenChange = (open: boolean) => {
+    setAppointmentOpen(open)
+    if (open) {
+      trackBookingDialogOpened()
+    }
+  }
 
   return (
     <header
@@ -164,7 +172,7 @@ export function Header({ variant = "transparent", logo, bookingSites, phone }: H
           )}
 
           {/* Book Appointment */}
-          <Dialog open={appointmentOpen} onOpenChange={setAppointmentOpen}>
+          <Dialog open={appointmentOpen} onOpenChange={handleAppointmentOpenChange}>
             <DialogTrigger asChild>
               <Button className="gap-2 rounded-full bg-accent text-accent-foreground hover:bg-accent/90">
                 <Calendar className="h-4 w-4" />
@@ -229,7 +237,7 @@ export function Header({ variant = "transparent", logo, bookingSites, phone }: H
                   </DialogTrigger>
                 </Dialog>
               )}
-              <Dialog open={appointmentOpen} onOpenChange={setAppointmentOpen}>
+              <Dialog open={appointmentOpen} onOpenChange={handleAppointmentOpenChange}>
                 <DialogTrigger asChild>
                   <Button className="w-full gap-2 rounded-full bg-accent text-accent-foreground hover:bg-accent/90">
                     <Calendar className="h-4 w-4" />

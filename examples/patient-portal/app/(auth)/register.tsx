@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PasswordInput } from '../../src/components/PasswordInput';
 import { register } from '../../src/medplum/auth';
 import { cardShadow, colors, heroGradient } from '../../src/theme/tokens';
+import { posthog } from '../../src/lib/posthog';
 import { reportError } from '../../src/lib/reporting';
 
 const inputClass = 'bg-surface-muted rounded-field px-4 h-12 text-ink text-base';
@@ -54,6 +55,7 @@ export default function Register(): JSX.Element {
     setError(undefined);
     try {
       await register(medplum, { firstName, lastName, email, password });
+      posthog?.capture('user_registered');
       router.replace('/(tabs)');
     } catch (err) {
       reportError(err, { source: 'register' });

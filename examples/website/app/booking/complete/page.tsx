@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 
+import { BookingCompleteAnalytics } from "@/components/booking/booking-complete-analytics"
 import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 import { bookingEnabled, getPaymentStatus } from "@/lib/medplum"
@@ -39,6 +40,7 @@ export default async function BookingCompletePage({
 
   return (
     <>
+      <BookingCompleteAnalytics paid={paid} cancelled={Boolean(cancelled)} />
       <SiteHeader variant="solid" />
       <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 px-6 py-16 text-center">
         <h1 className="font-serif text-3xl">{heading}</h1>

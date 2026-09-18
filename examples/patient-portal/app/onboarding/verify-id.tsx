@@ -13,6 +13,7 @@ import {
   verificationStateOf,
   type VerificationState,
 } from '../../src/lib/identityDocument';
+import { posthog } from '../../src/lib/posthog';
 import { reportError } from '../../src/lib/reporting';
 import { colors } from '../../src/theme/tokens';
 
@@ -114,6 +115,7 @@ export default function VerifyId(): JSX.Element {
     setError(undefined);
     try {
       await uploadIdentityDocument(medplum, holder, { uri: preview });
+      posthog?.capture('identity_document_submitted');
       setState('pending');
       setPreview(undefined);
     } catch (err) {

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { config } from '../src/lib/config';
 import { reportError } from '../src/lib/reporting';
+import { identifyProfile, logout } from '../src/medplum/auth';
 import { heroGradient } from '../src/theme/tokens';
 
 // Remembers which server the cached session belongs to, so we can detect a switch.
@@ -36,7 +37,7 @@ export default function Index(): JSX.Element {
         const serverChanged = Boolean(last) && last !== config.medplumBaseUrl;
         const unconfirmedInDev = __DEV__ && !last;
         if (medplum.getActiveLogin() && (serverChanged || unconfirmedInDev)) {
-          await medplum.signOut();
+          await logout(medplum);
         }
         await SecureStore.setItemAsync(LAST_BASE_URL_KEY, config.medplumBaseUrl);
 
@@ -48,7 +49,11 @@ export default function Index(): JSX.Element {
         // a perfectly good stored session. getProfileAsync() joins that in-flight
         // request instead of starting a second one.
         if (medplum.getActiveLogin()) {
-          hasSession = Boolean(await medplum.getProfileAsync());
+          const profile = await medplum.getProfileAsync();
+          if (profile) {
+            identifyProfile(profile);
+            hasSession = true;
+          }
         }
       } catch (err) {
         // A failed resume (expired refresh token, server down) legitimately means

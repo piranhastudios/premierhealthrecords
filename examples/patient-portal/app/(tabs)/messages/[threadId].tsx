@@ -10,6 +10,7 @@ import { Loading } from '../../../src/components/ui';
 import { useActiveProfile } from '../../../src/hooks/useActiveProfile';
 import { useNetworkStatus } from '../../../src/hooks/useNetworkStatus';
 import { enqueueOutbox } from '../../../src/offline/repositories';
+import { posthog } from '../../../src/lib/posthog';
 import { colors } from '../../../src/theme/tokens';
 
 export default function ChatThread(): JSX.Element {
@@ -72,6 +73,7 @@ export default function ChatThread(): JSX.Element {
       } else {
         await enqueueOutbox({ id: `msg-${Date.now()}`, kind: 'message', payload: message, idempotencyKey: `msg-${Date.now()}` });
       }
+      posthog?.capture('message_sent', { delivery_mode: online ? 'online' : 'offline' });
     } catch {
       // optimistic message stays; will retry via outbox next sync
     }

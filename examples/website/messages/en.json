@@ -6,6 +6,12 @@
   "preview": {
     "banner": "Preview: showing unpublished draft content"
   },
+  "error": {
+    "title": "Something went wrong",
+    "body": "The page could not be displayed. The problem has been reported to our team. Please try again, or call us if you need an appointment right away.",
+    "retry": "Try again",
+    "home": "Back to home"
+  },
   "common": {
     "learnMore": "Learn more",
     "bookAppointment": "Book an appointment",

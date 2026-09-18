@@ -31,6 +31,20 @@ has a commit of its own.
 Environment variables live in Vercel (Project → Settings → Environment Variables), never
 in `.env.local`, which is git-ignored and local only. `.env.example` lists the names.
 
+### Analytics (PostHog)
+
+| Variable | Scope | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` | Production **and** Preview | `NEXT_PUBLIC_` values are inlined at build time, and the dev site is a Preview build, so Production alone is not enough. |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Production **and** Preview | `https://eu.i.posthog.com`. Browsers reach it through the same-origin `/ingest` rewrite in `next.config.mjs`, not directly, so ad blockers do not drop events. |
+| `POSTHOG_CLI_API_KEY` | Production | Personal API key with the `error tracking write` and `organization read` scopes, used to upload browser source maps at build time. |
+| `POSTHOG_CLI_PROJECT_ID` | Production | PostHog project id for that upload. |
+| `POSTHOG_CLI_HOST` | Production | `https://eu.posthog.com`; the CLI defaults to the US region. |
+
+Source maps are uploaded and then deleted by `scripts/upload-sourcemaps.mjs`, chained from
+the `build` script. Without the CLI variables the build still deletes them, so enabling
+`productionBrowserSourceMaps` never publishes the site's source.
+
 ## Backend (Medplum, Coolify on Fasthosts)
 
 `https://app.premierhealthcentres.com` — API under `/api`, admin app at the root, provider

@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { bytesToBase64Url } from '../lib/encoding';
 import { config } from '../lib/config';
+import { posthog } from '../lib/posthog';
 
 // Required so the auth session popup can be dismissed on web/native.
 WebBrowser.maybeCompleteAuthSession();
@@ -47,7 +48,30 @@ async function completeLogin(
     throw new Error('Sign-in could not be completed. Please try again.');
   }
 
-  return medplum.processCode(code);
+  return identifyProfile(await medplum.processCode(code));
+}
+
+/**
+ * Identifies the signed-in FHIR profile using its stable resource name. The
+ * profile is returned by Medplum immediately after its authorization code is
+ * exchanged or a persisted session is restored, so this is the single client
+ * identity boundary for an authenticated session.
+ */
+export function identifyProfile(profile: ProfileResource): ProfileResource {
+  if (!profile.id) {
+    throw new Error('Sign-in completed without a profile identifier. Please try again.');
+  }
+
+  posthog?.identify(`${profile.resourceType}/${profile.id}`);
+  return profile;
+}
+
+/**
+ * Completes a web OAuth redirect and establishes PostHog identity from the
+ * returned profile rather than from login credentials.
+ */
+export async function completeOAuthLogin(medplum: MedplumClient, code: string): Promise<ProfileResource> {
+  return identifyProfile(await medplum.processCode(code));
 }
 
 /**
@@ -93,7 +117,7 @@ export async function register(medplum: MedplumClient, input: RegisterInput): Pr
   if (!newPatient.code) {
     throw new Error('Your account was created, but automatic sign-in failed. Please sign in.');
   }
-  return medplum.processCode(newPatient.code);
+  return identifyProfile(await medplum.processCode(newPatient.code));
 }
 
 /**
@@ -171,9 +195,11 @@ export async function login(medplum: MedplumClient): Promise<ProfileResource | u
     throw new Error('Sign-in failed: no authorization code returned.');
   }
 
-  return medplum.processCode(code, { clientId: config.medplumClientId, redirectUri });
+  return identifyProfile(await medplum.processCode(code, { clientId: config.medplumClientId, redirectUri }));
 }
 
+/** Clears the persisted PostHog identity after the Medplum session ends. */
 export async function logout(medplum: MedplumClient): Promise<void> {
   await medplum.signOut();
+  posthog?.reset();
 }
