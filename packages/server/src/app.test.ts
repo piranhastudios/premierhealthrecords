@@ -37,6 +37,24 @@ describe('App', () => {
     expect(await shutdownApp()).toBeUndefined();
   });
 
+  // Regression: the Stripe webhook was registered only as `/api/payments/stripe/webhook`.
+  // Deployments sit behind a proxy that strips `/api`, so the server actually receives
+  // the root-relative path and every real webhook 404'd — while local dev, which sends
+  // the path unstripped, kept working. Both shapes must reach the handler.
+  test.each(['/payments/stripe/webhook', '/api/payments/stripe/webhook'])(
+    'Stripe webhook is reachable at %s',
+    async (path) => {
+      const app = express();
+      const config = await loadTestConfig();
+      await initApp(app, config);
+      const res = await request(app).post(path).set('Content-Type', 'application/json').send({});
+      // Reaching the handler means a 400 about the missing signature, not a 404.
+      expect(res.status).toBe(400);
+      expect(res.body.error).toStrictEqual('Missing Stripe signature');
+      expect(await shutdownApp()).toBeUndefined();
+    }
+  );
+
   test('Use /api/', async () => {
     const app = express();
     const config = await loadTestConfig();

@@ -206,7 +206,17 @@ export async function initApp(app: Express, config: MedplumServerConfig): Promis
   // Stripe signature verification needs the exact RAW request body (a Buffer). If the
   // global json() parser ran first it would consume and re-serialize the body, breaking
   // the signature. Registered directly on `app` (not paymentsRouter) for the same reason.
-  app.post('/api/payments/stripe/webhook', raw({ type: 'application/json' }), stripeWebhookHandler);
+  //
+  // Both paths, because the `/api` prefix is external only: deployments put the server
+  // behind a proxy that strips it (see docker-compose.yml's stripprefix middleware), so
+  // everything else here — including the rest of paymentsRouter — is mounted at the root
+  // via apiRouter. Registering `/api/...` alone made this 404 behind the proxy while
+  // still answering in local dev, where requests arrive unstripped.
+  app.post(
+    ['/payments/stripe/webhook', '/api/payments/stripe/webhook'],
+    raw({ type: 'application/json' }),
+    stripeWebhookHandler
+  );
 
   app.use(urlencoded({ extended: false }));
   app.use(text({ type: [ContentType.TEXT, ContentType.HL7_V2] }));
