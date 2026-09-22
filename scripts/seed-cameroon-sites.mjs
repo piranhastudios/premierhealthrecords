@@ -57,6 +57,10 @@ const SERVICE_LINE_SYSTEM = `${PH}/CodeSystem/service-line`;
 const TIMEZONE_EXT = 'http://hl7.org/fhir/StructureDefinition/timezone';
 const SCHEDULING_PARAMETERS_EXT = 'https://medplum.com/fhir/StructureDefinition/SchedulingParameters';
 const SERVICE_TYPE_REFERENCE_EXT = 'https://medplum.com/fhir/service-type-reference';
+// How a service may be delivered: one valueCode ('in-person' / 'video') per mode.
+// The website reads these to ask "in person or by video?" once an appointment
+// type is chosen, and books a video visit as the VIRTUAL appointment type.
+const DELIVERY_MODE_EXT = `${PH}/StructureDefinition/service-delivery-mode`;
 const TIMEZONE = 'Africa/Douala';
 const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -85,13 +89,17 @@ const SITES = [
 // number per service rather than two; the rest get their own definition, created
 // WITHOUT an amount. A service with no amount is free to book — the website skips
 // payment for it — so set the real prices on the provider app's Fees page.
+// `modes` is how a service can be delivered. A service offering both lets the
+// patient choose on the website; one offering a single mode skips that question.
+// Anything needing the patient in the room (equipment, samples, an examination)
+// is in-person only — a GP cannot run an ECG down a video call.
 const SERVICE_LINES = [
-  { code: 'general-consultation', display: 'General consultation', displayFr: 'Consultation générale', duration: 30, price: 'consultation-general' },
-  { code: 'follow-up', display: 'Follow-up visit', displayFr: 'Visite de suivi', duration: 15, price: 'service-follow-up' },
-  { code: 'pediatrics', display: 'Paediatrics', displayFr: 'Pédiatrie', duration: 30, price: 'service-pediatrics' },
-  { code: 'ecg', display: 'ECG & cardiology', displayFr: 'ECG et cardiologie', duration: 30, price: 'service-ecg' },
-  { code: 'laboratory', display: 'Laboratory', displayFr: 'Laboratoire', duration: 15, price: 'service-laboratory' },
-  { code: 'telehealth', display: 'Video consultation', displayFr: 'Consultation vidéo', duration: 30, price: 'service-telehealth' },
+  { code: 'general-consultation', display: 'General consultation', displayFr: 'Consultation générale', duration: 30, price: 'consultation-general', modes: ['in-person', 'video'] },
+  { code: 'follow-up', display: 'Follow-up visit', displayFr: 'Visite de suivi', duration: 15, price: 'service-follow-up', modes: ['in-person', 'video'] },
+  { code: 'pediatrics', display: 'Paediatrics', displayFr: 'Pédiatrie', duration: 30, price: 'service-pediatrics', modes: ['in-person', 'video'] },
+  { code: 'ecg', display: 'ECG & cardiology', displayFr: 'ECG et cardiologie', duration: 30, price: 'service-ecg', modes: ['in-person'] },
+  { code: 'laboratory', display: 'Laboratory', displayFr: 'Laboratoire', duration: 15, price: 'service-laboratory', modes: ['in-person'] },
+  { code: 'telehealth', display: 'Video consultation', displayFr: 'Consultation vidéo', duration: 30, price: 'service-telehealth', modes: ['video'] },
 ];
 // Where a service's price lives, and how the website finds it: HealthcareService
 // carries this extension pointing at the ChargeItemDefinition's canonical url.
@@ -285,6 +293,7 @@ for (const site of SITES) {
       availableTime: availableTime(site),
       extension: [
         { url: PRICE_EXT, valueCanonical: priceUrl(line.price) },
+        ...line.modes.map((mode) => ({ url: DELIVERY_MODE_EXT, valueCode: mode })),
         {
           url: SCHEDULING_PARAMETERS_EXT,
           extension: [

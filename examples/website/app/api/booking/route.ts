@@ -37,9 +37,11 @@ export async function POST(request: Request) {
   const lastName = body.lastName?.trim() ?? ""
   const phone = body.phone?.trim() ?? ""
   const email = body.email?.trim() || undefined
+  const mode = body.mode ?? "in-person"
   if (
     !ID_RE.test(body.scheduleId ?? "") ||
     !ID_RE.test(body.serviceId ?? "") ||
+    (mode !== "in-person" && mode !== "video") ||
     !body.start ||
     !NAME_RE.test(firstName) ||
     !NAME_RE.test(lastName) ||
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
       scheduleId: body.scheduleId as string,
       serviceId: body.serviceId as string,
       start: body.start,
+      mode,
       firstName,
       lastName,
       phone,

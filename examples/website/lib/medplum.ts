@@ -19,6 +19,24 @@ const CLIENT_SECRET = process.env.MEDPLUM_CLIENT_SECRET
 const SERVICE_TYPE_REFERENCE_URL = "https://medplum.com/fhir/service-type-reference"
 /** HealthcareService extension pointing at the ChargeItemDefinition that prices it. */
 const PRICE_EXT = "https://premierhealth.cm/fhir/StructureDefinition/service-price"
+/** How a service may be delivered: one valueCode per mode (scripts/seed-cameroon-sites.mjs). */
+const DELIVERY_MODE_EXT = "https://premierhealth.cm/fhir/StructureDefinition/service-delivery-mode"
+/**
+ * What a video booking is recorded as, matching the provider app's VIRTUAL
+ * appointment type (examples/medplum-provider/src/utils/encounter.ts). The
+ * patient portal spots a video visit by matching /telehealth|video|virtual/i
+ * against `appointmentType.coding`, so this wording has to keep matching.
+ */
+const VIRTUAL_APPOINTMENT_TYPE = {
+  coding: [
+    {
+      system: "https://premierhealth.cm/fhir/CodeSystem/appointment-type",
+      code: "VIRTUAL",
+      display: "Virtual / video visit",
+    },
+  ],
+  text: "Virtual / video visit",
+}
 /** Stable per-site business identifier, seeded as the site slug (e.g. "douala-grand-mall"). */
 const SITE_IDENTIFIER_SYSTEM = "https://premierhealth.cm/fhir/sid/site"
 /** Ties a booking fee invoice back to the appointment it is holding. */
@@ -71,11 +89,23 @@ export type BookingPractitioner = {
   serviceIds: string[]
 }
 
+/** How an appointment is delivered. A service may support either or both. */
+export type DeliveryMode = "in-person" | "video"
+
+export const DELIVERY_MODES: DeliveryMode[] = ["in-person", "video"]
+
 export type BookingService = {
   id: string
   name: string
   /** What this service costs to book. Absent means free — no payment is asked for. */
   price?: { value: number; currency: string }
+  /**
+   * The ways this service can be delivered. A service offering both lets the
+   * patient choose; one mode answers the question for them. Never empty — a
+   * service with nothing recorded is treated as in-person, which is what the
+   * site did before delivery modes existed.
+   */
+  modes: DeliveryMode[]
 }
 
 export type SiteDirectory = {
@@ -90,6 +120,8 @@ export type BookingRequest = {
   scheduleId: string
   serviceId: string
   start: string
+  /** Defaults to in-person, so an older client that omits it books as before. */
+  mode?: DeliveryMode
   firstName: string
   lastName: string
   phone: string
@@ -130,7 +162,7 @@ type FhirResource = {
   type?: { text?: string; coding?: { display?: string }[] }[]
   qualification?: { code?: { text?: string; coding?: { display?: string }[] } }[]
   url?: unknown
-  extension?: { url?: string; valueCanonical?: string }[]
+  extension?: { url?: string; valueCanonical?: string; valueCode?: string }[]
   propertyGroup?: { priceComponent?: { type?: string; amount?: { value?: number; currency?: string } }[] }[]
   start?: string
   end?: string
@@ -225,6 +257,22 @@ function basePriceOf(definition: FhirResource): { value: number; currency: strin
 function specialtyOf(practitioner: FhirResource | undefined): string | undefined {
   const q = practitioner?.qualification?.[0]?.code
   return q?.text ?? q?.coding?.[0]?.display ?? undefined
+}
+
+/**
+ * The delivery modes a service records, in a stable order. A service with none
+ * recorded (seeded before delivery modes, or edited by hand) counts as
+ * in-person: the safe reading, since it never offers a video visit the clinic
+ * has not agreed to.
+ */
+function deliveryModesOf(service: FhirResource): DeliveryMode[] {
+  const found = new Set(
+    (service.extension ?? [])
+      .filter((e) => e.url === DELIVERY_MODE_EXT)
+      .map((e) => e.valueCode)
+      .filter((code): code is DeliveryMode => code === "in-person" || code === "video")
+  )
+  return found.size > 0 ? DELIVERY_MODES.filter((mode) => found.has(mode)) : ["in-person"]
 }
 
 function serviceIdsOf(schedule: FhirResource): string[] {
@@ -353,6 +401,7 @@ export async function getSiteDirectory(site: string): Promise<SiteDirectory> {
           id: s.id as string,
           name: (typeof s.name === "string" && s.name) || s.type?.[0]?.text || s.type?.[0]?.coding?.[0]?.display || "Service",
           ...(priceUrl && priceByUrl.has(priceUrl) ? { price: priceByUrl.get(priceUrl) } : {}),
+          modes: deliveryModesOf(s),
         }
       })
 
@@ -444,11 +493,16 @@ export async function bookAppointment(req: BookingRequest): Promise<BookingResul
 
   const price = await getServicePrice(req.serviceId)
   const patient = await findOrCreatePatient(req)
+  // Say what kind of visit this is, or $book defaults it to ROUTINE and nothing
+  // downstream can tell a video booking from one in the building.
   const bundle = await fhir<Bundle>("POST", "Appointment/$book", {
     resourceType: "Parameters",
     parameter: [
       { name: "slot", resource: slot },
       { name: "patient-reference", valueReference: { reference: `Patient/${patient.id}` } },
+      ...(req.mode === "video"
+        ? [{ name: "appointment-type", valueCodeableConcept: VIRTUAL_APPOINTMENT_TYPE }]
+        : []),
     ],
   })
   const appointment = (bundle.entry ?? []).map((e) => e.resource).find((r) => r?.resourceType === "Appointment")
@@ -539,8 +593,11 @@ export async function startPayment(input: {
         resourceType: "Parameters",
         parameter: [
           { name: "method", valueString: "card" },
-          { name: "successUrl", valueUrl: input.successUrl },
-          { name: "cancelUrl", valueUrl: input.cancelUrl },
+          // Both are declared `string` on the $checkout OperationDefinition, so they
+          // have to be sent as valueString: a valueUrl reads back as undefined and
+          // the operation rejects the call with "successUrl and cancelUrl are required".
+          { name: "successUrl", valueString: input.successUrl },
+          { name: "cancelUrl", valueString: input.cancelUrl },
         ],
       }
     )

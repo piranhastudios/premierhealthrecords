@@ -127,6 +127,11 @@
   "booking": {
     "pickSite": "Choisissez un centre",
     "pickService": "Type de rendez-vous",
+    "pickMode": "Comment souhaitez-vous être vu ?",
+    "modeInPerson": "Au centre",
+    "modeInPersonHint": "Consultez le médecin en personne sur ce site.",
+    "modeVideo": "Par vidéo",
+    "modeVideoHint": "Un appel vidéo — vous recevez un lien avant votre rendez-vous.",
     "pickDoctor": "Choisissez un médecin",
     "pickTime": "Choisissez un horaire",
     "loading": "Chargement des horaires disponibles…",

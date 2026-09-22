@@ -127,6 +127,11 @@
   "booking": {
     "pickSite": "Choose a centre",
     "pickService": "Type of appointment",
+    "pickMode": "How would you like to be seen?",
+    "modeInPerson": "At the centre",
+    "modeInPersonHint": "See the doctor in person at this site.",
+    "modeVideo": "By video",
+    "modeVideoHint": "A video call — you get a link before your appointment.",
     "pickDoctor": "Choose a doctor",
     "pickTime": "Choose a time",
     "loading": "Loading available times…",

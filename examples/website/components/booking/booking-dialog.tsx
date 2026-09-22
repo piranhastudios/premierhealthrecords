@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { ArrowLeft, CheckCircle2, ClipboardList, Clock, CreditCard, MapPin, Smartphone, Stethoscope, UserRound } from "lucide-react"
+import { ArrowLeft, CheckCircle2, ClipboardList, Clock, CreditCard, MapPin, Smartphone, Stethoscope, UserRound, Video } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import {
   trackPaymentCompleted,
   trackPaymentStarted,
 } from "@/lib/analytics"
-import type { BookingPractitioner, BookingService } from "@/lib/medplum"
+import type { BookingPractitioner, BookingService, DeliveryMode } from "@/lib/medplum"
 import { telHref } from "@/lib/phone-link"
 
 export type BookingSite = {
@@ -62,6 +62,7 @@ export function BookingDialog({ sites, phone }: Props) {
   const [specialty, setSpecialty] = useState<string | undefined>()
   const [practitionerId, setPractitionerId] = useState<string | undefined>()
   const [serviceId, setServiceId] = useState<string | undefined>()
+  const [mode, setMode] = useState<DeliveryMode | undefined>()
   const [slot, setSlot] = useState<Slot | undefined>()
   const [pending, setPending] = useState<BookingResponse | undefined>()
   const [booked, setBooked] = useState<Booked | undefined>()
@@ -84,7 +85,9 @@ export function BookingDialog({ sites, phone }: Props) {
     () => (site?.services ?? []).filter((s) => practitioner?.serviceIds.includes(s.id)),
     [site, practitioner],
   )
-  const serviceName = services.find((s) => s.id === serviceId)?.name
+  const service = services.find((s) => s.id === serviceId)
+  const serviceName = service?.name
+  const modes = service?.modes ?? []
 
   // Auto-advance any step that has only one option.
   useEffect(() => {
@@ -102,8 +105,13 @@ export function BookingDialog({ sites, phone }: Props) {
       setServiceId(services[0].id)
     }
   }, [practitioner, services, serviceId])
+  useEffect(() => {
+    if (service && modes.length === 1 && !mode) {
+      setMode(modes[0])
+    }
+  }, [service, modes, mode])
 
-  function reset(level: "site" | "specialty" | "doctor" | "service" | "time") {
+  function reset(level: "site" | "specialty" | "doctor" | "service" | "mode" | "time") {
     setBooked(undefined)
     if (level === "site") {
       setSiteId(sites.length === 1 ? sites[0].id : undefined)
@@ -114,8 +122,11 @@ export function BookingDialog({ sites, phone }: Props) {
     if (level === "site" || level === "specialty" || level === "doctor") {
       setPractitionerId(undefined)
     }
-    if (level !== "time") {
+    if (level !== "time" && level !== "mode") {
       setServiceId(undefined)
+    }
+    if (level !== "time") {
+      setMode(undefined)
     }
     setSlot(undefined)
     setPending(undefined)
@@ -242,14 +253,40 @@ export function BookingDialog({ sites, phone }: Props) {
     )
   }
 
-  const crumbs = [site.name, practitioner.name, serviceName]
   const backToService = services.length > 1 ? () => reset("service") : backToDoctor
 
-  // Step 5: time
+  // Step 5: in person or by video. Only asked when the service supports both —
+  // an ECG or a lab test has to happen in the building, and a video consultation
+  // is a video consultation.
+  if (!mode) {
+    return (
+      <div className={STEP}>
+        <Crumbs items={[site.name, practitioner.name, serviceName]} onBack={backToService} backLabel={t("back")} />
+        <StepTitle icon={<Video className="h-4 w-4" />}>{t("pickMode")}</StepTitle>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {modes.map((value) => (
+            <li key={value}>
+              <ChoiceButton
+                onClick={() => setMode(value)}
+                title={t(value === "video" ? "modeVideo" : "modeInPerson")}
+                subtitle={t(value === "video" ? "modeVideoHint" : "modeInPersonHint")}
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  const modeLabel = t(mode === "video" ? "modeVideo" : "modeInPerson")
+  const crumbs = [site.name, practitioner.name, serviceName, modeLabel]
+  const backToMode = modes.length > 1 ? () => reset("mode") : backToService
+
+  // Step 6: time
   if (!slot) {
     return (
       <div className={STEP}>
-        <Crumbs items={crumbs} onBack={backToService} backLabel={t("back")} />
+        <Crumbs items={crumbs} onBack={backToMode} backLabel={t("back")} />
         <StepTitle icon={<Clock className="h-4 w-4" />}>{t("pickTime")}</StepTitle>
         <TimePicker
           scheduleId={practitioner.scheduleId}
@@ -265,7 +302,7 @@ export function BookingDialog({ sites, phone }: Props) {
     )
   }
 
-  // Step 6: details
+  // Step 7: details
   return (
     <div className={STEP}>
       <Crumbs items={[...crumbs, dateTime.format(new Date(slot.start))]} onBack={() => reset("time")} backLabel={t("back")} />
@@ -275,6 +312,7 @@ export function BookingDialog({ sites, phone }: Props) {
         <DetailsForm
           scheduleId={practitioner.scheduleId}
           serviceId={serviceId}
+          mode={mode}
           slot={slot}
           locale={locale}
           onBooked={(result) => {
@@ -552,6 +590,7 @@ function TimePicker({
 function DetailsForm({
   scheduleId,
   serviceId,
+  mode,
   slot,
   locale,
   onBooked,
@@ -559,6 +598,7 @@ function DetailsForm({
 }: {
   scheduleId: string
   serviceId: string
+  mode: DeliveryMode
   slot: Slot
   locale: string
   onBooked: (result: BookingResponse) => void
@@ -580,6 +620,7 @@ function DetailsForm({
         body: JSON.stringify({
           scheduleId,
           serviceId,
+          mode,
           start: slot.start,
           firstName: form.get("firstName"),
           lastName: form.get("lastName"),
