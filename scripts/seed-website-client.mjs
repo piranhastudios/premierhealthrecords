@@ -53,7 +53,11 @@ const WRITABLE = {
   // separate, unauthenticated and signature-checked) are what actually mark an
   // invoice paid. This client can never mark one paid itself.
   Invoice: ['read', 'search', 'create', 'update'],
-  PaymentReconciliation: ['read', 'search', 'create'],
+  // `update` as well as `create`: both operations re-write the reconciliation they
+  // just created — $checkout to attach the Stripe session id once the session
+  // exists, and both to record a failed attempt. Without it every card payment
+  // dies with "Forbidden" after Stripe has already been called.
+  PaymentReconciliation: ['read', 'search', 'create', 'update'],
 };
 
 async function http(method, path, body, { token, form } = {}) {

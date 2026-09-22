@@ -12,6 +12,7 @@ import { PAWAPAY_DEPOSIT_SYSTEM, PawaPayProvider } from './pawapay';
 import {
   extractWebhookProjectId,
   fromStripeMinorUnits,
+  resolveStripeSecretKey,
   resolveStripeWebhookSecret,
   STRIPE_CHECKOUT_SESSION_SYSTEM,
   STRIPE_SESSION_REF_SYSTEM,
@@ -158,7 +159,12 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
   let event;
   try {
     event = new StripeProvider().constructWebhookEvent(req.body as Buffer, signature, {
-      secretKey: process.env.STRIPE_SECRET_KEY ?? '',
+      // Resolve the key the same way as the signing secret. Verification itself is
+      // pure crypto, but the Stripe SDK constructor throws on an empty key, so a
+      // project whose keys live in project secrets (rather than server env vars)
+      // would otherwise fail every webhook with "Neither apiKey nor
+      // config.authenticator provided" and never confirm a paid booking.
+      secretKey: resolveStripeSecretKey(webhookProject) ?? '',
       webhookSecret,
     });
   } catch (error) {

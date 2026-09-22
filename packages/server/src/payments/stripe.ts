@@ -135,6 +135,18 @@ export function resolveStripeWebhookSecret(project: Project | undefined): string
 }
 
 /**
+ * Resolves the Stripe API key for a project, with the same precedence as
+ * `resolveStripeWebhookSecret`. Signature verification never calls the Stripe
+ * API, but the SDK constructor rejects an empty key, so the webhook handler
+ * needs this to work for a project configured purely via project secrets.
+ * @param project - The project the webhook event belongs to, when known.
+ * @returns The Stripe secret key, or undefined when not configured anywhere.
+ */
+export function resolveStripeSecretKey(project: Project | undefined): string | undefined {
+  return project?.secret?.find((s) => s.name === 'STRIPE_SECRET_KEY')?.valueString ?? process.env.STRIPE_SECRET_KEY;
+}
+
+/**
  * Extracts the projectId metadata (stamped by the Invoice `$checkout` operation)
  * from a raw, UNVERIFIED Stripe webhook body. The value is used only to look up
  * which project's webhook secret to verify the signature with — nothing else is

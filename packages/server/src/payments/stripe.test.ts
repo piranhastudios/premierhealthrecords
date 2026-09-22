@@ -4,6 +4,7 @@ import type { Project } from '@medplum/fhirtypes';
 import {
   extractWebhookProjectId,
   fromStripeMinorUnits,
+  resolveStripeSecretKey,
   resolveStripeWebhookSecret,
   toStripeMinorUnits,
 } from './stripe';
@@ -85,6 +86,49 @@ describe('resolveStripeWebhookSecret', () => {
     delete process.env.STRIPE_WEBHOOK_SECRET;
     expect(resolveStripeWebhookSecret({ resourceType: 'Project' })).toBeUndefined();
     expect(resolveStripeWebhookSecret(undefined)).toBeUndefined();
+  });
+});
+
+describe('resolveStripeSecretKey', () => {
+  const originalEnvKey = process.env.STRIPE_SECRET_KEY;
+
+  afterEach(() => {
+    if (originalEnvKey === undefined) {
+      delete process.env.STRIPE_SECRET_KEY;
+    } else {
+      process.env.STRIPE_SECRET_KEY = originalEnvKey;
+    }
+  });
+
+  const projectWithKey: Project = {
+    resourceType: 'Project',
+    secret: [{ name: 'STRIPE_SECRET_KEY', valueString: 'sk_test_project' }],
+  };
+
+  test('prefers the project secret over the env var', () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_env';
+    expect(resolveStripeSecretKey(projectWithKey)).toBe('sk_test_project');
+  });
+
+  // Regression: the webhook handler used to read the key from the env var alone, so
+  // a project configured purely via project secrets failed every webhook with
+  // "Neither apiKey nor config.authenticator provided" and never confirmed a paid
+  // booking. Verification is pure crypto, but the Stripe SDK rejects an empty key.
+  test('project-secret-only config resolves without an env var', () => {
+    delete process.env.STRIPE_SECRET_KEY;
+    expect(resolveStripeSecretKey(projectWithKey)).toBe('sk_test_project');
+  });
+
+  test('falls back to the env var when the project has no secret', () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_env';
+    expect(resolveStripeSecretKey({ resourceType: 'Project' })).toBe('sk_test_env');
+    expect(resolveStripeSecretKey(undefined)).toBe('sk_test_env');
+  });
+
+  test('returns undefined when not configured anywhere', () => {
+    delete process.env.STRIPE_SECRET_KEY;
+    expect(resolveStripeSecretKey({ resourceType: 'Project' })).toBeUndefined();
+    expect(resolveStripeSecretKey(undefined)).toBeUndefined();
   });
 });
 
