@@ -179,8 +179,8 @@ const directoryCache = new Map<string, { value: SiteDirectory; expiresAt: number
  * header does not opt the whole route out of static rendering; the booking routes
  * pass 0 (always fresh).
  */
-async function getToken(revalidate: number): Promise<string> {
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 30_000) {
+async function getToken(revalidate: number, force = false): Promise<string> {
+  if (!force && tokenCache && tokenCache.expiresAt > Date.now() + 30_000) {
     return tokenCache.value
   }
   const response = await fetch(`${BASE_URL}oauth2/token`, {
@@ -191,7 +191,9 @@ async function getToken(revalidate: number): Promise<string> {
       client_id: CLIENT_ID as string,
       client_secret: CLIENT_SECRET as string,
     }),
-    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
+    // A forced refresh must reach Medplum: re-using Next's cached token response
+    // would hand back the very token that was just rejected.
+    ...(revalidate > 0 && !force ? { next: { revalidate } } : { cache: "no-store" as const }),
   })
   if (!response.ok) {
     throw new Error(`Medplum token request failed: ${response.status}`)
@@ -207,17 +209,27 @@ async function fhir<T = FhirResource>(
   body?: unknown,
   revalidate = 0,
 ): Promise<T> {
-  const token = await getToken(revalidate)
-  const response = await fetch(`${BASE_URL}fhir/R4/${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/fhir+json",
-      ...(body !== undefined ? { "Content-Type": "application/fhir+json" } : {}),
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
-  })
+  const send = async (token: string): Promise<Response> =>
+    fetch(`${BASE_URL}fhir/R4/${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/fhir+json",
+        ...(body !== undefined ? { "Content-Type": "application/fhir+json" } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(revalidate > 0 ? { next: { revalidate } } : { cache: "no-store" as const }),
+    })
+
+  let response = await send(await getToken(revalidate))
+  // A cached token can stop being accepted before it expires — updating the
+  // client's AccessPolicy invalidates the sessions already issued against it — and
+  // the cache would otherwise keep handing out the dead token for the rest of its
+  // hour. One retry with a freshly minted token instead of failing every request.
+  if (response.status === 401) {
+    tokenCache = undefined
+    response = await send(await getToken(revalidate, true))
+  }
   const text = await response.text()
   const json = text ? (JSON.parse(text) as T & Bundle) : ({} as T & Bundle)
   if (!response.ok) {
