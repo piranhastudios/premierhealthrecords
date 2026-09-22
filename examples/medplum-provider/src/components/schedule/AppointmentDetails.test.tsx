@@ -9,14 +9,35 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { createEncounter } from '../../utils/encounter';
+import type * as EncounterUtilsModule from '../../utils/encounter';
+import { APPOINTMENT_TYPES, createEncounter } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { AppointmentDetails } from './AppointmentDetails';
 
 vi.mock('../../utils/notifications');
-vi.mock('../../utils/encounter', () => ({
+// Only createEncounter is faked; the rest of the module (encounterClassFor and
+// the appointment-type codings it reads) is the real thing.
+type EncounterUtils = typeof EncounterUtilsModule;
+
+vi.mock('../../utils/encounter', async (importOriginal) => ({
+  ...(await importOriginal<EncounterUtils>()),
   createEncounter: vi.fn(),
 }));
+
+/**
+ * The encounter class field, which now opens pre-filled from the appointment.
+ * Its pill and the button that clears it are reached through the DOM: once a
+ * value is selected the labelled text input is unmounted, and Mantine marks the
+ * pill's remove button aria-hidden.
+ * @returns The class shown, and the button that clears it.
+ */
+function encounterClassField(): { value: string | undefined; clear: HTMLElement | undefined } {
+  const wrapper = screen.getByText('Encounter Class').closest('.mantine-PillsInput-root');
+  return {
+    value: wrapper?.querySelector('.mantine-Pill-label')?.textContent ?? undefined,
+    clear: (wrapper?.querySelector('.mantine-Pill-remove') as HTMLElement | null) ?? undefined,
+  };
+}
 
 describe('AppointmentDetails', () => {
   let medplum: MockClient;
@@ -327,7 +348,7 @@ describe('AppointmentDetails', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Set Up Encounter')).toBeInTheDocument();
-        expect(screen.getByLabelText(/Encounter Class/i)).toBeInTheDocument();
+        expect(screen.getByText('Encounter Class')).toBeInTheDocument();
         expect(screen.getByLabelText(/Care template/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
       });
@@ -342,9 +363,35 @@ describe('AppointmentDetails', () => {
       });
     });
 
-    test('Apply button is disabled when class and care template are not selected', async () => {
+    test('encounter class defaults to ambulatory, so Apply is ready straight away', async () => {
       const appointment = createAppointmentWithPatient(patient.id as string);
       await setup({ appointment });
+
+      await waitFor(() => {
+        expect(encounterClassField().value).toBe('ambulatory');
+      });
+      expect(screen.getByRole('button', { name: 'Apply' })).not.toBeDisabled();
+    });
+
+    test('encounter class defaults to virtual for a video appointment', async () => {
+      const appointment = createAppointmentWithPatient(patient.id as string);
+      appointment.appointmentType = APPOINTMENT_TYPES.VIRTUAL.concept;
+      await setup({ appointment });
+
+      await waitFor(() => {
+        expect(encounterClassField().value).toBe('virtual');
+      });
+    });
+
+    test('Apply button is disabled once the encounter class is cleared', async () => {
+      const user = userEvent.setup();
+      const appointment = createAppointmentWithPatient(patient.id as string);
+      await setup({ appointment });
+
+      await waitFor(() => {
+        expect(encounterClassField().clear).toBeTruthy();
+      });
+      await user.click(encounterClassField().clear as HTMLElement);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
@@ -357,6 +404,11 @@ describe('AppointmentDetails', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Set Up Encounter')).toBeInTheDocument();
+      });
+
+      // Clear the class the appointment pre-filled, so the field is genuinely empty.
+      await act(async () => {
+        (encounterClassField().clear as HTMLElement).click();
       });
 
       // Bypass the disabled button by submitting the form directly. The appointment
@@ -379,6 +431,11 @@ describe('AppointmentDetails', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Set Up Encounter')).toBeInTheDocument();
+      });
+
+      // Clear the pre-filled class so neither required field is set.
+      await act(async () => {
+        (encounterClassField().clear as HTMLElement).click();
       });
 
       // Submit the form without filling either field
@@ -413,13 +470,10 @@ describe('AppointmentDetails', () => {
         expect(screen.getByText('Set Up Encounter')).toBeInTheDocument();
       });
 
-      // Fill in Encounter Class — MockClient's ValueSet expansion returns 'Test Display'
-      const classInput = screen.getByLabelText(/Encounter Class/i);
-      await user.type(classInput, 'Test');
+      // The encounter class is already filled in from the appointment.
       await waitFor(() => {
-        expect(screen.getByText('Test Display')).toBeInTheDocument();
+        expect(encounterClassField().value).toBe('ambulatory');
       });
-      await user.click(screen.getByText('Test Display'));
 
       // Fill in Care template
       const templateInput = screen.getByLabelText(/Care template/i);

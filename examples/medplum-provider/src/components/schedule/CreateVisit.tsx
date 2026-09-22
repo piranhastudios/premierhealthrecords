@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { Range } from '../../types/scheduling';
 import type { AppointmentTypeCode } from '../../utils/encounter';
-import { APPOINTMENT_TYPES, createAppointment, createEncounter } from '../../utils/encounter';
+import { APPOINTMENT_TYPES, createAppointment, createEncounter, encounterClassFor } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { PlanDefinitionSummary } from '../plandefinition/PlanDefinitionSummary';
 
@@ -25,8 +25,11 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
   const { appointmentSlot, schedule } = props;
   const [patient, setPatient] = useState<Patient | undefined>();
   const [planDefinitionData, setPlanDefinitionData] = useState<PlanDefinition | undefined>();
-  const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
   const [appointmentType, setAppointmentType] = useState<AppointmentTypeCode>('ROUTINE');
+  // Follow the appointment type: picking "Virtual" opens a virtual encounter,
+  // anything else an ambulatory one. The picker stays editable.
+  const defaultEncounterClass = encounterClassFor(APPOINTMENT_TYPES[appointmentType].concept);
+  const [encounterClass, setEncounterClass] = useState<Coding | undefined>(defaultEncounterClass);
   const [start, setStart] = useState(appointmentSlot?.start);
   const [end, setEnd] = useState(appointmentSlot?.end);
   // The end DateTimeInput is uncontrolled (defaultValue only), so remount it
@@ -187,10 +190,12 @@ export function CreateVisit(props: CreateVisitProps): JSX.Element {
           />
 
           <CodingInput
+            key={defaultEncounterClass.code}
             name="class"
             label="Class"
             binding="http://terminology.hl7.org/ValueSet/v3-ActEncounterCode"
             required={true}
+            defaultValue={defaultEncounterClass}
             onChange={setEncounterClass}
             path="Encounter.class"
           />

@@ -23,6 +23,7 @@ import { AWAITING_PAYMENT_BUSINESS_STATUS } from './pay-gate';
 
 const V2_0276_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0276';
 const APPOINTMENT_TYPE_SYSTEM = 'https://premierhealth.cm/fhir/CodeSystem/appointment-type';
+const V3_ACT_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 
 export type AppointmentTypeCode = 'ROUTINE' | 'FOLLOWUP' | 'VIRTUAL';
 
@@ -58,6 +59,34 @@ export const APPOINTMENT_TYPES: Record<
     },
   },
 };
+
+// Encounter.class values from the v3-ActEncounterCode value set the class picker
+// is bound to. AMB covers anyone seen at a centre; VR is a visit held by video.
+export const AMBULATORY_CLASS: Coding = { system: V3_ACT_CODE_SYSTEM, code: 'AMB', display: 'ambulatory' };
+export const VIRTUAL_CLASS: Coding = { system: V3_ACT_CODE_SYSTEM, code: 'VR', display: 'virtual' };
+
+/**
+ * Whether an appointment is a video visit, matching the same coding the patient
+ * portal and the marketing website use (see APPOINTMENT_TYPES).
+ * @param appointmentType - The appointment's type, if it has one.
+ * @returns True for a virtual / telehealth appointment.
+ */
+export function isVirtualAppointmentType(appointmentType: CodeableConcept | undefined): boolean {
+  return (appointmentType?.coding ?? []).some((coding) =>
+    /telehealth|video|virtual/i.test(`${coding.code ?? ''} ${coding.display ?? ''}`)
+  );
+}
+
+/**
+ * The Encounter.class a booking implies, so nobody is asked to restate what the
+ * appointment already says. Everything booked here is outpatient, so the only
+ * question is whether the patient is in the building or on a video call.
+ * @param appointmentType - The appointment's type, if it has one.
+ * @returns The v3-ActCode class to open the encounter with.
+ */
+export function encounterClassFor(appointmentType: CodeableConcept | undefined): Coding {
+  return isVirtualAppointmentType(appointmentType) ? VIRTUAL_CLASS : AMBULATORY_CLASS;
+}
 
 /**
  * The site (FHIR Location) a Schedule belongs to, if any. Multi-site schedules

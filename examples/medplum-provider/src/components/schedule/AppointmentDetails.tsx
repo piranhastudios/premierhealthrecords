@@ -10,7 +10,7 @@ import { IconAlertSquareRounded } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { createEncounter } from '../../utils/encounter';
+import { createEncounter, encounterClassFor } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { PlanDefinitionSummary } from '../plandefinition/PlanDefinitionSummary';
 
@@ -80,7 +80,11 @@ export function AppointmentDetails(props: {
 }): JSX.Element {
   const medplum = useMedplum();
   const [planDefinition, setPlanDefinition] = useState<PlanDefinition | undefined>();
-  const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
+  // The appointment already says whether this is a video visit or one at the
+  // centre, so open the class on that answer rather than leaving it blank for
+  // the front desk to fill in. Still editable — it is a real clinical choice.
+  const defaultEncounterClass = encounterClassFor(props.appointment.appointmentType);
+  const [encounterClass, setEncounterClass] = useState<Coding | undefined>(defaultEncounterClass);
   // Fallback practitioner for appointments that carry none (e.g. manually created).
   const [selectedPractitioner, setSelectedPractitioner] = useState<Practitioner | undefined>();
   const [cancelling, setCancelling] = useState(false);
@@ -233,6 +237,7 @@ export function AppointmentDetails(props: {
                   label="Encounter Class"
                   binding="http://terminology.hl7.org/ValueSet/v3-ActEncounterCode"
                   required={true}
+                  defaultValue={defaultEncounterClass}
                   onChange={setEncounterClass}
                   path="Encounter.class"
                 />

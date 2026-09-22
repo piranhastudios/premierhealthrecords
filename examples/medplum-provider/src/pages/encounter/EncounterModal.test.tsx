@@ -32,6 +32,17 @@ const mockPlanDefinition: PlanDefinition = {
   title: 'Test Plan',
 };
 
+/**
+ * The encounter class field, which now opens pre-filled from the appointment
+ * type. Once a value is selected the labelled text input is unmounted, so the
+ * pill is read through the DOM instead of by label.
+ * @returns The encounter class currently shown, if any.
+ */
+function encounterClassValue(): string | undefined {
+  const wrapper = screen.getByText('Class').closest('.mantine-PillsInput-root');
+  return wrapper?.querySelector('.mantine-Pill-label')?.textContent ?? undefined;
+}
+
 describe('EncounterModal', () => {
   let medplum: MockClient;
   let navigateSpy: ReturnType<typeof vi.fn>;
@@ -69,7 +80,7 @@ describe('EncounterModal', () => {
     });
 
     expect(screen.getByLabelText(/End Time/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Class/i)).toBeInTheDocument();
+    expect(encounterClassValue()).toBe('ambulatory');
     expect(screen.getByLabelText(/Status/i)).toBeInTheDocument();
     expect(screen.getByText('Apply care template')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create Encounter/i })).toBeInTheDocument();
@@ -145,7 +156,7 @@ describe('EncounterModal', () => {
     expect(endInput).toHaveValue('2024-01-15T11:00');
 
     // Verify Class and Status input fields are present
-    expect(screen.getByLabelText(/Class/i)).toBeInTheDocument();
+    expect(encounterClassValue()).toBe('ambulatory');
     expect(screen.getByLabelText(/Status/i)).toBeInTheDocument();
 
     // Verify PlanDefinition ResourceInput is present

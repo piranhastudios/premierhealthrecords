@@ -12,6 +12,18 @@ import type { SlotInfo } from 'react-big-calendar';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { CreateVisit } from './CreateVisit';
+import { APPOINTMENT_TYPES } from '../../utils/encounter';
+
+/**
+ * The encounter class field, which now opens pre-filled from the appointment
+ * type. Once a value is selected the labelled text input is unmounted, so the
+ * pill is read through the DOM instead of by label.
+ * @returns The encounter class currently shown, if any.
+ */
+function encounterClassValue(): string | undefined {
+  const wrapper = screen.getByText('Class').closest('.mantine-PillsInput-root');
+  return wrapper?.querySelector('.mantine-Pill-label')?.textContent ?? undefined;
+}
 
 describe('CreateVisit', () => {
   let medplum: MockClient;
@@ -72,7 +84,7 @@ describe('CreateVisit', () => {
         expect(screen.getByLabelText(/^Patient/)).toBeInTheDocument();
         expect(screen.getByLabelText(/Start Time/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/End Time/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/Class/i)).toBeInTheDocument();
+        expect(encounterClassValue()).toBe('ambulatory');
         expect(screen.getByLabelText(/Care template/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Create Visit/i })).toBeInTheDocument();
       });
@@ -298,18 +310,24 @@ describe('CreateVisit', () => {
       expect(endInput).toHaveValue('2024-01-15T11:20');
     });
 
-    test('updates class when class is selected', async () => {
+    test('class follows the appointment type, defaulting to ambulatory', async () => {
       const user = userEvent.setup();
       await act(async () => {
         setup(mockSlotInfo);
       });
 
-      const classInput = await screen.findByLabelText(/Class/i);
-      await act(async () => {
-        await user.click(classInput);
+      await waitFor(() => {
+        expect(encounterClassValue()).toBe('ambulatory');
       });
 
-      expect(classInput).toBeInTheDocument();
+      // Switching to a virtual appointment re-opens the class as virtual.
+      await act(async () => {
+        await user.click(screen.getByRole('radio', { name: APPOINTMENT_TYPES.VIRTUAL.label }));
+      });
+
+      await waitFor(() => {
+        expect(encounterClassValue()).toBe('virtual');
+      });
     });
 
     test('updates care template when template is selected', async () => {

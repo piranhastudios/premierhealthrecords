@@ -13,6 +13,7 @@ import { showErrorNotification } from '../../../utils/notifications';
 import { DashboardPanel, PanelEmptyState } from './DashboardPanel';
 import { RecordVitalsModal } from './RecordVitalsModal';
 import classes from './TasksList.module.css';
+import { isVirtualAppointmentType } from '../../../utils/encounter';
 
 export type StationMode = 'nurse' | 'front-desk';
 
@@ -58,9 +59,7 @@ const STATION_VITAL_CODES = ['85354-9', '55284-4', '8867-4', '8310-5', '9279-1',
  * @returns True for virtual/telehealth appointments.
  */
 function isVirtual(appointment: Appointment): boolean {
-  return (appointment.appointmentType?.coding ?? []).some((coding) =>
-    /telehealth|video|virtual/i.test(`${coding.code ?? ''} ${coding.display ?? ''}`)
-  );
+  return isVirtualAppointmentType(appointment.appointmentType);
 }
 
 interface Row {

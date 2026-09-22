@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router';
 import { PlanDefinitionSummary } from '../../components/plandefinition/PlanDefinitionSummary';
 import { usePatient } from '../../hooks/usePatient';
 import type { AppointmentTypeCode } from '../../utils/encounter';
-import { APPOINTMENT_TYPES, createAppointment, createEncounter } from '../../utils/encounter';
+import { APPOINTMENT_TYPES, createAppointment, createEncounter, encounterClassFor } from '../../utils/encounter';
 import classes from './EncounterModal.module.css';
 
 export const EncounterModal = (): JSX.Element => {
@@ -30,7 +30,10 @@ export const EncounterModal = (): JSX.Element => {
     key: 0,
     value: undefined,
   });
-  const [encounterClass, setEncounterClass] = useState<Coding | undefined>();
+  // Follow the appointment type: picking "Virtual" opens a virtual encounter,
+  // anything else an ambulatory one. The picker stays editable.
+  const defaultEncounterClass = encounterClassFor(APPOINTMENT_TYPES[appointmentType].concept);
+  const [encounterClass, setEncounterClass] = useState<Coding | undefined>(defaultEncounterClass);
   const [planDefinitionData, setPlanDefinitionData] = useState<PlanDefinition | undefined>();
   const [status, setStatus] = useState<Encounter['status'] | undefined>();
   const [isLoading, setIsLoading] = useState(false);
@@ -167,10 +170,12 @@ export const EncounterModal = (): JSX.Element => {
                 />
 
                 <CodingInput
+                  key={defaultEncounterClass.code}
                   name="class"
                   label="Class"
                   binding="http://terminology.hl7.org/ValueSet/v3-ActEncounterCode"
                   required={true}
+                  defaultValue={defaultEncounterClass}
                   onChange={setEncounterClass}
                   path="Encounter.class"
                 />
