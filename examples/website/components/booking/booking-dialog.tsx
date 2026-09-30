@@ -51,14 +51,14 @@ const CLINIC_TIMEZONE = "Africa/Douala"
 const STEP = "flex min-h-[19rem] min-w-0 flex-col gap-3 pt-1"
 
 /**
- * Site → service → doctor → time → details. Steps with a single choice are
- * skipped automatically, so a one-site clinic with one doctor goes straight to
- * the times. Availability and booking go through /api/booking (Medplum).
+ * Site → service → doctor → time → details. The site step is always shown so
+ * patients confirm where they are booking; later steps with a single choice
+ * are skipped automatically. Availability and booking go through /api/booking (Medplum).
  */
 export function BookingDialog({ sites, phone }: Props) {
   const t = useTranslations("booking")
   const locale = useLocale()
-  const [siteId, setSiteId] = useState<string | undefined>(sites.length === 1 ? sites[0].id : undefined)
+  const [siteId, setSiteId] = useState<string | undefined>()
   const [specialty, setSpecialty] = useState<string | undefined>()
   const [practitionerId, setPractitionerId] = useState<string | undefined>()
   const [serviceId, setServiceId] = useState<string | undefined>()
@@ -114,7 +114,7 @@ export function BookingDialog({ sites, phone }: Props) {
   function reset(level: "site" | "specialty" | "doctor" | "service" | "mode" | "time") {
     setBooked(undefined)
     if (level === "site") {
-      setSiteId(sites.length === 1 ? sites[0].id : undefined)
+      setSiteId(undefined)
     }
     if (level === "site" || level === "specialty") {
       setSpecialty(undefined)
@@ -174,13 +174,13 @@ export function BookingDialog({ sites, phone }: Props) {
   if (site.practitioners.length === 0) {
     return (
       <div className={STEP}>
-        {sites.length > 1 && <BackLink onClick={() => reset("site")} label={t("back")} />}
+        <BackLink onClick={() => reset("site")} label={t("back")} />
         <Unavailable phone={phone} />
       </div>
     )
   }
 
-  const backToSite = sites.length > 1 ? () => reset("site") : undefined
+  const backToSite = () => reset("site")
 
   // Step 2: specialty
   if (specialty === undefined) {
