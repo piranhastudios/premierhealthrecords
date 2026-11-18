@@ -165,6 +165,14 @@ build_component() {
     --label "phr.trust=$trust" \
     "${args[@]}" -t "$tag" "$SRC_DIR" >&2
   log "built $tag in $((SECONDS - started))s"
+  trim_build_cache
+}
+
+# A cold server build leaves ~10 GB of layer cache, and this box also hosts every
+# StoreFactory store. Keep enough cache for fast incremental builds and no more.
+trim_build_cache() {
+  docker builder prune -f --max-used-space "${PHR_BUILD_CACHE_MAX:-8GB}" --min-free-space "${PHR_MIN_FREE:-20GB}" >/dev/null 2>&1 ||
+    docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
 }
 
 # ---------------------------------------------------------- health + smoke
@@ -500,13 +508,24 @@ prune_images() {
   cat "$PHR_PREVIEWS"/pr-*/.env 2>/dev/null | grep _IMAGE= | cut -d= -f2- >>"$keep" || true
   for comp in "${COMPONENTS[@]}"; do
     repo=$(image_repo "$comp")
-    # Newest two of each are kept as well, as cheap extra rollback targets.
-    docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}' | tail -n +3 | while read -r tag; do
-      if ! grep -qxF "$tag" "$keep" && docker rmi "$tag" >/dev/null 2>&1; then log "pruned $tag"; fi
-    done
+    # Anything in use or recorded as a rollback target (each env's current and
+    # previous set) stays. Server images are ~3 GB, so by default nothing else
+    # does; PHR_KEEP_EXTRA keeps that many more deploy-built images per
+    # component. Preview-built (or unlabelled) images go as soon as no preview
+    # uses them.
+    local branch_seen=0 trust
+    while read -r tag; do
+      grep -qxF "$tag" "$keep" && continue
+      trust=$(docker image inspect -f '{{index .Config.Labels "phr.trust"}}' "$tag" 2>/dev/null || true)
+      if [ "$trust" = branch ] && [ $branch_seen -lt "${PHR_KEEP_EXTRA:-0}" ]; then
+        branch_seen=$((branch_seen + 1))
+        continue
+      fi
+      if docker rmi "$tag" >/dev/null 2>&1; then log "pruned $tag"; fi
+    done < <(docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}')
   done
   rm -f "$keep"
-  docker builder prune -f --filter until=336h >/dev/null 2>&1 || true
+  trim_build_cache
 }
 
 # After a successful prod deploy, install this tool's own files from that
