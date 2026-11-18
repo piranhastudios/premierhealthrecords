@@ -476,6 +476,8 @@ EOF
   echo "PREVIEW_ADMIN_URL=https://$admin/"
   echo "PREVIEW_COMPONENTS=${changed[*]}"
   echo "PREVIEW_SERVER=$([ -n "$server_img" ] && echo own || echo shared-dev)"
+  # The images from this PR's previous push are no longer referenced.
+  prune_images
 }
 
 teardown_preview() {
