@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Five-minute health check for the phr-* stacks (phr-monitor.timer).
+# Alerts on a change in the set of problems, and repeats every 6 hours while
+# anything stays broken. Settings in /etc/phr/monitor.env:
+#   ALERT_WEBHOOK_URL   Slack/Discord/Google-Chat style incoming webhook (JSON {"text": ...})
+#   NTFY_URL            e.g. https://ntfy.sh/<secret-topic> (phone push)
+#   HC_PING_URL_MONITOR healthchecks.io check pinged every run; it alerts when
+#                       this box stops reporting at all (box down, timer dead)
+#   DISK_ALERT_PCT (80)  TLS_ALERT_DAYS (14)  BACKUP_MAX_AGE_HOURS (26)
+set -uo pipefail
+HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+# shellcheck source=../lib/common.sh
+. "$HERE/../lib/common.sh"
+# shellcheck source=/dev/null
+if [ -r /etc/phr/monitor.env ]; then . /etc/phr/monitor.env; fi
+DISK_ALERT_PCT=${DISK_ALERT_PCT:-80}
+TLS_ALERT_DAYS=${TLS_ALERT_DAYS:-14}
+BACKUP_MAX_AGE_HOURS=${BACKUP_MAX_AGE_HOURS:-26}
+state="$PHR_STATE/monitor"
+mkdir -p "$state"
+
+problems=()
+add() { problems+=("$*"); }
+
+# 1. containers: running, not unhealthy, not restarted outside a deploy.
+deploying=0
+flock -n "$PHR_STATE/deploy.lock" true 2>/dev/null || deploying=1
+if find "$PHR_STATE" -maxdepth 1 -name '*.history' -mmin -10 2>/dev/null | grep -q .; then deploying=1; fi
+for c in phr-postgres phr-redis phr-server phr-provider phr-app phr-coturn \
+  phrtest-postgres phrtest-redis phrtest-server phrtest-provider phrtest-app; do
+  s=$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}} {{.RestartCount}} {{.State.OOMKilled}} {{.State.StartedAt}}' "$c" 2>/dev/null) ||
+    { add "$c: missing"; continue; }
+  read -r status health restarts oom started <<<"$s"
+  [ "$status" = running ] || add "$c: $status"
+  [ "$health" = unhealthy ] && add "$c: unhealthy"
+  prev=$(cat "$state/$c.started" 2>/dev/null || true)
+  if [ -n "$prev" ] && [ "$prev" != "$started" ] && [ $deploying = 0 ]; then
+    add "$c: restarted unexpectedly at $started (restarts=$restarts oom=$oom)"
+  fi
+  echo "$started" >"$state/$c.started"
+done
+
+# 2. disk.
+used=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+[ "$used" -ge "$DISK_ALERT_PCT" ] && add "disk / at ${used}%"
+
+# 3. public endpoints, from the outside in.
+for url in https://app.premierhealthcentres.com/api/healthcheck https://app.premierhealthcentres.com/ https://admin.premierhealthcentres.com/; do
+  code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$url")
+  [ "$code" = 200 ] || add "$url -> HTTP $code"
+done
+
+# 4. TLS expiry.
+for host in app.premierhealthcentres.com admin.premierhealthcentres.com \
+  phr-test.preview.commerce.storefactory.shop phr-test-admin.preview.commerce.storefactory.shop; do
+  end=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "$host" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+  if [ -z "$end" ]; then add "TLS $host: no certificate"; continue; fi
+  days=$((($(date -d "$end" +%s) - $(date +%s)) / 86400))
+  [ "$days" -lt "$TLS_ALERT_DAYS" ] && add "TLS $host expires in ${days}d"
+done
+
+# 5. backups.
+last=$(cat "$PHR_BACKUP_DIR/prod/.last-success" 2>/dev/null || echo 0)
+age_h=$((($(date +%s) - last) / 3600))
+[ "$age_h" -gt "$BACKUP_MAX_AGE_HOURS" ] && add "prod backup is ${age_h}h old"
+
+# ---- report
+now=$(date +%s)
+summary=$(printf '%s\n' "${problems[@]}" | sort)
+prev_summary=$(cat "$state/last-summary" 2>/dev/null || true)
+last_alert=$(cat "$state/last-alert" 2>/dev/null || echo 0)
+
+send() {
+  local text=$1
+  logger -t phr-monitor "$text"
+  if [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
+    curl -fsS -m 10 -H 'content-type: application/json' -d "$(jq -nc --arg t "$text" '{text:$t}')" "$ALERT_WEBHOOK_URL" >/dev/null || true
+  fi
+  if [ -n "${NTFY_URL:-}" ]; then
+    curl -fsS -m 10 -H 'Title: Premier Health Records' -d "$text" "$NTFY_URL" >/dev/null || true
+  fi
+}
+
+if [ ${#problems[@]} -gt 0 ]; then
+  if [ "$summary" != "$prev_summary" ] || [ $((now - last_alert)) -gt 21600 ]; then
+    send "PHR on $(hostname): ${#problems[@]} problem(s)
+$summary"
+    echo "$now" >"$state/last-alert"
+  fi
+  [ -n "${HC_PING_URL_MONITOR:-}" ] && curl -fsS -m 10 --data-raw "$summary" "$HC_PING_URL_MONITOR/fail" >/dev/null 2>&1
+else
+  [ -n "$prev_summary" ] && send "PHR on $(hostname): all clear"
+  [ -n "${HC_PING_URL_MONITOR:-}" ] && curl -fsS -m 10 "$HC_PING_URL_MONITOR" >/dev/null 2>&1
+fi
+printf '%s' "$summary" >"$state/last-summary"
+printf '%s\n' "${problems[@]:-ok}" >&2
+exit 0

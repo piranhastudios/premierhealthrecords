@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Post-deploy smoke test. Goes through Traefik on this box (--resolve to
+# 127.0.0.1), so it tests the real routing and TLS without leaving the host.
+#
+#   phr-smoke --api-host H --provider-host H --admin-host H [--env prod|dev] [--insecure]
+#
+# Always: API /healthcheck reports postgres + redis ok; provider and admin UIs
+# answer (200, or 401 behind dev's basic auth).
+# If /etc/phr/smoke-<env>.env defines SMOKE_EMAIL + SMOKE_PASSWORD: logs in
+# (PKCE, exactly as the apps do) and searches Patient. With SMOKE_WRITE=1 as well
+# (dev only — never set it for prod) it creates, cancels and deletes an Appointment.
+set -euo pipefail
+api='' provider='' admin='' env='' insecure=()
+while [ $# -gt 0 ]; do
+  case $1 in
+    --api-host) api=$2; shift ;;
+    --provider-host) provider=$2; shift ;;
+    --admin-host) admin=$2; shift ;;
+    --env) env=$2; shift ;;
+    --insecure) insecure=(-k) ;;
+    *) echo "unknown arg $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+fail=0
+ok() { echo "  ok   $*" >&2; }
+bad() { echo "  FAIL $*" >&2; fail=1; }
+
+req() { # host path [curl args...] -> body on stdout, status in $STATUS
+  local host=$1 path=$2
+  shift 2
+  local out
+  out=$(curl -sS "${insecure[@]}" --max-time 20 --retry 5 --retry-delay 3 --retry-all-errors \
+    --resolve "$host:443:127.0.0.1" -w '\n%{http_code}' "$@" "https://$host$path") || out=$'\n000'
+  STATUS=${out##*$'\n'}
+  BODY=${out%$'\n'*}
+}
+
+echo "smoke: api=$api provider=$provider admin=$admin" >&2
+# A brand-new preview host has no certificate until Traefik's ACME order
+# completes; give it a moment rather than failing on the first request.
+for _ in $(seq 1 20); do
+  req "$api" /api/healthcheck
+  [ "$STATUS" = 200 ] && break
+  sleep 3
+done
+if [ "$STATUS" = 200 ] && echo "$BODY" | jq -e '.ok == true and .postgres == true and .redis == true' >/dev/null 2>&1; then
+  ok "api healthcheck $(echo "$BODY" | jq -c '{version, postgres, redis}')"
+else
+  bad "api healthcheck: HTTP $STATUS $BODY"
+fi
+for h in "$provider" "$admin"; do
+  req "$h" /
+  case $STATUS in
+    200 | 401) ok "https://$h/ -> $STATUS" ;;
+    *) bad "https://$h/ -> $STATUS" ;;
+  esac
+done
+
+conf=/etc/phr/smoke-$env.env
+if [ -n "$env" ] && [ -r "$conf" ]; then
+  # shellcheck source=/dev/null
+  . "$conf"
+fi
+if [ -n "${SMOKE_EMAIL:-}" ] && [ -n "${SMOKE_PASSWORD:-}" ]; then
+  verifier=$(openssl rand -hex 32)
+  challenge=$(printf '%s' "$verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+  req "$api" /api/auth/login -H 'content-type: application/json' -d "$(jq -nc \
+    --arg e "$SMOKE_EMAIL" --arg p "$SMOKE_PASSWORD" --arg c "$challenge" --arg pr "${SMOKE_PROJECT_ID:-}" \
+    '{email:$e,password:$p,codeChallenge:$c,codeChallengeMethod:"S256",scope:"openid"} + (if $pr != "" then {projectId:$pr} else {} end)')"
+  login=$(echo "$BODY" | jq -r '.login // empty')
+  code=$(echo "$BODY" | jq -r '.code // empty')
+  if [ -z "$code" ] && [ -n "$login" ]; then
+    membership=$(echo "$BODY" | jq -r --arg pr "${SMOKE_PROJECT_ID:-}" \
+      '[.memberships[]? | select($pr == "" or .project.reference == "Project/" + $pr)][0].id // empty')
+    req "$api" /api/auth/profile -H 'content-type: application/json' \
+      -d "$(jq -nc --arg l "$login" --arg m "$membership" '{login:$l,profile:$m}')"
+    code=$(echo "$BODY" | jq -r '.code // empty')
+  fi
+  token=
+  if [ -n "$code" ]; then
+    req "$api" /api/oauth2/token --data-urlencode grant_type=authorization_code \
+      --data-urlencode "code=$code" --data-urlencode "code_verifier=$verifier"
+    token=$(echo "$BODY" | jq -r '.access_token // empty')
+  fi
+  if [ -z "$token" ]; then
+    bad "login as $SMOKE_EMAIL: HTTP $STATUS"
+  else
+    ok "login as $SMOKE_EMAIL"
+    req "$api" '/api/fhir/R4/Patient?_count=1&_summary=count' -H "authorization: Bearer $token"
+    if [ "$STATUS" = 200 ]; then ok "patient search ($(echo "$BODY" | jq -r .total) patients)"; else bad "patient search: HTTP $STATUS"; fi
+
+    if [ "${SMOKE_WRITE:-0}" = 1 ] && [ "$env" != prod ]; then
+      auth=(-H "authorization: Bearer $token" -H 'content-type: application/fhir+json')
+      req "$api" /api/fhir/R4/Appointment "${auth[@]}" -d '{"resourceType":"Appointment","status":"proposed","description":"phr-smoke test appointment","participant":[{"status":"needs-action","actor":{"display":"phr-smoke"}}]}'
+      id=$(echo "$BODY" | jq -r '.id // empty')
+      if [ "$STATUS" = 201 ] && [ -n "$id" ]; then
+        appt=$(echo "$BODY" | jq -c '.status = "cancelled"')
+        req "$api" "/api/fhir/R4/Appointment/$id" -X PUT "${auth[@]}" -d "$appt"
+        if [ "$STATUS" = 200 ]; then ok "appointment create + cancel"; else bad "appointment cancel: HTTP $STATUS"; fi
+        req "$api" "/api/fhir/R4/Appointment/$id" -X DELETE "${auth[@]}"
+      else
+        bad "appointment create: HTTP $STATUS $(echo "$BODY" | jq -c '.issue // empty' 2>/dev/null)"
+      fi
+    fi
+  fi
+fi
+
+if [ $fail = 0 ]; then echo "smoke: passed" >&2; else echo "smoke: FAILED" >&2; fi
+exit $fail

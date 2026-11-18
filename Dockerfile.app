@@ -15,7 +15,7 @@ COPY . .
 # server/provider/app images ever run it — only EAS and mobile CI do — so skip
 # the download rather than make this deploy depend on a third-party CDN.
 ENV SENTRYCLI_SKIP_DOWNLOAD=1
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci --prefer-offline --no-audit --no-fund
 # Build dist (via esbuild, NOT the packages' full `build` whose tsc step type-checks
 # a test importing react-router-dom, not a dep, and fails on a clean install) for the
 # @medplum packages in the app's runtime graph, so vite resolves non-aliased

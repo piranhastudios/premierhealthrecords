@@ -1,0 +1,13 @@
+# Used instead of a preview server when the branch did not touch server code:
+# the preview hosts' /api goes to dev's server (phrtest-api@docker). The labels
+# ride on the provider container only because Traefik's docker provider needs
+# some container to carry them; the traffic never touches nginx.
+services:
+  medplum-provider:
+    labels:
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.rule=(Host(`${PREVIEW_HOST}`) || Host(`${PREVIEW_ADMIN_HOST}`)) && PathPrefix(`/api`)
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.entrypoints=websecure
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.tls.certresolver=le
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.priority=100
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.middlewares=phrtest-stripapi@docker
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.service=phrtest-api@docker

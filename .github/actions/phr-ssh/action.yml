@@ -1,0 +1,44 @@
+name: phr-deploy over SSH
+description: Runs one phr-deploy command on hetzner-prod through the forced-command deploy key.
+inputs:
+  command:
+    description: phr-deploy arguments, e.g. "deploy dev <sha>"
+    required: true
+  ssh-key:
+    required: true
+  known-hosts:
+    required: true
+  host:
+    required: false
+    default: 2.29.1.139
+  user:
+    required: false
+    default: jake
+outputs:
+  log:
+    description: Path to the captured output
+    value: ${{ steps.run.outputs.log }}
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        CMD: ${{ inputs.command }}
+        HOST: ${{ inputs.host }}
+        USER_NAME: ${{ inputs.user }}
+      run: |
+        set -euo pipefail
+        install -d -m 700 ~/.ssh
+        printf '%s\n' "$SSH_KEY" > ~/.ssh/phr_deploy
+        chmod 600 ~/.ssh/phr_deploy
+        printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        log="$RUNNER_TEMP/phr-deploy.log"
+        echo "log=$log" >> "$GITHUB_OUTPUT"
+        # The forced command ignores what we send except as phr-deploy
+        # arguments, so this is the whole interface.
+        ssh -i ~/.ssh/phr_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+          -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+          "$USER_NAME@$HOST" "$CMD" 2>&1 | tee "$log"

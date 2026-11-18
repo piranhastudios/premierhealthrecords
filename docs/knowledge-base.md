@@ -104,6 +104,6 @@ role: sees all shelves, edits all content, manages users.
 
 The wiki's state is the `bookstack-db-data` volume (MariaDB) plus
 `bookstack-data` (uploaded images/attachments). The nightly
-`medplum-backup.sh` cron covers **only** the Medplum Postgres — extend it (or
-add a sibling cron) with a `mariadb-dump` of the `bookstack` database and a
-tar of the `/config` uploads before the wiki holds anything hard to rewrite.
+`phr-backup` timer (`deploy/bin/phr-backup`) covers **only** the Medplum Postgres
+and binary volume — extend it with a `mariadb-dump` of the `bookstack` database and
+a tar of the `/config` uploads before the wiki holds anything hard to rewrite.

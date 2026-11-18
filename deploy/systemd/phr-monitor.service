@@ -1,0 +1,9 @@
+[Unit]
+Description=Premier Health Records health check
+After=docker.service
+
+[Service]
+Type=oneshot
+User=jake
+Group=docker
+ExecStart=/opt/phr-deploy/bin/phr-monitor

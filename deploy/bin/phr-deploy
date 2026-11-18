@@ -1,0 +1,582 @@
+#!/usr/bin/env bash
+# phr-deploy — build and roll out the Premier Health Records stack on hetzner-prod.
+#
+#   phr-deploy deploy <prod|dev> <sha> [--all]   build what changed, roll out, smoke test,
+#                                                roll back automatically if the smoke test fails
+#   phr-deploy rollback <prod|dev>               swap back to the previous image set
+#   phr-deploy preview <pr> <sha> <dev|main>     per-PR preview on the dev database
+#   phr-deploy teardown <pr>                     remove a PR preview
+#   phr-deploy status                            what is running where
+#   phr-deploy adopt <prod|dev>                  one-off: take over a hand-managed env
+#
+# GitHub Actions reaches this only through bin/phr-deploy-ssh (a forced SSH
+# command), which accepts nothing but the grammar above. Builds run here, on the
+# box, from a bare mirror of the repo; compose files always come from this
+# tool's own install, never from the commit being built.
+set -euo pipefail
+
+HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+# shellcheck source=../lib/common.sh
+. "$HERE/../lib/common.sh"
+
+BLOCK_BEGIN='# >>> phr-deploy managed block (rewritten on every deploy; edit secrets above it, never inside)'
+BLOCK_END='# <<< phr-deploy managed block'
+
+mkdir -p "$PHR_STATE" "$PHR_PREVIEWS"
+
+with_lock() {
+  exec 9>"$PHR_STATE/deploy.lock"
+  if ! flock -n 9; then
+    log "another deploy is running; waiting for it (up to 90 min)"
+    flock -w 5400 9 || die "timed out waiting for the deploy lock"
+  fi
+}
+
+# ---------------------------------------------------------------- git mirror
+
+mirror_fetch() {
+  if [ ! -d "$PHR_MIRROR" ]; then
+    log "cloning mirror of $PHR_REPO_URL"
+    git clone --quiet --bare "$PHR_REPO_URL" "$PHR_MIRROR"
+  fi
+  git --git-dir="$PHR_MIRROR" fetch --quiet --prune --no-tags origin '+refs/heads/*:refs/heads/*'
+  if [ -n "${1:-}" ] && ! git --git-dir="$PHR_MIRROR" cat-file -e "$1^{commit}" 2>/dev/null; then
+    git --git-dir="$PHR_MIRROR" fetch --quiet --no-tags origin "$1" ||
+      die "commit $1 is not on GitHub"
+  fi
+}
+
+git_m() { git --git-dir="$PHR_MIRROR" "$@"; }
+
+commit_exists() { [ -n "$1" ] && git_m cat-file -e "$1^{commit}" 2>/dev/null; }
+
+# Components whose inputs differ between two commits (all of them if the old one is unknown).
+changed_components() {
+  local old=$1 new=$2
+  if ! commit_exists "$old"; then
+    printf '%s\n' "${COMPONENTS[@]}"
+    return
+  fi
+  git_m diff --name-only "$old" "$new" | components_for_paths
+}
+
+# ------------------------------------------------------------- managed block
+
+# Prints KEY=VALUE lines of the managed block.
+block_read() {
+  [ -r "$1" ] || return 0
+  awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '$0==b{on=1;next} $0==e{on=0} on' "$1"
+}
+
+block_get() {
+  { block_read "$1" | grep -E "^$2=" | tail -1 | cut -d= -f2- | sed -e "s/^'\(.*\)'$/\1/"; } || true
+}
+
+# True if word $1 is among the remaining arguments.
+in_list() {
+  local w=$1 x
+  shift
+  for x in "$@"; do [ "$x" = "$w" ] && return 0; done
+  return 1
+}
+
+# Replaces the managed block of $1 with the KEY=VALUE lines in file $2.
+# Writes in place (not rename) so the prod .env keeps its inode, mode and the
+# phr-admin symlink that points at it.
+block_write() {
+  local file=$1 lines=$2 tmp
+  tmp=$(mktemp "$PHR_STATE/env.XXXXXX")
+  awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '$0==b{skip=1} !skip{print} $0==e{skip=0}' "$file" >"$tmp"
+  # Drop trailing blank lines before re-appending the block.
+  sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$tmp"
+  { echo; echo "$BLOCK_BEGIN"; cat "$lines"; echo "$BLOCK_END"; } >>"$tmp"
+  cat "$tmp" >"$file"
+  rm -f "$tmp"
+}
+
+image_sha() { echo "${1##*:}"; }
+
+# ------------------------------------------------------------------- builds
+
+SRC_DIR=
+cleanup_src() { [ -n "$SRC_DIR" ] && rm -rf "$SRC_DIR"; return 0; }
+trap cleanup_src EXIT
+
+export_source() {
+  local sha=$1
+  [ -n "$SRC_DIR" ] && return 0
+  SRC_DIR=$(mktemp -d "/tmp/phr-src-${sha:0:12}.XXXXXX")
+  git_m archive --format=tar "$sha" | tar -x -C "$SRC_DIR"
+}
+
+# Identity of everything a build can see. Every Dockerfile does `COPY . .`, so
+# this is the whole commit tree, not just the paths that decide *whether* to
+# rebuild: a file outside those paths (a workspace postinstall script, say) can
+# still change what ends up in the image.
+input_key() {
+  echo "$1-$(git_m rev-parse "$2^{tree}")"
+}
+
+# Builds one component image at a commit unless it already exists. Sets BUILT_TAG.
+# (Not called inside $(...): the exported source tree must outlive the call.)
+#
+# Trust levels never mix. `branch` images are built by prod/dev deploys from
+# commits on main/dev; `preview` images are built from pull-request code. A
+# deploy only ever reuses a `branch` image, so nothing a PR builds can be
+# re-tagged into dev or prod. Previews may reuse either kind.
+BUILT_TAG=
+build_component() {
+  local comp=$1 sha=$2 trust=$3 pr=${4:-} tag args=() repo
+  repo=$(image_repo "$comp")
+  if [ "$trust" = branch ]; then tag="$repo:${sha:0:12}"; else tag="$repo:pr$pr-${sha:0:12}"; fi
+  BUILT_TAG=$tag
+  if [ "$(docker image inspect -f '{{index .Config.Labels "phr.trust"}}' "$tag" 2>/dev/null)" = "$trust" ]; then
+    log "image $tag already built; reusing it"
+    return 0
+  fi
+  # An image built from an identical tree (typically dev's image when dev is
+  # merged into main with nothing else on main)? Tag it instead of rebuilding.
+  local key existing filters
+  key=$(input_key "$comp" "$sha")
+  filters=(--filter "label=phr.inputs=$key")
+  if [ "$trust" = branch ]; then filters+=(--filter label=phr.trust=branch); fi
+  existing=$(docker image ls "${filters[@]}" --format '{{.Repository}}:{{.Tag}}' | grep "^$repo:" | head -1 || true)
+  if [ -n "$existing" ]; then
+    docker tag "$existing" "$tag"
+    log "image $tag: same tree as $existing; reused without a build"
+    return 0
+  fi
+  export_source "$sha"
+  if [ "$comp" = provider ]; then
+    # The TURN relay is prod's for every environment (dev has no coturn).
+    local prod_env k
+    prod_env=$(env_config prod && echo "$ENV_FILE")
+    for k in VITE_TURN_URL VITE_TURN_USERNAME VITE_TURN_CREDENTIAL; do
+      args+=(--build-arg "$k=$(dotenv_get "$prod_env" "$k")")
+    done
+  fi
+  log "building $tag"
+  local started=$SECONDS
+  DOCKER_BUILDKIT=1 docker build --progress=plain \
+    -f "$SRC_DIR/$(dockerfile_for "$comp")" \
+    --label "org.opencontainers.image.revision=$sha" \
+    --label "org.opencontainers.image.source=$PHR_REPO_URL" \
+    --label "phr.inputs=$key" \
+    --label "phr.trust=$trust" \
+    "${args[@]}" -t "$tag" "$SRC_DIR" >&2
+  log "built $tag in $((SECONDS - started))s"
+  trim_build_cache
+}
+
+# A cold server build leaves ~10 GB of layer cache, and this box also hosts every
+# StoreFactory store. Keep enough cache for fast incremental builds and no more.
+trim_build_cache() {
+  docker builder prune -f --max-used-space "${PHR_BUILD_CACHE_MAX:-8GB}" --min-free-space "${PHR_MIN_FREE:-20GB}" >/dev/null 2>&1 ||
+    docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
+}
+
+# ---------------------------------------------------------- health + smoke
+
+wait_healthy() {
+  local timeout=${2:-420} start=$SECONDS state
+  while :; do
+    state=$(docker inspect -f '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$1" 2>/dev/null || echo missing/none)
+    case "$state" in
+      running/healthy | running/none) return 0 ;;
+      */unhealthy | exited/* | dead/* | missing/*)
+        log "$1 is $state"
+        docker logs --tail 40 "$1" >&2 2>&1 || true
+        return 1
+        ;;
+    esac
+    if ((SECONDS - start > timeout)); then
+      log "$1 not healthy after ${timeout}s ($state)"
+      docker logs --tail 40 "$1" >&2 2>&1 || true
+      return 1
+    fi
+    sleep 3
+  done
+}
+
+env_compose() {
+  local files=(-f "$ENV_DIR/docker-compose.yml")
+  if [ -f "$ENV_DIR/docker-compose.override.yml" ]; then files+=(-f "$ENV_DIR/docker-compose.override.yml"); fi
+  docker compose --project-directory "$ENV_DIR" --env-file "$ENV_FILE" "${files[@]}" "$@"
+}
+
+install_env_compose() {
+  install -m 644 "$PHR_HOME/compose/stack.yml" "$ENV_DIR/docker-compose.yml"
+  if [ "$ENV_NAME" = dev ]; then
+    install -m 644 "$PHR_HOME/compose/dev.override.yml" "$ENV_DIR/docker-compose.override.yml"
+  else
+    rm -f "$ENV_DIR/docker-compose.override.yml"
+  fi
+}
+
+# Turn on AOF in a running redis before compose recreates it with
+# --appendonly yes; otherwise redis would start from an empty AOF and ignore
+# the RDB snapshot that holds the queued jobs.
+redis_enable_aof() {
+  local c="$ENV_PREFIX-redis" pw
+  docker inspect "$c" >/dev/null 2>&1 || return 0
+  pw=$(dotenv_get "$ENV_FILE" REDIS_PASSWORD)
+  local r=(docker exec -e REDISCLI_AUTH="$pw" "$c" redis-cli)
+  [ "$("${r[@]}" config get appendonly | tail -1)" = yes ] && return 0
+  log "enabling AOF on the running $c before it is recreated"
+  "${r[@]}" config set appendonly yes >/dev/null
+  for _ in $(seq 1 60); do
+    if "${r[@]}" info persistence | grep -q 'aof_rewrite_in_progress:0' &&
+      "${r[@]}" info persistence | grep -q 'aof_rewrite_scheduled:0' &&
+      "${r[@]}" info persistence | grep -q 'aof_enabled:1'; then
+      return 0
+    fi
+    sleep 1
+  done
+  die "redis AOF rewrite did not finish"
+}
+
+env_smoke() {
+  "$PHR_HOME/bin/phr-smoke" --env "$ENV_NAME" \
+    --api-host "$(dotenv_get "$ENV_FILE" PROVIDER_HOST)" \
+    --provider-host "$(dotenv_get "$ENV_FILE" PROVIDER_HOST)" \
+    --admin-host "$(dotenv_get "$ENV_FILE" ADMIN_HOST)"
+}
+
+env_up_and_check() {
+  env_compose up -d --wait --wait-timeout 600 >&2 || true
+  local c ok=0
+  for c in postgres redis server provider app; do
+    wait_healthy "$ENV_PREFIX-$c" 600 || ok=1
+  done
+  [ $ok = 0 ] || return 1
+  env_smoke
+}
+
+# ------------------------------------------------------------------ deploy
+
+write_env_block() {
+  # $1 = file with PHR_*_IMAGE lines; adds the static settings for the env.
+  local out=$1 basic
+  basic=$(block_get "$ENV_FILE" PHR_BASIC_AUTH_USERS)
+  {
+    echo "PHR_PROJECT=$ENV_PROJECT"
+    echo "PHR_PREFIX=$ENV_PREFIX"
+    echo "COMPOSE_PROFILES=$ENV_PROFILES"
+    echo "PHR_PG_VOLUME=$ENV_PG_VOLUME"
+    echo "PHR_REDIS_VOLUME=$ENV_REDIS_VOLUME"
+    echo "PHR_BINARY_VOLUME=$ENV_BINARY_VOLUME"
+    if [ "$ENV_NAME" = dev ]; then
+      echo "PHR_BASIC_AUTH_USERS='${basic:-${PHR_BASIC_AUTH_USERS:?set PHR_BASIC_AUTH_USERS for dev}}'"
+    fi
+  } >>"$out"
+}
+
+cmd_deploy() {
+  local env=$1 sha=$2 all=${3:-}
+  env_config "$env"
+  [ -f "$ENV_FILE" ] || die "$ENV_FILE missing"
+  [ -n "$(block_read "$ENV_FILE")" ] || die "$env has no managed block yet; run: phr-deploy adopt $env"
+  with_lock
+  mirror_fetch "$sha"
+  git_m merge-base --is-ancestor "$sha" "refs/heads/$ENV_BRANCH" ||
+    die "$sha is not on $ENV_BRANCH; refusing to deploy it to $env"
+
+  log "deploying ${sha:0:12} to $env"
+  local cur new comp old changed=() next
+  cur=$(mktemp "$PHR_STATE/cur.XXXXXX")
+  next=$(mktemp "$PHR_STATE/next.XXXXXX")
+  block_read "$ENV_FILE" >"$cur"
+
+  local diff_comps
+  for comp in "${COMPONENTS[@]}"; do
+    old=$(block_get "$ENV_FILE" "$(image_var "$comp")")
+    diff_comps=""
+    if [ -n "$old" ]; then diff_comps=$(changed_components "$(image_sha "$old")" "$sha"); fi
+    # shellcheck disable=SC2086
+    if [ "$all" = --all ] || [ -z "$old" ] || in_list "$comp" $diff_comps; then
+      changed+=("$comp")
+      build_component "$comp" "$sha" branch
+      echo "$(image_var "$comp")=$BUILT_TAG" >>"$next"
+    else
+      echo "$(image_var "$comp")=$old" >>"$next"
+    fi
+  done
+  write_env_block "$next"
+  echo "PHR_DEPLOYED_SHA=$sha" >>"$next"
+  echo "PHR_DEPLOYED_AT=$(date -u +%FT%TZ)" >>"$next"
+  log "components rebuilt: ${changed[*]:-none}"
+
+  if [ ${#changed[@]} = 0 ] && cmp -s <(grep -v ^PHR_DEPLOYED "$cur") <(grep -v ^PHR_DEPLOYED "$next") &&
+    cmp -s "$PHR_HOME/compose/stack.yml" "$ENV_DIR/docker-compose.yml"; then
+    log "nothing deployable changed; $env stays as it is"
+    block_write "$ENV_FILE" "$next"
+    echo "DEPLOY_STATUS=unchanged"
+    rm -f "$cur" "$next"
+    return 0
+  fi
+
+  # Medplum migrations only go forward. Take a fresh dump before a new server
+  # touches the prod schema, and refuse to continue without one.
+  if [ "$env" = prod ] && in_list server "${changed[@]}"; then
+    "$PHR_HOME/bin/phr-backup" prod || die "pre-deploy backup failed; not deploying"
+  fi
+
+  cp "$cur" "$PHR_STATE/$env.prev"
+  block_write "$ENV_FILE" "$next"
+  if [ -f "$ENV_DIR/docker-compose.yml" ]; then cp "$ENV_DIR/docker-compose.yml" "$PHR_STATE/$env.compose.prev.yml"; fi
+  install_env_compose
+  redis_enable_aof
+
+  if env_up_and_check; then
+    printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$sha" "$(grep _IMAGE= "$next" | tr '\n' ' ')" >>"$PHR_STATE/$env.history"
+    log "$env is live on ${sha:0:12}"
+    echo "DEPLOY_STATUS=deployed"
+    echo "DEPLOY_COMPONENTS=${changed[*]:-}"
+  else
+    log "smoke test failed on $env; rolling back to the previous images"
+    block_write "$ENV_FILE" "$cur"
+    if [ -f "$PHR_STATE/$env.compose.prev.yml" ]; then
+      install -m 644 "$PHR_STATE/$env.compose.prev.yml" "$ENV_DIR/docker-compose.yml"
+    fi
+    if env_up_and_check; then
+      log "rolled back; $env is on its previous images. Note: any migration the new server ran stays applied."
+    else
+      log "ROLLBACK ALSO FAILED — $env needs a human now"
+    fi
+    echo "DEPLOY_STATUS=rolled-back"
+    rm -f "$cur" "$next"
+    exit 1
+  fi
+  rm -f "$cur" "$next"
+
+  if [ "$env" = prod ]; then self_update "$sha"; fi
+  prune_images
+}
+
+cmd_rollback() {
+  local env=$1
+  env_config "$env"
+  with_lock
+  [ -f "$PHR_STATE/$env.prev" ] || die "no previous deploy recorded for $env"
+  local cur
+  cur=$(mktemp "$PHR_STATE/cur.XXXXXX")
+  block_read "$ENV_FILE" >"$cur"
+  block_write "$ENV_FILE" "$PHR_STATE/$env.prev"
+  mv "$cur" "$PHR_STATE/$env.prev"
+  log "rolling $env back to: $(grep _IMAGE= "$ENV_FILE" | tr '\n' ' ')"
+  log "database migrations are forward-only: the old server runs on the newer schema"
+  env_up_and_check || die "rollback came up unhealthy"
+  printf '%s rollback %s\n' "$(date -u +%FT%TZ)" "$(block_get "$ENV_FILE" PHR_DEPLOYED_SHA)" >>"$PHR_STATE/$env.history"
+  echo "DEPLOY_STATUS=rolled-back"
+}
+
+# One-off: write the managed block from the images the hand-managed compose
+# currently runs, and install stack.yml. Prints the compose dry-run first.
+cmd_adopt() {
+  local env=$1
+  env_config "$env"
+  with_lock
+  if [ -n "$(block_read "$ENV_FILE")" ]; then die "$env already adopted"; fi
+  local next comp img
+  next=$(mktemp "$PHR_STATE/next.XXXXXX")
+  for comp in "${COMPONENTS[@]}"; do
+    img=$(docker inspect -f '{{.Config.Image}}' "$ENV_PREFIX-$comp")
+    echo "$(image_var "$comp")=$img" >>"$next"
+  done
+  if [ "$env" = dev ]; then
+    PHR_BASIC_AUTH_USERS=$(docker inspect -f '{{index .Config.Labels "traefik.http.middlewares.phrtest-auth.basicauth.users"}}' phrtest-provider)
+  fi
+  write_env_block "$next"
+  cp "$ENV_FILE" "$PHR_STATE/$env.env.pre-adopt"
+  if [ -f "$ENV_DIR/docker-compose.yml" ]; then cp "$ENV_DIR/docker-compose.yml" "$PHR_STATE/$env.compose.pre-adopt.yml"; fi
+  block_write "$ENV_FILE" "$next"
+  install_env_compose
+  log "adopted $env. Dry run of what the next 'up' would change:"
+  env_compose --dry-run up -d >&2 || true
+  rm -f "$next"
+}
+
+# ----------------------------------------------------------------- previews
+
+preview_compose() {
+  local dir=$1
+  shift
+  local files=(-f "$dir/docker-compose.yml")
+  if [ -f "$dir/docker-compose.override.yml" ]; then files+=(-f "$dir/docker-compose.override.yml"); fi
+  docker compose --project-directory "$dir" --env-file "$dir/.env" "${files[@]}" "$@"
+}
+
+cmd_preview() {
+  local pr=$1 sha=$2 base=$3 dir="$PHR_PREVIEWS/pr-$1"
+  with_lock
+  mirror_fetch "$sha"
+  local mb
+  mb=$(git_m merge-base "refs/heads/$base" "$sha") || die "no merge base between $base and $sha"
+  mapfile -t changed < <(git_m diff --name-only "$mb" "$sha" | components_for_paths)
+  log "PR #$pr at ${sha:0:12} changes: ${changed[*]:-nothing deployable}"
+
+  if [ ${#changed[@]} = 0 ]; then
+    if [ -d "$dir" ]; then teardown_preview "$pr"; fi
+    echo "PREVIEW_STATUS=none"
+    return 0
+  fi
+
+  env_config dev
+  local host="phr-pr-$pr.$PHR_PREVIEW_DOMAIN" admin="phr-pr-$pr-admin.$PHR_PREVIEW_DOMAIN"
+  local server_img="" provider_img app_img comp
+  provider_img=$(block_get "$ENV_FILE" PHR_PROVIDER_IMAGE)
+  app_img=$(block_get "$ENV_FILE" PHR_APP_IMAGE)
+  for comp in "${changed[@]}"; do
+    build_component "$comp" "$sha" preview "$pr"
+    case $comp in
+      server) server_img=$BUILT_TAG ;;
+      provider) provider_img=$BUILT_TAG ;;
+      app) app_img=$BUILT_TAG ;;
+    esac
+  done
+
+  mkdir -p "$dir"
+  chmod 700 "$dir"
+  (
+    umask 077
+    cat >"$dir/.env" <<EOF
+PHR_PR=$pr
+PHR_SHA=$sha
+PHR_BASE=$base
+PHR_COMPONENTS=${changed[*]}
+PREVIEW_HOST=$host
+PREVIEW_ADMIN_HOST=$admin
+PHR_DEV_ENV_FILE=$ENV_FILE
+PHR_DEV_BINARY_VOLUME=$ENV_BINARY_VOLUME
+DEV_POSTGRES_PASSWORD='$(dotenv_get "$ENV_FILE" POSTGRES_PASSWORD)'
+DEV_REDIS_PASSWORD='$(dotenv_get "$ENV_FILE" REDIS_PASSWORD)'
+PHR_SERVER_IMAGE=${server_img:-none}
+PHR_PROVIDER_IMAGE=$provider_img
+PHR_APP_IMAGE=$app_img
+COMPOSE_PROFILES=${server_img:+server}
+EOF
+  )
+  install -m 644 "$PHR_HOME/compose/preview.yml" "$dir/docker-compose.yml"
+  if [ -n "$server_img" ]; then
+    rm -f "$dir/docker-compose.override.yml"
+  else
+    install -m 644 "$PHR_HOME/compose/preview-shared-api.yml" "$dir/docker-compose.override.yml"
+    docker rm -f "phr-pr-$pr-server" >/dev/null 2>&1 || true
+  fi
+
+  preview_compose "$dir" up -d --remove-orphans >&2
+  local ok=0 c
+  for c in provider app ${server_img:+server}; do wait_healthy "phr-pr-$pr-$c" 600 || ok=1; done
+  [ $ok = 0 ] || die "preview containers did not become healthy"
+  "$PHR_HOME/bin/phr-smoke" --insecure --api-host "$host" --provider-host "$host" --admin-host "$admin" ||
+    die "preview smoke test failed"
+
+  echo "PREVIEW_STATUS=deployed"
+  echo "PREVIEW_URL=https://$host/"
+  echo "PREVIEW_ADMIN_URL=https://$admin/"
+  echo "PREVIEW_COMPONENTS=${changed[*]}"
+  echo "PREVIEW_SERVER=$([ -n "$server_img" ] && echo own || echo shared-dev)"
+  # The images from this PR's previous push are no longer referenced.
+  prune_images
+}
+
+teardown_preview() {
+  local pr=$1 dir="$PHR_PREVIEWS/pr-$1"
+  if [ -f "$dir/docker-compose.yml" ]; then
+    preview_compose "$dir" --profile server down --remove-orphans >&2 || true
+  fi
+  docker rm -f "phr-pr-$pr-server" "phr-pr-$pr-provider" "phr-pr-$pr-app" >/dev/null 2>&1 || true
+  rm -rf "$dir"
+  log "preview for PR #$pr removed"
+}
+
+cmd_teardown() {
+  with_lock
+  teardown_preview "$1"
+  prune_images
+  echo "PREVIEW_STATUS=removed"
+}
+
+# ------------------------------------------------------------ housekeeping
+
+prune_images() {
+  local keep repo tag e
+  keep=$(mktemp)
+  for e in prod dev; do
+    env_config "$e"
+    { block_read "$ENV_FILE" | grep _IMAGE= | cut -d= -f2- >>"$keep"; } || true
+    if [ -f "$PHR_STATE/$e.prev" ]; then { grep _IMAGE= "$PHR_STATE/$e.prev" | cut -d= -f2- >>"$keep"; } || true; fi
+  done
+  cat "$PHR_PREVIEWS"/pr-*/.env 2>/dev/null | grep _IMAGE= | cut -d= -f2- >>"$keep" || true
+  for comp in "${COMPONENTS[@]}"; do
+    repo=$(image_repo "$comp")
+    # Anything in use or recorded as a rollback target (each env's current and
+    # previous set) stays. Server images are ~3 GB, so by default nothing else
+    # does; PHR_KEEP_EXTRA keeps that many more deploy-built images per
+    # component. Preview-built (or unlabelled) images go as soon as no preview
+    # uses them.
+    local branch_seen=0 trust
+    while read -r tag; do
+      grep -qxF "$tag" "$keep" && continue
+      trust=$(docker image inspect -f '{{index .Config.Labels "phr.trust"}}' "$tag" 2>/dev/null || true)
+      if [ "$trust" = branch ] && [ $branch_seen -lt "${PHR_KEEP_EXTRA:-0}" ]; then
+        branch_seen=$((branch_seen + 1))
+        continue
+      fi
+      if docker rmi "$tag" >/dev/null 2>&1; then log "pruned $tag"; fi
+    done < <(docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}')
+  done
+  rm -f "$keep"
+  trim_build_cache
+}
+
+# After a successful prod deploy, install this tool's own files from that
+# commit. Only main can change the tool: dev and previews never self-update.
+self_update() {
+  local sha=$1 tmp
+  git_m diff --quiet "$(cat "$PHR_HOME/.installed-sha" 2>/dev/null || echo none)" "$sha" -- deploy/ 2>/dev/null && return 0
+  tmp=$(mktemp -d)
+  git_m archive --format=tar "$sha" deploy | tar -x -C "$tmp"
+  local d f
+  for d in bin lib compose systemd; do
+    [ -d "$tmp/deploy/$d" ] || continue
+    mkdir -p "$PHR_HOME/$d"
+    for f in "$tmp/deploy/$d"/*; do
+      install -m "$([ "$d" = bin ] && echo 755 || echo 644)" "$f" "$PHR_HOME/$d/.$(basename "$f").new"
+      mv -f "$PHR_HOME/$d/.$(basename "$f").new" "$PHR_HOME/$d/$(basename "$f")"
+    done
+  done
+  echo "$sha" >"$PHR_HOME/.installed-sha"
+  rm -rf "$tmp"
+  log "deploy tool updated to ${sha:0:12} (systemd units, if changed, need: sudo $PHR_HOME/install.sh --system)"
+}
+
+cmd_status() {
+  local e
+  for e in prod dev; do
+    env_config "$e"
+    echo "== $e ($ENV_BRANCH) deployed $(block_get "$ENV_FILE" PHR_DEPLOYED_SHA | cut -c1-12) at $(block_get "$ENV_FILE" PHR_DEPLOYED_AT)"
+    block_read "$ENV_FILE" | grep _IMAGE= | sed 's/^/   /'
+  done
+  echo "== previews"
+  local d
+  for d in "$PHR_PREVIEWS"/pr-*; do
+    [ -f "$d/.env" ] || continue
+    echo "   PR #$(dotenv_get "$d/.env" PHR_PR) $(dotenv_get "$d/.env" PHR_SHA | cut -c1-12) [$(dotenv_get "$d/.env" PHR_COMPONENTS)] https://$(dotenv_get "$d/.env" PREVIEW_HOST)/"
+  done
+}
+
+# -------------------------------------------------------------------- main
+
+case "${1:-}" in
+  deploy) cmd_deploy "$2" "$3" "${4:-}" ;;
+  rollback) cmd_rollback "$2" ;;
+  preview) cmd_preview "$2" "$3" "$4" ;;
+  teardown) cmd_teardown "$2" ;;
+  status) cmd_status ;;
+  adopt) cmd_adopt "$2" ;;
+  *)
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

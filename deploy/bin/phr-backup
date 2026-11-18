@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Backup of one environment's Postgres database and binary (uploaded documents)
+# volume. Run by the phr-backup@<env>.timer units and before every prod deploy
+# that changes the server.
+#
+#   phr-backup <prod|dev>
+#
+# Writes to $PHR_BACKUP_DIR/<env>/ :
+#   phr-<env>-<UTC stamp>.pgdump[.age]     pg_dump -Fc, verified with pg_restore --list
+#   phr-<env>-<UTC stamp>.binary.tar.gz[.age]
+#
+# Settings live in /etc/phr/backup.env (see deploy/config/backup.env.example):
+#   AGE_RECIPIENT     age public key; when set, files are encrypted before they
+#                     leave this script (the private key must NOT live on this box)
+#   RCLONE_REMOTE     e.g. storagebox:phr-backups — off-site copy target
+#   HC_PING_URL_PROD / HC_PING_URL_DEV   healthchecks.io dead-man's-switch URLs
+#   KEEP_DAYS_PROD / KEEP_DAYS_DEV       local retention (default 30 / 7)
+#
+# Restore: docs/runbooks/restore.md.
+set -euo pipefail
+HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+# shellcheck source=../lib/common.sh
+. "$HERE/../lib/common.sh"
+# shellcheck source=/dev/null
+if [ -r /etc/phr/backup.env ]; then . /etc/phr/backup.env; fi
+
+env=${1:?usage: phr-backup <prod|dev>}
+env_config "$env"
+upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
+hc_var="HC_PING_URL_$upper"
+hc=${!hc_var:-}
+keep_var="KEEP_DAYS_$upper"
+keep=${!keep_var:-$([ "$env" = prod ] && echo 30 || echo 7)}
+
+ping_hc() { if [ -n "$hc" ]; then curl -fsS -m 10 --retry 3 "$hc$1" >/dev/null 2>&1 || true; fi; }
+fail() { log "backup $env FAILED: $*"; ping_hc /fail; exit 1; }
+trap 'fail "line $LINENO"' ERR
+
+ping_hc /start
+dir="$PHR_BACKUP_DIR/$env"
+mkdir -p "$dir"
+chmod 700 "$PHR_BACKUP_DIR" "$dir"
+umask 077
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+base="$dir/phr-$env-$stamp"
+pg="$ENV_PREFIX-postgres"
+docker inspect "$pg" >/dev/null 2>&1 || fail "container $pg not found"
+
+started=$SECONDS
+docker exec "$pg" pg_dump -U medplum -d medplum -Fc -Z 6 >"$base.pgdump.partial"
+# Prove the archive is complete and readable before trusting it.
+tables=$(docker exec -i "$pg" pg_restore --list <"$base.pgdump.partial" | grep -c ' TABLE ' || true)
+[ "${tables:-0}" -gt 50 ] || fail "dump has only ${tables:-0} tables; refusing it"
+mv "$base.pgdump.partial" "$base.pgdump"
+
+docker run --rm -v "$ENV_BINARY_VOLUME:/data:ro" postgres:16 tar -C /data -czf - . >"$base.binary.tar.gz.partial"
+mv "$base.binary.tar.gz.partial" "$base.binary.tar.gz"
+
+files=("$base.pgdump" "$base.binary.tar.gz")
+if [ -n "${AGE_RECIPIENT:-}" ]; then
+  command -v age >/dev/null || fail "AGE_RECIPIENT set but age is not installed"
+  enc=()
+  for f in "${files[@]}"; do
+    age -r "$AGE_RECIPIENT" -o "$f.age" "$f"
+    rm -f "$f"
+    enc+=("$f.age")
+  done
+  files=("${enc[@]}")
+fi
+log "backup $env: $tables tables, $(du -ch "${files[@]}" | tail -1 | cut -f1) in $((SECONDS - started))s -> ${files[*]}"
+
+if [ -n "${RCLONE_REMOTE:-}" ]; then
+  if [ -z "${AGE_RECIPIENT:-}" ] && [ "${ALLOW_PLAINTEXT_OFFSITE:-0}" != 1 ]; then
+    fail "RCLONE_REMOTE set without AGE_RECIPIENT; refusing to ship unencrypted patient data off-site"
+  fi
+  for f in "${files[@]}"; do
+    rclone copy --config "${RCLONE_CONFIG:-/etc/phr/rclone.conf}" "$f" "$RCLONE_REMOTE/$env/"
+  done
+  log "backup $env: copied off-site to $RCLONE_REMOTE/$env/"
+else
+  log "backup $env: WARNING no RCLONE_REMOTE configured — backups are on the same disk as the database"
+fi
+
+find "$dir" -maxdepth 1 -type f -name "phr-$env-*" -mtime +"$keep" -print -delete | sed 's/^/pruned /' >&2 || true
+date -u +%s >"$dir/.last-success"
+ping_hc ""
