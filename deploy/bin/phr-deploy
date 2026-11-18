@@ -109,36 +109,41 @@ export_source() {
   git_m archive --format=tar "$sha" | tar -x -C "$SRC_DIR"
 }
 
-# Hash of every tracked file that feeds a component's image at a commit.
+# Identity of everything a build can see. Every Dockerfile does `COPY . .`, so
+# this is the whole commit tree, not just the paths that decide *whether* to
+# rebuild: a file outside those paths (a workspace postinstall script, say) can
+# still change what ends up in the image.
 input_key() {
-  local comp=$1 sha=$2 paths
-  case $comp in
-    server) paths=("${COMMON_PATHS[@]}" "${SERVER_PATHS[@]}") ;;
-    provider) paths=("${COMMON_PATHS[@]}" "${PROVIDER_PATHS[@]}") ;;
-    app) paths=("${COMMON_PATHS[@]}" "${APP_PATHS[@]}") ;;
-  esac
-  { echo "$comp"; git_m ls-tree -r "$sha" -- "${paths[@]}"; } | sha256sum | cut -c1-32
+  echo "$1-$(git_m rev-parse "$2^{tree}")"
 }
 
 # Builds one component image at a commit unless it already exists. Sets BUILT_TAG.
 # (Not called inside $(...): the exported source tree must outlive the call.)
+#
+# Trust levels never mix. `branch` images are built by prod/dev deploys from
+# commits on main/dev; `preview` images are built from pull-request code. A
+# deploy only ever reuses a `branch` image, so nothing a PR builds can be
+# re-tagged into dev or prod. Previews may reuse either kind.
 BUILT_TAG=
 build_component() {
-  local comp=$1 sha=$2 tag args=()
-  tag="$(image_repo "$comp"):${sha:0:12}"
+  local comp=$1 sha=$2 trust=$3 pr=${4:-} tag args=() repo
+  repo=$(image_repo "$comp")
+  if [ "$trust" = branch ]; then tag="$repo:${sha:0:12}"; else tag="$repo:pr$pr-${sha:0:12}"; fi
   BUILT_TAG=$tag
-  if docker image inspect "$tag" >/dev/null 2>&1; then
+  if [ "$(docker image inspect -f '{{index .Config.Labels "phr.trust"}}' "$tag" 2>/dev/null)" = "$trust" ]; then
     log "image $tag already built; reusing it"
     return 0
   fi
-  # Same inputs as an image we already have (typically: the PR head the preview
-  # built, now merged)? Tag that one instead of rebuilding.
-  local key existing
+  # An image built from an identical tree (typically dev's image when dev is
+  # merged into main with nothing else on main)? Tag it instead of rebuilding.
+  local key existing filters
   key=$(input_key "$comp" "$sha")
-  existing=$(docker image ls --filter "label=phr.inputs=$key" --format '{{.Repository}}:{{.Tag}}' | grep "^$(image_repo "$comp"):" | head -1 || true)
+  filters=(--filter "label=phr.inputs=$key")
+  if [ "$trust" = branch ]; then filters+=(--filter label=phr.trust=branch); fi
+  existing=$(docker image ls "${filters[@]}" --format '{{.Repository}}:{{.Tag}}' | grep "^$repo:" | head -1 || true)
   if [ -n "$existing" ]; then
     docker tag "$existing" "$tag"
-    log "image $tag: inputs identical to $existing; reused without a build"
+    log "image $tag: same tree as $existing; reused without a build"
     return 0
   fi
   export_source "$sha"
@@ -157,6 +162,7 @@ build_component() {
     --label "org.opencontainers.image.revision=$sha" \
     --label "org.opencontainers.image.source=$PHR_REPO_URL" \
     --label "phr.inputs=$key" \
+    --label "phr.trust=$trust" \
     "${args[@]}" -t "$tag" "$SRC_DIR" >&2
   log "built $tag in $((SECONDS - started))s"
 }
@@ -281,7 +287,7 @@ cmd_deploy() {
     # shellcheck disable=SC2086
     if [ "$all" = --all ] || [ -z "$old" ] || in_list "$comp" $diff_comps; then
       changed+=("$comp")
-      build_component "$comp" "$sha"
+      build_component "$comp" "$sha" branch
       echo "$(image_var "$comp")=$BUILT_TAG" >>"$next"
     else
       echo "$(image_var "$comp")=$old" >>"$next"
@@ -413,7 +419,7 @@ cmd_preview() {
   provider_img=$(block_get "$ENV_FILE" PHR_PROVIDER_IMAGE)
   app_img=$(block_get "$ENV_FILE" PHR_APP_IMAGE)
   for comp in "${changed[@]}"; do
-    build_component "$comp" "$sha"
+    build_component "$comp" "$sha" preview "$pr"
     case $comp in
       server) server_img=$BUILT_TAG ;;
       provider) provider_img=$BUILT_TAG ;;

@@ -26,10 +26,13 @@ Traefik. `.github/workflows/hetzner-deploy.yml` (push to `main`/`dev`) and
    deploy of anything not on `main` (dev: not on `dev`).
 2. Works out which images changed since what is running — **server**, **provider** or
    **admin** — from the paths in `deploy/lib/common.sh` (each app's runtime
-   `@medplum/*` dependency closure, plus the root lockfile). Unchanged images are kept;
-   an image whose inputs match one already built (e.g. the PR head the preview built,
-   now merged) is re-tagged instead of rebuilt. Images are tagged
-   `phr/medplum-<component>:<sha12>`.
+   `@medplum/*` dependency closure, plus the root lockfile). Unchanged images are kept.
+   Images are tagged `phr/medplum-<component>:<sha12>`; one built from an identical
+   commit tree by an earlier **deploy** (e.g. dev's, when `dev` is merged into an
+   otherwise-unchanged `main`) is re-tagged instead of rebuilt. Images built for PR
+   previews are tagged `…:pr<n>-<sha12>` and labelled `phr.trust=preview`, and a deploy
+   never reuses one — so merging a PR rebuilds on dev rather than promoting what the
+   PR's code built.
 3. **Prod only, when the server changes:** takes a verified backup first and aborts the
    deploy if that fails (Medplum migrations only go forward).
 4. Writes the new image tags into the managed block at the bottom of the env's `.env`,
