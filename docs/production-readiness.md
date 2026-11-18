@@ -42,41 +42,61 @@ grouped so work can proceed in parallel. When an item is done, check it off in
 the PR with a link to the evidence (script, config, or doc commit).
 
 ### 1. Backups & disaster recovery (critical)
-- [ ] Nightly `pg_dump` of `phr-postgres` (and `phrtest-postgres` at lower
-      frequency) via a systemd timer, encrypted with age/gpg.
-- [ ] Off-site copy: push dumps to Hetzner Storage Box / S3-compatible bucket
-      with 30-day retention and, if possible, object-lock (immutability).
-- [ ] Quarterly-restore test documented and actually performed once
-      (`docs/` runbook: "restore into a throwaway container, verify patient
-      data, record time taken").
-- [ ] Redis (`phr-redis`) persistence verified (AOF or RDB snapshot enabled).
-- [ ] Backup monitoring: a dead-man's-switch (e.g. Healthchecks.io ping)
-      alerts when a backup run fails or stops firing.
+- [x] Nightly `pg_dump` of `phr-postgres` (and `phrtest-postgres` weekly) via
+      systemd timers — `deploy/bin/phr-backup`, `phr-backup@{prod,dev}.timer`,
+      live since 2026-11-18 (first prod dump: 1012 tables, 25 MB, 28 s). Also
+      covers the binary volume (uploaded documents), which the audit missed, and
+      runs before every prod deploy that changes the server.
+- [ ] Encryption with age — **supported, needs a key**: generate a keypair off the
+      box, put the public key in `AGE_RECIPIENT` in `/etc/phr/backup.env`.
+- [ ] Off-site copy — **supported, needs a target**: create a Hetzner Storage Box
+      (or S3 bucket with object lock), `rclone config --config /etc/phr/rclone.conf`,
+      set `RCLONE_REMOTE`. The script refuses to ship unencrypted dumps off-site.
+- [x] Restore test documented and performed once — `docs/runbooks/restore.md`;
+      2026-11-18 drill: 35 s, Patient/Practitioner/Appointment/Project/Binary
+      counts identical to live. Repeat quarterly.
+- [x] Redis persistence verified: RDB snapshots were already on
+      (`save 3600 1 300 100 60 10000`, `/data` on a volume); AOF added in
+      `deploy/compose/stack.yml`, switched on live first because a plain restart
+      with `--appendonly yes` starts Redis empty (reproduced on the box).
+- [ ] Backup dead-man's-switch — **supported, needs URLs**: create two
+      healthchecks.io checks and set `HC_PING_URL_PROD` / `HC_PING_URL_DEV`.
+      Meanwhile `phr-monitor` alerts when the newest prod backup is > 26 h old.
 
 ### 2. Monitoring & alerting (high)
-- [ ] External uptime monitor (or self-hosted Uptime Kuma) watching
-      `https://app.premierhealthcentres.com`, the admin host, and `/health`
-      endpoints of `phr-server`, alerting via the team's phone/chat.
-- [ ] Disk-usage alert at 80% (df via cron or node_exporter + rule).
-- [ ] Container health alert: notify when any `phr-*` container becomes
-      unhealthy or restarts unexpectedly.
-- [ ] Backup-failure and TLS-expiry alerts (TLS < 14 days remaining).
+`deploy/bin/phr-monitor` runs every 5 minutes (`phr-monitor.timer`, live since
+2026-11-18) and checks everything below. **It only logs to the journal until an
+alert destination is set** in `/etc/phr/monitor.env` (`ALERT_WEBHOOK_URL` and/or
+`NTFY_URL`).
+- [ ] External uptime monitor — set `HC_PING_URL_MONITOR` (healthchecks.io,
+      5 min period) so a dead box pages someone, and/or point UptimeRobot at
+      `https://app.premierhealthcentres.com/api/healthcheck`.
+- [x] Disk-usage alert at 80%.
+- [x] Container health alert: missing / not running / unhealthy / restarted
+      outside a deploy (with OOM flag), for every `phr-*` and `phrtest-*` container.
+- [x] Backup-age and TLS-expiry (< 14 days) alerts; public endpoint checks of
+      the provider, admin and API.
 - [ ] A lightweight dashboard or `docker stats` snapshot reviewed weekly.
 
 ### 3. Deployment & rollback discipline (medium-high)
-- [ ] Document the promotion path in `docs/environments.md`: `dev` -> staging
-      (`phrtest-*`) -> prod (`phr-*`), including how the Medplum server image
-      tag is bumped and how the provider/app static assets deploy.
-- [ ] Tag every deployed image with the git SHA (currently
-      `cbb7ad8a0` — record which commit that maps to) so rollback =
-      redeploy of the previous tag.
-- [ ] Write a rollback runbook (`docs/`): previous image tag + database
-      compatibility note (Medplum migrations are forward-only; note how to
-      handle that on rollback).
-- [ ] Smoke-test script run after every deploy (login, search a patient,
-      create+cancel an appointment) — manual checklist is acceptable to start.
+- [x] Promotion path automated and documented (`docs/environments.md`): feature
+      PR → preview on dev's DB → `dev` (`phrtest-*`) → `main` (`phr-*`), via
+      `.github/workflows/hetzner-{deploy,preview}.yml` and `deploy/bin/phr-deploy`.
+- [x] Every image is tagged `phr/medplum-<component>:<sha12>` and labelled with
+      the commit. The pre-pipeline prod images map to: server `cbb7ad8a0`
+      (2026-09-16, "$book was discarding the visit type"), provider `d9d1b2fb6`
+      (2026-09-15), admin `b0c47e91d` (2026-09-07) — all on `main`.
+- [x] Rollback: automatic on a failed smoke test; manual via the Deploy
+      workflow or `phr-deploy rollback <env>`; forward-only migration note and
+      restore path in `docs/environments.md#rollback` and `docs/runbooks/restore.md`.
+- [x] Smoke test after every deploy and preview (`deploy/bin/phr-smoke`): API
+      health incl. postgres/redis, both UIs.
+- [ ] Deeper smoke (login + patient search; dev also appointment
+      create/cancel) — **supported, needs a dedicated smoke-test login** in
+      `/etc/phr/smoke-{prod,dev}.env`.
 
-### 4. OS & dependency hardening (medium)
+### 4. OS & dependency hardening (medium) — box-wide, not done here
+These touch every StoreFactory store on sf-prod-1 and need a maintenance window.
 - [ ] Apply the 55 pending updates at a low-traffic window; evaluate enabling
       Ubuntu Pro ESM for app-layer packages.
 - [ ] Add a small swapfile (2–4 GB) with a modest swappiness so memory
@@ -92,8 +112,13 @@ the PR with a link to the evidence (script, config, or doc commit).
       needs) or remove coturn and document the fallback relay being used.
 
 ### 6. Forward-development guardrails (ongoing)
-- [ ] PRs touching `docker-compose.yml` or anything under `/opt/storefactory`
-      equivalents must include a deployment note in the PR body.
+- [x] The compose that runs is in the repo (`deploy/compose/`) and only changes
+      through a deploy; a PR touching `deploy/` should still carry a deployment
+      note. Only `main` can update the deploy tool on the box, and previews never
+      take their compose file from the branch being previewed.
+- [x] CI holds a forced-command key (`deploy/bin/phr-deploy-ssh`) that can run
+      nothing but `phr-deploy` with a fixed grammar; every call is logged in
+      `/opt/phr-deploy/state/ssh.log`.
 - [ ] Migrations to the Medplum data model run against `phrtest-*` first,
       with the `phr-postgres` backup verified fresh immediately before the
       prod run.
