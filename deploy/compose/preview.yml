@@ -1,0 +1,146 @@
+# Feature-branch preview (one per pull request), installed and driven by
+# `phr-deploy preview`. Runs only what the branch changed and borrows the rest
+# from the dev environment:
+#
+#   - provider + admin UIs always run here (they are small nginx containers;
+#     an unchanged one simply reuses dev's image), so the preview has its own
+#     hostnames and same-origin /api on each.
+#   - medplum-server runs here only when the branch changed server code
+#     (profile `server`). Otherwise preview-shared-api.yml routes /api to dev's
+#     server. Either way the DATABASE IS DEV'S: phrtest-postgres + phrtest-redis.
+#
+# Never take this file from the branch being previewed: it is installed from
+# the deploy tool's own copy, so a pull request cannot change what the preview
+# mounts or which networks it joins.
+name: phr-pr-${PHR_PR:?PHR_PR missing}
+
+services:
+  medplum-server:
+    profiles: [server]
+    image: ${PHR_SERVER_IMAGE:-none}
+    container_name: phr-pr-${PHR_PR}-server
+    restart: unless-stopped
+    command: ['env']
+    # Dev's secrets (database + redis passwords, SMTP, payment sandboxes).
+    env_file: ${PHR_DEV_ENV_FILE:?PHR_DEV_ENV_FILE missing}
+    environment:
+      MEDPLUM_PORT: 8103
+      MEDPLUM_BASE_URL: 'https://${PREVIEW_HOST}/api/'
+      MEDPLUM_APP_BASE_URL: 'https://${PREVIEW_HOST}/'
+      MEDPLUM_STORAGE_BASE_URL: 'https://${PREVIEW_HOST}/api/storage/'
+      MEDPLUM_ALLOWED_ORIGINS: 'https://${PREVIEW_HOST},https://${PREVIEW_ADMIN_HOST}'
+      MEDPLUM_DATABASE_HOST: phrtest-postgres
+      MEDPLUM_DATABASE_PORT: 5432
+      MEDPLUM_DATABASE_DBNAME: medplum
+      MEDPLUM_DATABASE_USERNAME: medplum
+      MEDPLUM_DATABASE_PASSWORD: ${DEV_POSTGRES_PASSWORD}
+      MEDPLUM_REDIS_HOST: phrtest-redis
+      MEDPLUM_REDIS_PORT: 6379
+      MEDPLUM_REDIS_PASSWORD: ${DEV_REDIS_PASSWORD}
+      # HTTP only: dev's server keeps running the background workers (bots,
+      # subscriptions, cron) so a preview never races dev for the shared queues.
+      MEDPLUM_WORKERS_ENABLED: '[]'
+      MEDPLUM_BINARY_STORAGE: 'file:/data/binary/'
+      MEDPLUM_MAX_JSON_SIZE: '1mb'
+      MEDPLUM_MAX_BATCH_SIZE: '50mb'
+      MEDPLUM_VM_CONTEXT_BOTS_ENABLED: 'true'
+      MEDPLUM_DEFAULT_BOT_RUNTIME_VERSION: vmcontext
+      MEDPLUM_BOT_LAMBDA_LAYER_NAME: medplum-bot-layer
+      MEDPLUM_INTROSPECTION_ENABLED: 'true'
+      MEDPLUM_SHUTDOWN_TIMEOUT_MILLISECONDS: 30000
+    volumes:
+      - devbinary:/data/binary
+    networks: [devnet, proxy]
+    expose: ['8103']
+    mem_limit: 2g
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://localhost:8103/healthcheck").then(r=>r.json()).then(console.log).catch(()=>{process.exit(1)})']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+      start_interval: 5s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.rule=(Host(`${PREVIEW_HOST}`) || Host(`${PREVIEW_ADMIN_HOST}`)) && PathPrefix(`/api`)
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.entrypoints=websecure
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.tls.certresolver=le
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.priority=100
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.middlewares=phrtest-stripapi@docker
+      - traefik.http.routers.phr-pr-${PHR_PR}-api.service=phr-pr-${PHR_PR}-api
+      - traefik.http.services.phr-pr-${PHR_PR}-api.loadbalancer.server.port=8103
+
+  medplum-provider:
+    image: ${PHR_PROVIDER_IMAGE:?PHR_PROVIDER_IMAGE missing}
+    container_name: phr-pr-${PHR_PR}-provider
+    restart: unless-stopped
+    environment:
+      PROVIDER_HOST: ${PREVIEW_HOST}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        [ -d /usr/share/nginx/html.orig ] || cp -a /usr/share/nginx/html /usr/share/nginx/html.orig
+        rm -rf /usr/share/nginx/html
+        cp -a /usr/share/nginx/html.orig /usr/share/nginx/html
+        sed -i "s#https://app.premierhealthcentres.com#https://$$PROVIDER_HOST#g" /usr/share/nginx/html/assets/*.js
+        exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    networks: [proxy]
+    expose: ['80']
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.rule=Host(`${PREVIEW_HOST}`)
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.entrypoints=websecure
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.tls.certresolver=le
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.priority=1
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.middlewares=phrtest-auth@docker
+      - traefik.http.routers.phr-pr-${PHR_PR}-provider.service=phr-pr-${PHR_PR}-provider
+      - traefik.http.services.phr-pr-${PHR_PR}-provider.loadbalancer.server.port=80
+
+  medplum-app:
+    image: ${PHR_APP_IMAGE:?PHR_APP_IMAGE missing}
+    container_name: phr-pr-${PHR_PR}-app
+    restart: unless-stopped
+    environment:
+      # Same-origin API on the admin host too, so the admin UI needs no CORS
+      # allowance from dev's server.
+      MEDPLUM_BASE_URL: 'https://${PREVIEW_ADMIN_HOST}/api/'
+    networks: [proxy]
+    expose: ['3000']
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.phr-pr-${PHR_PR}-admin.rule=Host(`${PREVIEW_ADMIN_HOST}`)
+      - traefik.http.routers.phr-pr-${PHR_PR}-admin.entrypoints=websecure
+      - traefik.http.routers.phr-pr-${PHR_PR}-admin.tls.certresolver=le
+      - traefik.http.routers.phr-pr-${PHR_PR}-admin.middlewares=phrtest-auth@docker
+      - traefik.http.routers.phr-pr-${PHR_PR}-admin.service=phr-pr-${PHR_PR}-admin
+      - traefik.http.services.phr-pr-${PHR_PR}-admin.loadbalancer.server.port=3000
+
+volumes:
+  devbinary:
+    external: true
+    name: ${PHR_DEV_BINARY_VOLUME:?PHR_DEV_BINARY_VOLUME missing}
+
+networks:
+  # Dev's internal network, where phrtest-postgres and phrtest-redis live.
+  devnet:
+    external: true
+    name: phr-test_phr
+  proxy:
+    external: true

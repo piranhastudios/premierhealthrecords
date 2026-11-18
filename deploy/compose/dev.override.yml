@@ -1,0 +1,13 @@
+# Dev-only additions to stack.yml: the provider and admin UIs sit behind HTTP
+# basic auth (the API does not, so the website preview and the mobile app keep
+# working). Feature-branch previews reuse these middlewares by name
+# (phrtest-auth@docker, phrtest-stripapi@docker), so this file must stay
+# deployed for previews to route.
+services:
+  medplum-provider:
+    labels:
+      - traefik.http.routers.${PHR_PREFIX}-provider.middlewares=${PHR_PREFIX}-auth
+      - traefik.http.middlewares.${PHR_PREFIX}-auth.basicauth.users=${PHR_BASIC_AUTH_USERS:?PHR_BASIC_AUTH_USERS missing}
+  medplum-app:
+    labels:
+      - traefik.http.routers.${PHR_PREFIX}-admin.middlewares=${PHR_PREFIX}-auth

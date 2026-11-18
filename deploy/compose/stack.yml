@@ -1,0 +1,219 @@
+# Premier Health Records — one long-lived environment (prod or dev) on hetzner-prod.
+#
+# Installed by /opt/phr-deploy/bin/phr-deploy as docker-compose.yml in the env dir
+# (prod: /opt/storefactory/stores/premier-health-records, dev:
+# /opt/storefactory/envs/premier-health-records/test). Do not hand-edit the copy
+# there: edit deploy/compose/stack.yml in the repo and let a deploy install it.
+#
+# Every ${PHR_*} value comes from the managed block at the bottom of the env's
+# .env, which phr-deploy rewrites on each deploy (image tags) — secrets above that
+# block are hand-managed and never touched.
+#
+# No published ports anywhere. Docker's port publishing bypasses ufw, which is
+# how the old box ended up with Postgres on the public internet; Traefik
+# reaches these over the proxy network instead.
+name: ${PHR_PROJECT:?PHR_PROJECT missing from the managed block in .env}
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ${PHR_PREFIX}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medplum
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: medplum
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+      - -c
+      - statement_timeout=60000
+      - -c
+      - default_transaction_isolation=REPEATABLE READ
+      - -c
+      - shared_preload_libraries=pg_stat_statements,auto_explain
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [phr]
+    mem_limit: 2g
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U medplum']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: ${PHR_PREFIX}-redis
+    restart: unless-stopped
+    # RDB snapshots (redis default) plus the append-only file, so queued
+    # background jobs survive a restart. phr-deploy switches a running redis to
+    # AOF with CONFIG SET before recreating it, so the switch loses nothing.
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD}', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    networks: [phr]
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  # TURN relay for the telehealth video calls. Host networking because the RTP
+  # relay needs its whole port range; Traefik is not involved. Prod only (the
+  # `turn` profile): a second instance would fight it for 3478 + 49160-49200.
+  coturn:
+    image: coturn/coturn:latest
+    container_name: ${PHR_PREFIX}-coturn
+    profiles: [turn]
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 256m
+    command:
+      - -n
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=premierhealth
+      - --user=telehealth:${TURN_SECRET}
+      - --min-port=49160
+      - --max-port=49200
+
+  medplum-server:
+    image: ${PHR_SERVER_IMAGE:?PHR_SERVER_IMAGE missing}
+    container_name: ${PHR_PREFIX}-server
+    restart: unless-stopped
+    command: ['env']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    env_file: .env
+    environment:
+      MEDPLUM_PORT: 8103
+      MEDPLUM_BASE_URL: 'https://${PROVIDER_HOST}/api/'
+      MEDPLUM_APP_BASE_URL: 'https://${PROVIDER_HOST}/'
+      MEDPLUM_STORAGE_BASE_URL: 'https://${PROVIDER_HOST}/api/storage/'
+      MEDPLUM_DATABASE_HOST: postgres
+      MEDPLUM_DATABASE_PORT: 5432
+      MEDPLUM_DATABASE_DBNAME: medplum
+      MEDPLUM_DATABASE_USERNAME: medplum
+      MEDPLUM_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      MEDPLUM_REDIS_HOST: redis
+      MEDPLUM_REDIS_PORT: 6379
+      MEDPLUM_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Uploaded clinical documents. On a volume so they survive a redeploy.
+      MEDPLUM_BINARY_STORAGE: 'file:/data/binary/'
+      MEDPLUM_MAX_JSON_SIZE: '1mb'
+      MEDPLUM_MAX_BATCH_SIZE: '50mb'
+      MEDPLUM_VM_CONTEXT_BOTS_ENABLED: 'true'
+      MEDPLUM_DEFAULT_BOT_RUNTIME_VERSION: vmcontext
+      MEDPLUM_BOT_LAMBDA_LAYER_NAME: medplum-bot-layer
+      MEDPLUM_INTROSPECTION_ENABLED: 'true'
+      MEDPLUM_SHUTDOWN_TIMEOUT_MILLISECONDS: 30000
+    volumes:
+      - binary:/data/binary
+    networks: [phr, proxy]
+    expose: ['8103']
+    mem_limit: 3g
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://localhost:8103/healthcheck").then(r=>r.json()).then(console.log).catch(()=>{process.exit(1)})']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+      start_interval: 5s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      # The API is same-origin under /api on the provider domain; strip the
+      # prefix before it reaches the server.
+      - traefik.http.routers.${PHR_PREFIX}-api.rule=(Host(`${PROVIDER_HOST}`) || Host(`${PROVIDER_HOST_ALT}`)) && PathPrefix(`/api`)
+      - traefik.http.routers.${PHR_PREFIX}-api.entrypoints=websecure
+      - traefik.http.routers.${PHR_PREFIX}-api.tls.certresolver=le
+      - traefik.http.routers.${PHR_PREFIX}-api.priority=100
+      - traefik.http.routers.${PHR_PREFIX}-api.middlewares=${PHR_PREFIX}-stripapi
+      - traefik.http.middlewares.${PHR_PREFIX}-stripapi.stripprefix.prefixes=/api
+      - traefik.http.services.${PHR_PREFIX}-api.loadbalancer.server.port=8103
+
+  medplum-provider:
+    image: ${PHR_PROVIDER_IMAGE:?PHR_PROVIDER_IMAGE missing}
+    container_name: ${PHR_PREFIX}-provider
+    restart: unless-stopped
+    depends_on:
+      medplum-server: { condition: service_healthy }
+    environment:
+      PROVIDER_HOST: ${PROVIDER_HOST}
+    # The image is built once with the prod API URL baked in; point it at this
+    # environment's host at start-up so one image serves every environment.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        [ -d /usr/share/nginx/html.orig ] || cp -a /usr/share/nginx/html /usr/share/nginx/html.orig
+        rm -rf /usr/share/nginx/html
+        cp -a /usr/share/nginx/html.orig /usr/share/nginx/html
+        sed -i "s#https://app.premierhealthcentres.com#https://$$PROVIDER_HOST#g" /usr/share/nginx/html/assets/*.js
+        exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    networks: [proxy]
+    expose: ['80']
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.${PHR_PREFIX}-provider.rule=Host(`${PROVIDER_HOST}`) || Host(`${PROVIDER_HOST_ALT}`)
+      - traefik.http.routers.${PHR_PREFIX}-provider.entrypoints=websecure
+      - traefik.http.routers.${PHR_PREFIX}-provider.tls.certresolver=le
+      - traefik.http.routers.${PHR_PREFIX}-provider.priority=1
+      - traefik.http.services.${PHR_PREFIX}-provider.loadbalancer.server.port=80
+
+  medplum-app:
+    image: ${PHR_APP_IMAGE:?PHR_APP_IMAGE missing}
+    container_name: ${PHR_PREFIX}-app
+    restart: unless-stopped
+    depends_on:
+      medplum-server: { condition: service_healthy }
+    environment:
+      MEDPLUM_BASE_URL: 'https://${PROVIDER_HOST}/api/'
+    networks: [proxy]
+    expose: ['3000']
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.${PHR_PREFIX}-admin.rule=Host(`${ADMIN_HOST}`) || Host(`${ADMIN_HOST_ALT}`)
+      - traefik.http.routers.${PHR_PREFIX}-admin.entrypoints=websecure
+      - traefik.http.routers.${PHR_PREFIX}-admin.tls.certresolver=le
+      - traefik.http.services.${PHR_PREFIX}-admin.loadbalancer.server.port=3000
+
+# Data volumes are external: they already exist, compose never creates or
+# removes them, and `docker compose down -v` cannot delete patient data.
+volumes:
+  pgdata:
+    external: true
+    name: ${PHR_PG_VOLUME}
+  redisdata:
+    external: true
+    name: ${PHR_REDIS_VOLUME}
+  binary:
+    external: true
+    name: ${PHR_BINARY_VOLUME}
+
+networks:
+  phr:
+  proxy:
+    external: true

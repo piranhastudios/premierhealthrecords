@@ -1,0 +1,12 @@
+[Unit]
+Description=Premier Health Records backup (%i)
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=jake
+Group=docker
+ExecStart=/opt/phr-deploy/bin/phr-backup %i
+Nice=10
+IOSchedulingClass=idle

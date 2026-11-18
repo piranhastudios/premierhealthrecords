@@ -1,0 +1,112 @@
+name: Preview
+
+# One preview per pull request into dev or main, on hetzner-prod:
+#   https://phr-pr-<number>.preview.commerce.storefactory.shop        (provider app)
+#   https://phr-pr-<number>-admin.preview.commerce.storefactory.shop  (admin app)
+# Only the images the branch changes are built; everything else, and the
+# database, is the dev environment's. Closing or merging the PR tears it down.
+# PRs from forks get no preview (no secrets), and neither does the dev -> main
+# promotion PR (dev itself is that preview).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [dev, main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: hetzner-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: >-
+      github.repository == 'piranhastudios/premierhealthrecords' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: preview
+      url: ${{ steps.out.outputs.url }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: .github/actions
+      - name: Command
+        id: cmd
+        env:
+          ACTION: ${{ github.event.action }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$ACTION" = closed ]; then echo "command=teardown $PR" >> "$GITHUB_OUTPUT"
+          else echo "command=preview $PR $SHA $BASE" >> "$GITHUB_OUTPUT"; fi
+      - name: phr-deploy
+        id: deploy
+        uses: ./.github/actions/phr-ssh
+        with:
+          command: ${{ steps.cmd.outputs.command }}
+          ssh-key: ${{ secrets.PHR_DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.PHR_DEPLOY_KNOWN_HOSTS }}
+      - name: Read result
+        id: out
+        if: always()
+        env:
+          LOG: ${{ steps.deploy.outputs.log }}
+        run: |
+          get() { grep -E "^$1=" "$LOG" 2>/dev/null | tail -1 | cut -d= -f2-; }
+          echo "status=$(get PREVIEW_STATUS)" >> "$GITHUB_OUTPUT"
+          echo "url=$(get PREVIEW_URL)" >> "$GITHUB_OUTPUT"
+          echo "admin=$(get PREVIEW_ADMIN_URL)" >> "$GITHUB_OUTPUT"
+          echo "components=$(get PREVIEW_COMPONENTS)" >> "$GITHUB_OUTPUT"
+          echo "server=$(get PREVIEW_SERVER)" >> "$GITHUB_OUTPUT"
+      - name: Comment on the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          ACTION: ${{ github.event.action }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+          STATUS: ${{ steps.out.outputs.status }}
+          URL: ${{ steps.out.outputs.url }}
+          ADMIN: ${{ steps.out.outputs.admin }}
+          COMPONENTS: ${{ steps.out.outputs.components }}
+          SERVER: ${{ steps.out.outputs.server }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker='<!-- phr-preview -->'
+          if [ "$ACTION" = closed ]; then
+            body="$marker
+          **Preview removed** — PR closed. Merged changes reach dev / prod through the Deploy workflow."
+          elif [ "$OUTCOME" != success ]; then
+            body="$marker
+          **Preview failed** for \`${SHA:0:7}\` — see the [run log]($RUN). Nothing on dev or prod was changed."
+          elif [ "$STATUS" = none ]; then
+            body="$marker
+          **No preview needed** for \`${SHA:0:7}\`: this PR changes nothing in the server, provider or admin images (docs, website, mobile app, bots or CI only)."
+          else
+            api=$([ "$SERVER" = own ] && echo "this PR's own server build" || echo "dev's server (this PR does not change server code)")
+            body="$marker
+          **Preview of \`${SHA:0:7}\` is live**
+
+          | | |
+          |---|---|
+          | Provider app | $URL |
+          | Admin app | $ADMIN |
+          | Built from this PR | \`$COMPONENTS\` |
+          | API | $api |
+
+          Same basic-auth login as the dev environment, then the usual Medplum sign-in. **Data is dev's database** — shared with the dev environment and every other preview, never production. Torn down automatically when this PR is merged or closed."
+          fi
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
+          fi

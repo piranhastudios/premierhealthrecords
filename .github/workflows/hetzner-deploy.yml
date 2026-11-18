@@ -1,0 +1,93 @@
+name: Deploy
+
+# main -> prod (app.premierhealthcentres.com, admin.premierhealthcentres.com)
+# dev  -> dev  (phr-test.preview.commerce.storefactory.shop, phr-test-admin.…)
+#
+# The build happens on hetzner-prod itself (phr-deploy), which rebuilds only the
+# images whose inputs changed since what is running, backs up prod before a new
+# server touches its schema, smoke-tests, and rolls back on a failed smoke test.
+# See docs/environments.md. The Vercel website deploys separately.
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        type: choice
+        options: [dev, prod]
+        required: true
+      action:
+        description: deploy the selected branch's head, or roll back to the previous images
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      rebuild_all:
+        description: Rebuild every image even if unchanged
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hetzner-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev') }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.action || 'deploy' }} ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev') }}
+    if: github.repository == 'piranhastudios/premierhealthrecords'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: ${{ (github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev')) == 'prod' && 'production' || 'dev' }}
+      url: ${{ (github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev')) == 'prod' && 'https://app.premierhealthcentres.com/' || 'https://phr-test.preview.commerce.storefactory.shop/' }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: .github/actions
+      - name: Work out the command
+        id: cmd
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_ENV: ${{ inputs.environment }}
+          IN_ACTION: ${{ inputs.action }}
+          IN_ALL: ${{ inputs.rebuild_all }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then env=$IN_ENV; else env=$([ "$REF" = main ] && echo prod || echo dev); fi
+          want=$([ "$env" = prod ] && echo main || echo dev)
+          if [ "$EVENT" = workflow_dispatch ] && [ "$IN_ACTION" = deploy ] && [ "$REF" != "$want" ]; then
+            echo "::error::$env deploys only from the $want branch (this run is on $REF)"; exit 1
+          fi
+          if [ "$IN_ACTION" = rollback ]; then cmd="rollback $env"
+          else cmd="deploy $env $SHA"; [ "$IN_ALL" = true ] && cmd="$cmd --all"; fi
+          echo "command=$cmd" >> "$GITHUB_OUTPUT"
+          echo "Running: phr-deploy $cmd"
+      - name: phr-deploy
+        id: deploy
+        uses: ./.github/actions/phr-ssh
+        with:
+          command: ${{ steps.cmd.outputs.command }}
+          ssh-key: ${{ secrets.PHR_DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.PHR_DEPLOY_KNOWN_HOSTS }}
+      - name: Summary
+        if: always()
+        env:
+          LOG: ${{ steps.deploy.outputs.log }}
+        run: |
+          [ -f "$LOG" ] || exit 0
+          {
+            echo "### ${{ steps.cmd.outputs.command }}"
+            grep -E '^(DEPLOY_[A-Z_]+)=' "$LOG" | sed 's/^/- /' || true
+            echo
+            echo '<details><summary>smoke test + last log lines</summary>'
+            echo
+            echo '```'
+            grep -E 'smoke|  ok |  FAIL|ERROR|rolled|live on' "$LOG" | tail -40 || true
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"

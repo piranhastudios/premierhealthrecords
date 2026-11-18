@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Forced command for the GitHub Actions deploy key. In ~/.ssh/authorized_keys:
+#
+#   restrict,command="/opt/phr-deploy/bin/phr-deploy-ssh" ssh-ed25519 AAAA... github-actions-phr-deploy
+#
+# The key can run phr-deploy with exactly these argument shapes and nothing else:
+# no shell, no pty, no forwarding. What a commit may be deployed to is enforced
+# again inside phr-deploy (prod only takes commits on main, dev only on dev).
+set -euo pipefail
+cmd=${SSH_ORIGINAL_COMMAND:-}
+state=/opt/phr-deploy/state
+mkdir -p "$state"
+printf '%s from=%s cmd=%q\n' "$(date -u +%FT%TZ)" "${SSH_CLIENT%% *}" "$cmd" >>"$state/ssh.log"
+
+sha='[0-9a-f]{40}'
+re="^(deploy (prod|dev) $sha( --all)?|rollback (prod|dev)|preview [1-9][0-9]{0,5} $sha (dev|main)|teardown [1-9][0-9]{0,5}|status)$"
+if ! [[ $cmd =~ $re ]]; then
+  echo "phr-deploy-ssh: refused: '$cmd'" >&2
+  exit 2
+fi
+read -ra args <<<"$cmd"
+exec /opt/phr-deploy/bin/phr-deploy "${args[@]}"
